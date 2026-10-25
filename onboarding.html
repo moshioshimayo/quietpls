@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to quietpls</title>
+  <link rel="stylesheet" href="design-system.css">
+  <link rel="stylesheet" href="onboarding-styles.css">
+</head>
+<body>
+  <div class="onboarding-container">
+    <!-- Step Indicator Dots -->
+    <div class="step-dots">
+      <div class="dot active" data-step="1"></div>
+      <div class="dot" data-step="2"></div>
+      <div class="dot" data-step="3"></div>
+    </div>
+
+    <!-- Steps Wrapper (for animated transitions) -->
+    <div class="steps-wrapper">
+
+      <!-- Step 1: Welcome -->
+      <div class="step-content active" id="step1">
+        <div class="step-inner">
+          <!-- Hero illustration: CSS art gradient orb -->
+          <div class="hero-illustration">
+            <div class="hero-orb">
+              <div class="orb-ring orb-ring-1"></div>
+              <div class="orb-ring orb-ring-2"></div>
+              <div class="orb-ring orb-ring-3"></div>
+              <div class="orb-core"></div>
+            </div>
+          </div>
+
+          <h1 class="welcome-heading">Welcome to <span class="brand-text">quietpls</span></h1>
+          <p class="welcome-tagline">You have no idea how you sound to others. Let's fix that.</p>
+
+          <button class="btn-primary" id="getStartedBtn">
+            Get Started
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2: Microphone Permission -->
+      <div class="step-content" id="step2">
+        <div class="step-inner">
+          <div class="mic-icon-wrapper">
+            <div class="mic-icon-bg">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 14C13.66 14 15 12.66 15 11V5C15 3.34 13.66 2 12 2C10.34 2 9 3.34 9 5V11C9 12.66 10.34 14 12 14Z" fill="white"/>
+                <path d="M17 11C17 13.76 14.76 16 12 16C9.24 16 7 13.76 7 11H5C5 14.53 7.61 17.46 11 17.93V21H13V17.93C16.39 17.46 19 14.53 19 11H17Z" fill="white"/>
+              </svg>
+            </div>
+          </div>
+
+          <h1 class="step-heading">We need your microphone</h1>
+          <p class="step-description">
+            quietpls listens to your mic volume levels (never records audio) to help you sound your best.
+          </p>
+
+          <div class="privacy-card glass-panel">
+            <svg class="privacy-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 1L3 5V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V5L12 1Z" fill="var(--color-brand)"/>
+            </svg>
+            <span class="privacy-text">Your audio never leaves your device.</span>
+          </div>
+
+          <button class="btn-primary" id="allowMicBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 14C13.66 14 15 12.66 15 11V5C15 3.34 13.66 2 12 2C10.34 2 9 3.34 9 5V11C9 12.66 10.34 14 12 14Z" fill="currentColor"/>
+              <path d="M17 11C17 13.76 14.76 16 12 16C9.24 16 7 13.76 7 11H5C5 14.53 7.61 17.46 11 17.93V21H13V17.93C16.39 17.46 19 14.53 19 11H17Z" fill="currentColor"/>
+            </svg>
+            Allow Microphone
+          </button>
+
+          <div class="permission-status" id="permissionStatus"></div>
+
+          <!-- Denied help text (hidden by default) -->
+          <div class="denied-help" id="deniedHelp" style="display: none;">
+            <p class="denied-help-text">
+              Microphone access was denied. To enable it:
+            </p>
+            <ol class="denied-steps">
+              <li>Open <strong>System Settings</strong></li>
+              <li>Go to <strong>Privacy &amp; Security &gt; Microphone</strong></li>
+              <li>Enable access for <strong>quietpls</strong></li>
+              <li>Restart the app</li>
+            </ol>
+            <button class="btn-secondary" id="openSettingsBtn">Open System Settings</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Interactive Voice Demo -->
+      <div class="step-content" id="step3">
+        <div class="step-inner step-inner-demo">
+          <h1 class="step-heading demo-heading">Try it out!</h1>
+
+          <!-- Live FFT visualization canvas -->
+          <div class="demo-canvas-wrapper">
+            <canvas id="demoFftCanvas" class="demo-fft-canvas"></canvas>
+          </div>
+
+          <!-- Volume level indicator with zone label -->
+          <div class="demo-zone-indicator" id="demoZoneIndicator">
+            <div class="demo-zone-dot" id="demoZoneDot"></div>
+            <span class="demo-zone-label" id="demoZoneLabel">Waiting...</span>
+          </div>
+
+          <!-- Coaching prompt -->
+          <p class="demo-coaching-text" id="demoCoachingText">Speak naturally...</p>
+
+          <button class="btn-primary" id="startMonitoringBtn">Start Monitoring</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Navigation -->
+    <div class="onboarding-nav">
+      <button class="btn-ghost" id="backBtn" style="visibility: hidden;">Back</button>
+      <button class="btn-ghost" id="skipBtn">Skip</button>
+    </div>
+  </div>
+  <script src="fft-visualizer.js"></script>
+  <script src="onboarding-renderer.js"></script>
+</body>
+</html>

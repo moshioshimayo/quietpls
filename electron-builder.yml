@@ -1,0 +1,61 @@
+# electron-builder configuration for quietpls.
+# Signing identity comes from MAC_SIGNING_IDENTITY (or standard electron-builder
+# CSC_NAME env); when absent the build falls back to ad-hoc signing — auto-update
+# then only works for officially signed releases.
+appId: com.quietpls.app
+productName: quietpls
+afterPack: ./scripts/afterPack.js
+asar: true
+asarUnpack:
+  - volume-processor.js
+# Runtime-only allowlist: package.json and production node_modules are always
+# included by electron-builder; everything else must be listed here so docs/,
+# tests/, scripts/, __mocks__/ and repo configs never ship inside app.asar.
+files:
+  - "*.js"
+  - "!generate-icon.js"
+  - "!playwright.config.js"
+  - "!vitest.config.js"
+  - "*.html"
+  - "*.css"
+  - "assets/**/*"
+  - "!assets/entitlements.mac.plist"
+directories:
+  output: dist
+publish:
+  - provider: github
+    owner: moshioshimayo
+    repo: quietpls
+mac:
+  category: public.app-category.utilities
+  icon: assets/icon.png
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: assets/entitlements.mac.plist
+  entitlementsInherit: assets/entitlements.mac.plist
+  notarize: false
+  extendInfo:
+    NSMicrophoneUsageDescription: quietpls needs access to your microphone to monitor audio levels in real-time. Your audio is never recorded or transmitted.
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+dmg:
+  sign: true
+  title: quietpls
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+  window:
+    width: 540
+    height: 380
+  backgroundColor: "#f0f0f0"

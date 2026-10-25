@@ -1,0 +1,639 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0;
+  transition: all 0.3s ease;
+  cursor: grab;
+}
+
+/* Wrapper for the pill — no padding so pill fills the window */
+.pill-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---- Compact Pill ---- */
+.compact-pill {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  position: relative;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--glass-bg-medium);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border-medium);
+  box-shadow: var(--shadow-lg);
+  transition: all 0.3s ease;
+}
+
+.compact-pill:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), var(--shadow-glow-brand);
+}
+
+/* When monitoring, pill glows with zone color */
+.compact-pill.monitoring {
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4), var(--shadow-glow-brand);
+}
+
+/* Mini waveform canvas — hidden when idle, shown when monitoring */
+.compact-pill__waveform {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* When monitoring, waveform is visible */
+.compact-pill.monitoring .compact-pill__waveform {
+  opacity: 1;
+}
+
+/* Meeting detection indicator — pulsing brand glow on idle pill (US-017) */
+.compact-pill.meeting-detected {
+  border-color: var(--color-brand);
+  animation: meeting-pulse 2s var(--ease-default) infinite;
+}
+
+@keyframes meeting-pulse {
+  0%, 100% { box-shadow: var(--shadow-md), 0 0 8px rgba(var(--color-brand-rgb), 0.3); }
+  50% { box-shadow: var(--shadow-md), 0 0 16px rgba(var(--color-brand-rgb), 0.5); }
+}
+
+/* Zone-reactive pill glow during monitoring */
+.compact-pill.zone-quiet {
+  box-shadow: var(--shadow-md), var(--shadow-glow-quiet);
+}
+.compact-pill.zone-normal {
+  box-shadow: var(--shadow-md), var(--shadow-glow-normal);
+}
+.compact-pill.zone-loud {
+  box-shadow: var(--shadow-md), var(--shadow-glow-loud);
+}
+.compact-pill.zone-danger {
+  box-shadow: var(--shadow-md), var(--shadow-glow-danger);
+}
+
+/* ---- Expanded Panel (US-009 active monitoring state) ---- */
+.expanded-panel {
+  width: 320px;
+  height: 80px;
+  border-radius: var(--radius-xl);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  position: relative;
+  cursor: grab;
+  /* dragging handled by JS */
+  z-index: 10;
+  overflow: hidden;
+  transition:
+    box-shadow var(--duration-normal) var(--ease-default),
+    border-color var(--duration-normal) var(--ease-default);
+  animation: spring-in var(--duration-spring) var(--ease-spring-soft) both;
+}
+
+/* Zone-reactive glow on the expanded panel */
+.expanded-panel.zone-quiet {
+  box-shadow: var(--shadow-lg), var(--shadow-glow-quiet);
+}
+.expanded-panel.zone-normal {
+  box-shadow: var(--shadow-lg), var(--shadow-glow-normal);
+}
+.expanded-panel.zone-loud {
+  box-shadow: var(--shadow-lg), var(--shadow-glow-loud);
+}
+.expanded-panel.zone-danger {
+  box-shadow: var(--shadow-lg), var(--shadow-glow-danger);
+}
+
+/* FFT canvas area inside expanded panel */
+.expanded-panel__fft {
+  flex: 1 1 0%;
+  height: 60px;
+  min-width: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  position: relative;
+}
+
+.expanded-panel__fft canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Volume info column */
+.expanded-panel__info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  min-width: 54px;
+  flex-shrink: 0;
+}
+
+.expanded-panel__db {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-tight);
+  white-space: nowrap;
+}
+
+.expanded-panel__zone {
+  font-family: var(--font-family);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--zone-primary, var(--color-text-secondary));
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+  line-height: var(--line-height-tight);
+  transition: color var(--duration-normal) var(--ease-default);
+}
+
+/* Interactive children inside draggable panels must be no-drag */
+.expanded-panel__fft,
+.alert-panel__fft {
+  /* dragging handled by JS */
+}
+
+/* Stop button */
+.expanded-panel__stop {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-round);
+  border: 1px solid var(--glass-border-medium);
+  background: var(--glass-bg-light);
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default),
+    transform var(--duration-fast) var(--ease-spring);
+  /* dragging handled by JS */
+  padding: 0;
+  outline: none;
+}
+
+.expanded-panel__stop:hover {
+  background: var(--glass-bg-heavy);
+  color: var(--color-text-primary);
+  transform: scale(1.1);
+}
+
+.expanded-panel__stop:active {
+  transform: scale(0.95);
+}
+
+/* ---- Calibration Notification (US-011) ---- */
+.calibration-notification {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  padding: 2px 10px;
+  border-radius: var(--radius-md, 8px);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 20;
+  animation: slide-up-fade 0.25s ease-out;
+  transition: opacity 0.3s ease;
+}
+
+/* ---- Alert Panel (US-010 too-loud alert state) ---- */
+.alert-panel {
+  width: 360px;
+  height: 90px;
+  border-radius: var(--radius-xl);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  position: relative;
+  cursor: grab;
+  /* dragging handled by JS */
+  z-index: 10;
+  overflow: hidden;
+  /* Pulsing danger glow border */
+  border: 1.5px solid var(--color-danger-primary);
+  animation: spring-in var(--duration-spring) var(--ease-spring-soft) both;
+}
+
+/* Pulsing glow effect */
+.alert-panel.zone-danger,
+.alert-panel.zone-loud {
+  animation: glow-pulse 2s var(--ease-default) infinite, spring-in var(--duration-spring) var(--ease-spring-soft) both;
+}
+
+/* Entry shake — applied via JS, removed after one iteration */
+.alert-panel.animate-danger-shake {
+  animation: danger-shake 0.4s var(--ease-default), glow-pulse 2s var(--ease-default) infinite;
+}
+
+/* FFT canvas area inside alert panel */
+.alert-panel__fft {
+  flex: 1 1 0%;
+  height: 70px;
+  min-width: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  position: relative;
+}
+
+.alert-panel__fft canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Warning content column */
+.alert-panel__content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  min-width: 70px;
+  flex-shrink: 0;
+}
+
+.alert-panel__warning {
+  font-family: var(--font-family);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-danger-primary);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+  line-height: var(--line-height-tight);
+}
+
+.alert-panel__db {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-tight);
+  white-space: nowrap;
+}
+
+/* Dismiss button */
+.alert-panel__dismiss {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-round);
+  border: 1px solid var(--glass-border-medium);
+  background: var(--glass-bg-light);
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default),
+    transform var(--duration-fast) var(--ease-spring);
+  /* dragging handled by JS */
+  padding: 0;
+  outline: none;
+}
+
+.alert-panel__dismiss:hover {
+  background: var(--glass-bg-heavy);
+  color: var(--color-danger-primary);
+  transform: scale(1.1);
+}
+
+.alert-panel__dismiss:active {
+  transform: scale(0.95);
+}
+
+/* ---- Session Complete Panel (US-014 session complete state) ---- */
+.session-complete-panel {
+  width: 340px;
+  border-radius: var(--radius-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  position: relative;
+  cursor: grab;
+  /* dragging handled by JS */
+  z-index: 10;
+  overflow: hidden;
+  /* NOTE: removed hardcoded spring-in animation that caused the panel to start
+     at opacity:0 (from fill-mode:both) and conflict with micro-animation classes.
+     Entrance animation is now handled by micro-animations.js via transitioning-in
+     or animate-celebration-bounce classes. */
+}
+
+/* Top row: grade + info + close */
+.session-complete__top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+/* Session insights header */
+.session-complete__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.session-complete__duration {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.session-complete__insight-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-2) 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.session-complete__insight-item {
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-normal);
+  padding-left: var(--space-3);
+  position: relative;
+}
+
+.session-complete__insight-item::before {
+  content: '\2022';
+  position: absolute;
+  left: 0;
+  color: var(--color-text-tertiary);
+}
+
+.session-complete__btn {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border-medium);
+  background: var(--glass-bg-light);
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  font-family: var(--font-family);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  padding: 6px 10px;
+  letter-spacing: var(--letter-spacing-wide);
+  white-space: nowrap;
+  transition:
+    background var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default),
+    transform var(--duration-fast) var(--ease-spring);
+  /* dragging handled by JS */
+  outline: none;
+}
+
+.session-complete__btn:hover {
+  background: var(--glass-bg-heavy);
+  color: var(--color-text-primary);
+  transform: scale(1.05);
+}
+
+.session-complete__btn:active {
+  transform: scale(0.95);
+}
+
+/* Close button — icon only, pushed to far right */
+.session-complete__btn--close {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  border-radius: var(--radius-round);
+  margin-left: auto;
+}
+
+
+/* ---- Micro-Animation Keyframes (US-024) ---- */
+
+/* Slide down + fade — reverse of slide-up-fade, for session complete → compact */
+@keyframes slide-down-fade {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* Celebration bounce — playful bounce for session complete entrance */
+@keyframes celebration-bounce {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  40% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  60% {
+    transform: scale(0.96);
+  }
+  80% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Glow shift — smooth color transition between zone glows */
+@keyframes glow-shift {
+  0% {
+    box-shadow: 0 0 20px var(--color-danger-glow);
+    opacity: 0.9;
+  }
+  50% {
+    box-shadow: 0 0 14px var(--zone-glow, var(--color-normal-glow));
+    opacity: 0.95;
+  }
+  100% {
+    box-shadow: 0 0 20px var(--zone-glow, var(--color-normal-glow));
+    opacity: 1;
+  }
+}
+
+/* Volume spike micro-pulse */
+@keyframes volume-spike-pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ---- Micro-Animation Transition Classes (US-024) ---- */
+
+.transitioning-out {
+  animation: ds-fade-in var(--duration-fast) var(--ease-default) reverse both;
+  pointer-events: none;
+}
+
+.transitioning-in {
+  animation: ds-fade-in var(--duration-normal) var(--ease-out) both;
+}
+
+.animate-slide-down-fade {
+  animation: slide-down-fade var(--duration-normal) var(--ease-default) both;
+  pointer-events: none;
+}
+
+.animate-celebration-bounce {
+  animation: celebration-bounce var(--duration-spring) var(--ease-spring-soft) both;
+}
+
+.animate-glow-shift {
+  animation: glow-shift var(--duration-slow) var(--ease-default) both;
+}
+
+/* Volume-reactive classes */
+.volume-spike {
+  animation: volume-spike-pulse 0.3s var(--ease-spring) both;
+}
+
+.glow-intense {
+  filter: brightness(1.05);
+}
+
+/* Compact pill breathing glow (ensures continuous breathing in compact state) */
+.compact-pill.animate-breathing {
+  animation: breathing 3s var(--ease-default) infinite;
+}
+
+.compact-pill:hover {
+  transform: scale(1.05);
+  transition: transform var(--duration-fast) var(--ease-spring);
+}
+
+/* ---- Session Animation Keyframes (US-025) ---- */
+
+/* Count-up number fade-in */
+@keyframes count-up-fade {
+  0% {
+    opacity: 0.3;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Confetti particle: float upward, drift sideways, and fade */
+@keyframes confetti-particle {
+  0% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-40px) rotate(90deg) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-100px) rotate(270deg) scale(0.4);
+  }
+}
+
+/* ---- Session Animation Classes (US-025) ---- */
+
+/* Confetti particle base styling */
+.confetti-particle {
+  position: absolute;
+  pointer-events: none;
+  z-index: var(--z-overlay, 100);
+}
+
+
+/* FFT Spectrum Visualization Canvas (US-008) — legacy fallback */
+.fft-canvas-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 12px;
+  z-index: 1;
+}
+
+.fft-canvas-container canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+

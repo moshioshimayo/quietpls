@@ -1,0 +1,319 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Settings - quietpls</title>
+    <link rel="stylesheet" href="design-system.css" />
+    <link rel="stylesheet" href="settings-styles.css" />
+  </head>
+  <body class="dark-surface">
+    <div class="settings-container">
+      <!-- Header -->
+      <div class="settings-header glass-surface glass-border-subtle">
+        <h3>Settings</h3>
+        <div class="header-actions">
+          <button class="close-btn" id="closeSettings">&times;</button>
+        </div>
+      </div>
+
+      <!-- Tab Navigation -->
+      <nav class="settings-tabs" id="settingsTabs">
+        <button class="tab-btn active" data-tab="thresholds">Thresholds</button>
+        <button class="tab-btn" data-tab="history">History</button>
+      </nav>
+
+      <!-- Scrollable Content -->
+      <div class="settings-content">
+        <!-- ============ THRESHOLDS TAB ============ -->
+        <div class="tab-content active" id="tab-thresholds">
+          <!-- Threshold Configuration Section -->
+          <section class="settings-section">
+            <h4 class="section-title">Threshold Configuration</h4>
+
+            <!-- Visual Zone Band -->
+            <div class="zone-band-container glass-panel">
+              <div class="zone-band">
+                <div class="zone-segment zone-quiet" id="zoneQuiet">
+                  <span class="zone-label">Quiet</span>
+                </div>
+                <div class="zone-segment zone-normal" id="zoneNormal">
+                  <span class="zone-label">Normal</span>
+                </div>
+                <div class="zone-segment zone-loud" id="zoneLoud">
+                  <span class="zone-label">Loud</span>
+                </div>
+                <div class="zone-segment zone-danger" id="zoneDanger">
+                  <span class="zone-label">Danger</span>
+                </div>
+              </div>
+              <!-- Real-time level indicator -->
+              <div class="level-indicator" id="levelIndicator">
+                <div class="level-marker" id="levelMarker"></div>
+              </div>
+              <div class="zone-band-scale">
+                <span>0%</span>
+                <span>25%</span>
+                <span>50%</span>
+                <span>75%</span>
+                <span>100%</span>
+              </div>
+            </div>
+
+            <!-- Quiet Threshold Slider -->
+            <div class="threshold-control zone-quiet">
+              <div class="threshold-header">
+                <span class="threshold-name">
+                  <span class="zone-dot"></span>
+                  Quiet Max
+                </span>
+                <span class="threshold-value" id="quietValue">30</span>
+              </div>
+              <div class="slider-row">
+                <button class="fine-tune-btn" id="quietMinus">&minus;</button>
+                <input
+                  type="range"
+                  id="quietThreshold"
+                  min="1"
+                  max="98"
+                  value="30"
+                  step="1"
+                  class="zone-slider"
+                />
+                <button class="fine-tune-btn" id="quietPlus">+</button>
+              </div>
+              <div class="threshold-description">
+                Below this level is considered quiet / silent
+              </div>
+            </div>
+
+            <!-- Normal Threshold Slider -->
+            <div class="threshold-control zone-normal">
+              <div class="threshold-header">
+                <span class="threshold-name">
+                  <span class="zone-dot"></span>
+                  Normal Max
+                </span>
+                <span class="threshold-value" id="normalValue">50</span>
+              </div>
+              <div class="slider-row">
+                <button class="fine-tune-btn" id="normalMinus">&minus;</button>
+                <input
+                  type="range"
+                  id="normalThreshold"
+                  min="2"
+                  max="99"
+                  value="50"
+                  step="1"
+                  class="zone-slider"
+                />
+                <button class="fine-tune-btn" id="normalPlus">+</button>
+              </div>
+              <div class="threshold-description">
+                Normal conversation level boundary
+              </div>
+            </div>
+
+            <!-- Warning / Loud Threshold Slider -->
+            <div class="threshold-control zone-loud">
+              <div class="threshold-header">
+                <span class="threshold-name">
+                  <span class="zone-dot"></span>
+                  Loud Max
+                </span>
+                <span class="threshold-value" id="warningValue">78</span>
+              </div>
+              <div class="slider-row">
+                <button class="fine-tune-btn" id="warningMinus">&minus;</button>
+                <input
+                  type="range"
+                  id="warningThreshold"
+                  min="3"
+                  max="100"
+                  value="78"
+                  step="1"
+                  class="zone-slider"
+                />
+                <button class="fine-tune-btn" id="warningPlus">+</button>
+              </div>
+              <div class="threshold-description">
+                Above this level triggers danger alert
+              </div>
+            </div>
+          </section>
+
+          <!-- Auto-Calibration Section -->
+          <section class="settings-section">
+            <h4 class="section-title">Auto-Calibration</h4>
+            <div class="glass-panel calibration-panel">
+              <div class="calibration-row">
+                <span class="calibration-label">Status</span>
+                <span class="calibration-value" id="calibrationStatus"
+                  >Checking...</span
+                >
+              </div>
+              <div class="calibration-row">
+                <button class="mic-test-btn" id="recalibrateBtn">
+                  Recalibrate
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Audio Device Section -->
+          <section class="settings-section">
+            <h4 class="section-title">Audio Device</h4>
+            <div class="glass-panel device-panel">
+              <div class="device-row">
+                <label for="audioDeviceSelect">Input Device</label>
+                <select id="audioDeviceSelect">
+                  <option value="">System Default</option>
+                </select>
+              </div>
+              <div class="device-row mic-test-row">
+                <button class="mic-test-btn" id="testMicBtn">Test Mic</button>
+                <div class="mic-test-meter" id="micTestMeter">
+                  <div class="mic-test-fill" id="micTestFill"></div>
+                </div>
+                <span class="mic-test-label" id="micTestLabel">--</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- General Settings Section -->
+          <section class="settings-section">
+            <h4 class="section-title">General</h4>
+            <div class="glass-panel general-panel">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <span class="toggle-label">Launch at Login</span>
+                  <span class="toggle-description"
+                    >Start quietpls when you log in</span
+                  >
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="launchAtLogin" />
+                  <span class="toggle-track"></span>
+                </label>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <span class="toggle-label">Show in Menu Bar</span>
+                  <span class="toggle-description"
+                    >Display tray icon in menu bar</span
+                  >
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="showInMenubar" checked />
+                  <span class="toggle-track"></span>
+                </label>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <span class="toggle-label">Detect Meeting Apps</span>
+                  <span class="toggle-description"
+                    >Glow the pill when Zoom, Teams, etc. are running</span
+                  >
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="meetingDetection" />
+                  <span class="toggle-track"></span>
+                </label>
+              </div>
+            </div>
+          </section>
+        </div>
+        <!-- /tab-thresholds -->
+
+        <!-- ============ HISTORY TAB ============ -->
+        <div class="tab-content" id="tab-history">
+          <!-- Aggregate Stats -->
+          <section class="settings-section">
+            <h4 class="section-title">Overview</h4>
+            <div class="stats-grid">
+              <div class="stat-card glass-panel">
+                <span class="stat-value" id="statTotalSessions">--</span>
+                <span class="stat-label">Sessions</span>
+              </div>
+              <div class="stat-card glass-panel">
+                <span class="stat-value" id="statTotalMinutes">--</span>
+                <span class="stat-label">Total Time</span>
+              </div>
+              <div class="stat-card glass-panel">
+                <span class="stat-value" id="statAvgGrade">--</span>
+                <span class="stat-label">Avg Grade</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- Session List -->
+          <section class="settings-section">
+            <h4 class="section-title">Recent Sessions</h4>
+            <div class="session-list" id="sessionList">
+              <div class="session-empty" id="sessionEmpty">
+                <p>No sessions recorded yet.</p>
+                <p class="session-empty-hint">
+                  Start monitoring to begin tracking sessions.
+                </p>
+              </div>
+            </div>
+          </section>
+        </div>
+        <!-- /tab-history -->
+
+        <!-- Session Detail Modal -->
+        <div class="session-modal-overlay" id="sessionModal">
+          <div class="session-modal glass-panel">
+            <div class="session-modal-header">
+              <h4>Session Details</h4>
+              <button
+                class="close-btn session-modal-close"
+                id="sessionModalClose"
+              >
+                &times;
+              </button>
+            </div>
+            <div class="session-modal-body" id="sessionModalBody">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Delete Confirmation Modal -->
+        <div class="session-modal-overlay" id="deleteConfirmModal">
+          <div class="session-modal glass-panel delete-confirm-modal">
+            <h4>Delete Session?</h4>
+            <p>This action cannot be undone.</p>
+            <div class="delete-confirm-actions">
+              <button class="delete-cancel-btn" id="deleteCancelBtn">
+                Cancel
+              </button>
+              <button class="delete-confirm-btn" id="deleteConfirmBtn">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="settings-footer">
+          <button class="reset-btn" id="resetDefaults">Reset Defaults</button>
+          <div class="status-info">
+            <span class="status-label" id="settingsStatus">Inactive</span>
+            <span class="status-level" id="currentLevel">0%</span>
+          </div>
+        </div>
+
+        <div class="support-link">
+          Need help?
+          <a href="https://github.com/moshioshimayo/quietpls/issues"
+            >Open an issue on GitHub</a
+          >
+        </div>
+      </div>
+    </div>
+    <script src="settings-logic.js"></script>
+    <script src="settings-history-logic.js"></script>
+    <script src="settings-renderer.js"></script>
+  </body>
+</html>

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>quietpls</title>
+  <link rel="stylesheet" href="design-system.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Draggable wrapper with padding -->
+    <div class="pill-wrapper">
+      <!-- Glassmorphic compact pill (US-006) — visible in compact/idle state -->
+      <div class="compact-pill" id="compactPill">
+        <canvas class="compact-pill__waveform" id="pillWaveformCanvas"></canvas>
+      </div>
+
+      <!-- Expanded monitoring panel (US-009) — visible in expanded state -->
+      <div class="expanded-panel glass-panel zone-quiet" id="expandedPanel" style="display:none;">
+        <!-- FFT Spectrum Visualization (US-008/US-009) -->
+        <div class="expanded-panel__fft">
+          <canvas id="fftCanvas"></canvas>
+        </div>
+        <!-- Volume readout -->
+        <div class="expanded-panel__info">
+          <span class="expanded-panel__db" id="dbReadout">-- dB</span>
+          <span class="expanded-panel__zone" id="zoneLabel">Quiet</span>
+        </div>
+        <!-- Stop / minimize button -->
+        <button class="expanded-panel__stop" id="stopBtn" title="Stop monitoring">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <rect x="2" y="2" width="10" height="10" rx="2" fill="currentColor"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Alert panel (US-010) — visible in alert state -->
+      <div class="alert-panel glass-panel zone-danger animate-danger-shake" id="alertPanel" style="display:none;">
+        <!-- FFT Spectrum Visualization (shared canvas ref for alert) -->
+        <div class="alert-panel__fft">
+          <canvas id="alertFftCanvas"></canvas>
+        </div>
+        <!-- Warning content -->
+        <div class="alert-panel__content">
+          <span class="alert-panel__warning">TOO LOUD</span>
+          <span class="alert-panel__db" id="alertDbReadout">-- dB</span>
+        </div>
+        <!-- Dismiss button -->
+        <button class="alert-panel__dismiss" id="alertDismissBtn" title="Dismiss alert">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Session complete panel — visible in sessionComplete state -->
+      <div class="session-complete-panel glass-panel" id="sessionCompletePanel" style="display:none;">
+        <div class="session-complete__header">
+          <span class="session-complete__duration" id="sessionDuration">0m</span>
+          <button class="session-complete__btn session-complete__btn--close" id="sessionCloseBtn" title="Done">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <ul class="session-complete__insight-list" id="insightList">
+        </ul>
+      </div>
+
+    </div>
+
+  </div>
+  <script src="pill-waveform.js"></script>
+  <script src="fft-visualizer.js"></script>
+  <script src="micro-animations.js"></script>
+  <script src="session-animations.js"></script>
+  <script src="session-tracker.js"></script>
+  <script src="session-insights.js"></script>
+  <script src="calibration-manager.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>
