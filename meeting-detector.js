@@ -1,49 +1,40 @@
-'use strict';
+"use strict";
 
-const { execFile: _defaultExecFile } = require('child_process');
-
-/**
- * Map of process names (from `ps -eo comm=`) to canonical app names.
- * Multiple process names can map to the same app (deduplication via Set).
- */
-const MEETING_PROCESSES = {
-  'zoom.us':           'Zoom',
-  'CptHost':           'Zoom',
-  'Microsoft Teams':   'Microsoft Teams',
-  'Teams':             'Microsoft Teams',
-  'Slack':             'Slack',
-  'Discord':           'Discord',
-  'FaceTime':          'FaceTime',
-  'Webex':             'Webex',
-  'CiscoWebExStart':   'Webex',
-};
+const path = require("path");
+const { execFile: _defaultExecFile } = require("child_process");
 
 /**
- * Poll running processes and return an array of detected meeting app names.
- * Uses a single `ps -eo comm=` call per poll.
- *
- * @param {number} timeoutMs - Maximum time to wait for ps command
- * @param {Function} execFileFn - The execFile function to use
- * @returns {Promise<string[]>} Deduplicated array of app names
+ * A call is "detected" while any OTHER process is capturing audio input
+ * (Zoom, Teams, Meet in a browser, FaceTime, ...). The native helper
+ * mic-users (native/mic-users.swift) lists the processes whose CoreAudio
+ * input is running, one "<pid>\t<bundle id>" line each (macOS 14+).
+ * quietpls's own processes are excluded via getOwnPids so its own
+ * monitoring never counts as a call.
  */
-function pollProcesses(timeoutMs, execFileFn) {
+const DEV_HELPER_PATH = path.join(__dirname, "bin", "mic-users");
+
+// macOS speech services ("Hey Siri", dictation) listen briefly; not a call.
+const SYSTEM_LISTENERS =
+  /^com\.apple\.(CoreSpeech|corespeechd|assistantd|Siri|SpeechRecognitionCore)/i;
+
+/** Parse helper output into [{ pid, bundleId }]. */
+function parseMicUsers(stdout) {
+  const users = [];
+  for (const line of String(stdout || "").split("\n")) {
+    const [pidText, bundleId = ""] = line.split("\t");
+    const pid = Number(pidText);
+    if (pidText && Number.isInteger(pid) && pid > 0) {
+      users.push({ pid, bundleId: bundleId.trim() });
+    }
+  }
+  return users;
+}
+
+function pollMicUsers(helperPath, timeoutMs, execFileFn) {
   return new Promise((resolve, reject) => {
-    execFileFn('ps', ['-eo', 'comm='], { timeout: timeoutMs }, (err, stdout) => {
-      if (err) {
-        reject(err);
-        return;
-      }
-      const lines = stdout.split('\n');
-      const detected = new Set();
-      for (const line of lines) {
-        const trimmed = line.trim();
-        for (const [procName, appName] of Object.entries(MEETING_PROCESSES)) {
-          if (trimmed === procName || trimmed.endsWith('/' + procName)) {
-            detected.add(appName);
-          }
-        }
-      }
-      resolve([...detected]);
+    execFileFn(helperPath, [], { timeout: timeoutMs }, (err, stdout) => {
+      if (err) reject(err);
+      else resolve(parseMicUsers(stdout));
     });
   });
 }
@@ -62,15 +53,19 @@ function arraysEqual(a, b) {
  * Factory function to create a meeting detector instance.
  *
  * @param {Object} options
- * @param {number} [options.pollIntervalMs=10000] - Milliseconds between polls
- * @param {number} [options.graceMs=30000] - Grace period after all apps close
- * @param {number} [options.timeoutMs=3000] - Timeout for ps command
+ * @param {number} [options.pollIntervalMs=3000] - Milliseconds between polls
+ * @param {number} [options.graceMs=30000] - Grace period after the mic is released
+ * @param {number} [options.timeoutMs=3000] - Timeout for the helper
+ * @param {Function} [options.getOwnPids] - Returns quietpls's own pids to ignore
+ * @param {string} [options.helperPath] - Path to the mic-users helper
  * @returns {Object} Meeting detector API
  */
 function createMeetingDetector({
-  pollIntervalMs = 10000,
+  pollIntervalMs = 3000,
   graceMs = 30000,
   timeoutMs = 3000,
+  getOwnPids = () => [process.pid],
+  helperPath = DEV_HELPER_PATH,
   _execFile = _defaultExecFile,
 } = {}) {
   let pollTimer = null;
@@ -78,18 +73,35 @@ function createMeetingDetector({
   let lastDetectedApps = [];
   let callbacks = [];
   let destroyed = false;
+  let generation = 0; // bumped by stop(): results of older polls are dropped
 
   function fireCallback(data) {
     for (const cb of callbacks) {
-      try { cb(data); } catch (_) { /* ignore listener errors */ }
+      try {
+        cb(data);
+      } catch (_) {
+        /* ignore listener errors */
+      }
     }
   }
 
   async function poll() {
     if (destroyed) return;
+    const gen = generation;
     try {
-      const apps = await pollProcesses(timeoutMs, _execFile);
-      if (destroyed) return;
+      const users = await pollMicUsers(helperPath, timeoutMs, _execFile);
+      if (destroyed || gen !== generation) return;
+
+      const own = new Set(getOwnPids());
+      const apps = [
+        ...new Set(
+          users
+            .filter(
+              (u) => !own.has(u.pid) && !SYSTEM_LISTENERS.test(u.bundleId),
+            )
+            .map((u) => u.bundleId || "pid " + u.pid),
+        ),
+      ];
 
       const wasDetected = lastDetectedApps.length > 0;
       const isNowDetected = apps.length > 0;
@@ -105,7 +117,7 @@ function createMeetingDetector({
           fireCallback({ detected: true, apps });
         }
       } else if (wasDetected && !graceTimeout) {
-        // All apps closed — start grace period
+        // Mic released — start grace period
         graceTimeout = setTimeout(() => {
           if (destroyed) return;
           lastDetectedApps = [];
@@ -114,10 +126,18 @@ function createMeetingDetector({
         }, graceMs);
       }
     } catch (err) {
-      // Skip this cycle — will retry on next interval
-      if (typeof console !== 'undefined' && console.warn) {
-        console.warn('[MeetingDetector] Poll error:', err.message);
+      if (gen !== generation) return;
+      if (!err.killed) {
+        // Helper missing, or it can't run (macOS < 14): detection is unavailable.
+        console.warn(
+          "[MeetingDetector] Mic-use helper unavailable:",
+          err.message,
+        );
+        stop();
+        return;
       }
+      // Timed out — skip this cycle, retry on the next interval
+      console.warn("[MeetingDetector] Poll timed out");
     }
   }
 
@@ -128,10 +148,20 @@ function createMeetingDetector({
     pollTimer = setInterval(poll, pollIntervalMs);
   }
 
+  /** Stop polling and end any detection (listeners get detected:false). */
   function stop() {
+    generation++;
     if (pollTimer !== null) {
       clearInterval(pollTimer);
       pollTimer = null;
+    }
+    if (graceTimeout) {
+      clearTimeout(graceTimeout);
+      graceTimeout = null;
+    }
+    if (lastDetectedApps.length > 0) {
+      lastDetectedApps = [];
+      if (!destroyed) fireCallback({ detected: false, apps: [] });
     }
   }
 
@@ -168,4 +198,4 @@ function createMeetingDetector({
   };
 }
 
-module.exports = { createMeetingDetector };
+module.exports = { createMeetingDetector, parseMicUsers };

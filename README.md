@@ -20,7 +20,9 @@ or transmitted. Sessions and settings live in a local store on your disk.
   only speech counts. Recalibrate any time from Settings or the right-click menu
 - 🔌 **Mic health** — follows the mic you pick, notices unplug/fallback and
   shows "Mic unavailable / Reconnecting" instead of stale levels
-- 🗣️ **Meeting detection** — notices when a call is happening and adapts
+- 🗣️ **Starts with your calls** — when another app (Zoom, Teams, Meet,
+  FaceTime, …) starts using the mic, monitoring starts; it stops ~30s after the
+  call releases the mic. On by default (macOS 14+); toggle in Settings
 - 📊 **Session scorecard** — after each ≥60s session: duration, insights, and
   how much of your speaking time was too loud (kept locally in History)
 - 🚨 **Too-loud alert** with dismissible danger panel

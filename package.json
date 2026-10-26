@@ -1,12 +1,15 @@
 {
   "name": "quietpls",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "description": "A floating macOS audio-level monitor for calls and meetings. Local-only, open source.",
   "main": "main.js",
   "scripts": {
+    "build:native": "bash scripts/build-native.sh",
+    "prestart": "bash scripts/build-native.sh",
     "start": "electron .",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "predist": "bash scripts/build-native.sh",
     "dist": "electron-builder --mac",
     "release": "bash scripts/release.sh"
   },

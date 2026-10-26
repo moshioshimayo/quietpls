@@ -12,6 +12,7 @@ const electronPath = require("electron");
  * Launch the Electron app.
  * options.onboarding: start at first-run onboarding instead of past it.
  * options.args: extra command-line switches.
+ * options.generalSettings: initial quietpls-general-settings.json contents.
  */
 async function launchApp(options = {}) {
   // Fresh profile per launch: never reads or writes the real app's data.
@@ -21,6 +22,12 @@ async function launchApp(options = {}) {
     path.join(userData, "quietpls-app-state.json"),
     JSON.stringify({ onboardingComplete: !options.onboarding }),
   );
+  if (options.generalSettings) {
+    fs.writeFileSync(
+      path.join(userData, "quietpls-general-settings.json"),
+      JSON.stringify(options.generalSettings),
+    );
+  }
   const app = await electron.launch({
     executablePath: electronPath,
     args: [path.join(APP_ROOT, "main.js"), ...(options.args || [])],

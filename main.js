@@ -28,6 +28,9 @@ const { createInputTransports } = require("./input-transports");
 // E2E runs (unpackaged only) never read the real Mac's devices: tests set
 // globalThis.__quietplsFakeTransports, otherwise transports are unknown.
 const E2E_FAKES = process.env.QUIETPLS_E2E_TEST === "1" && !app.isPackaged;
+// On by default; off in E2E so parallel test instances don't see each other's
+// mic use as a call (a test can still enable it in the settings file).
+const MEETING_DETECTION_DEFAULT = !E2E_FAKES;
 const inputTransports = E2E_FAKES
   ? { get: async () => globalThis.__quietplsFakeTransports || null }
   : createInputTransports();
@@ -657,15 +660,19 @@ app.whenReady().then(async () => {
   });
 
   // Meeting detection (US-016)
+  // A call = another app using the mic; quietpls's own processes don't count.
   meetingDetector = createMeetingDetector({
-    pollIntervalMs: 10000,
+    pollIntervalMs: 3000,
     graceMs: 30000,
     timeoutMs: 3000,
+    getOwnPids: () => app.getAppMetrics().map((m) => m.pid),
+    ...(app.isPackaged && {
+      helperPath: path.join(process.resourcesPath, "mic-users"),
+    }),
   });
 
-  // Read setting (default: disabled)
   const meetingDetectionEnabled = generalSettingsStore
-    ? generalSettingsStore.get("meetingDetection", false)
+    ? generalSettingsStore.get("meetingDetection", MEETING_DETECTION_DEFAULT)
     : false;
   if (meetingDetectionEnabled) meetingDetector.start();
 
@@ -678,9 +685,18 @@ app.whenReady().then(async () => {
     }
   });
 
+  // The widget asks once its listener is in place, so a call already running
+  // at launch (detected before the window loaded) still starts monitoring.
+  ipcMain.handle("get-meeting-detection", function () {
+    return {
+      detected: meetingDetector.isDetected(),
+      apps: meetingDetector.getDetectedApps(),
+    };
+  });
+
   ipcMain.handle("get-meeting-detection-enabled", function () {
     return generalSettingsStore
-      ? generalSettingsStore.get("meetingDetection", false)
+      ? generalSettingsStore.get("meetingDetection", MEETING_DETECTION_DEFAULT)
       : false;
   });
 

@@ -33,6 +33,7 @@ else
   echo "==> Skipping in-build app notarization (no Apple credentials)"
 fi
 
+bash scripts/build-native.sh
 npx electron-builder --mac "${SIGN_ARGS[@]}"
 
 echo "==> Build complete. Artifacts:"
