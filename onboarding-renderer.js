@@ -14,7 +14,11 @@ let demoAnalyser = null;
 let demoAnimFrameId = null;
 
 // Default zone thresholds (matching config.js defaults)
-const DEMO_THRESHOLDS = { quietThreshold: 30, normalThreshold: 50, warningThreshold: 78 };
+const DEMO_THRESHOLDS = {
+  quietThreshold: 30,
+  normalThreshold: 50,
+  warningThreshold: 78,
+};
 
 // ---- Pure helpers (exported for testing via globalThis) ----
 
@@ -24,7 +28,7 @@ const DEMO_THRESHOLDS = { quietThreshold: 30, normalThreshold: 50, warningThresh
  * @returns {number} step number (1, 2, or 3)
  */
 function resolveInitialStep(permState) {
-  if (permState === 'granted') return 3;
+  if (permState === "granted") return 3;
   return 1;
 }
 
@@ -36,8 +40,8 @@ function resolveInitialStep(permState) {
  */
 function resolveStepButtons(step, hasMicPermission) {
   return {
-    back: step > 1 ? 'visible' : 'hidden',
-    skip: step < TOTAL_STEPS ? 'visible' : 'hidden',
+    back: step > 1 ? "visible" : "hidden",
+    skip: step < TOTAL_STEPS ? "visible" : "hidden",
     allowMic: step === 2 && !hasMicPermission,
     nextDisabled: step === 2 && !hasMicPermission,
   };
@@ -50,34 +54,34 @@ function resolveStepButtons(step, hasMicPermission) {
  */
 function permissionStateToUI(state) {
   switch (state) {
-    case 'granted':
+    case "granted":
       return {
-        message: 'Microphone access granted!',
-        cssClass: 'success',
+        message: "Microphone access granted!",
+        cssClass: "success",
         showDeniedHelp: false,
       };
-    case 'denied':
+    case "denied":
       return {
-        message: 'Microphone access was denied.',
-        cssClass: 'error',
+        message: "Microphone access was denied.",
+        cssClass: "error",
         showDeniedHelp: true,
       };
-    case 'restricted':
+    case "restricted":
       return {
-        message: 'Microphone access is restricted by system policy.',
-        cssClass: 'error',
+        message: "Microphone access is restricted by system policy.",
+        cssClass: "error",
         showDeniedHelp: true,
       };
-    case 'not-determined':
+    case "not-determined":
       return {
-        message: '',
-        cssClass: '',
+        message: "",
+        cssClass: "",
         showDeniedHelp: false,
       };
     default:
       return {
-        message: 'Could not determine microphone status.',
-        cssClass: 'error',
+        message: "Could not determine microphone status.",
+        cssClass: "error",
         showDeniedHelp: false,
       };
   }
@@ -123,10 +127,10 @@ function computeRmsVolume(timeDomainData) {
  * @returns {'quiet'|'normal'|'loud'|'danger'}
  */
 function getVolumeZone(volume, thresholds) {
-  if (volume < thresholds.quietThreshold) return 'quiet';
-  if (volume < thresholds.normalThreshold) return 'normal';
-  if (volume < thresholds.warningThreshold) return 'loud';
-  return 'danger';
+  if (volume < thresholds.quietThreshold) return "quiet";
+  if (volume < thresholds.normalThreshold) return "normal";
+  if (volume < thresholds.warningThreshold) return "loud";
+  return "danger";
 }
 
 /**
@@ -136,16 +140,16 @@ function getVolumeZone(volume, thresholds) {
  */
 function getCoachingMessage(zone) {
   switch (zone) {
-    case 'quiet':
-      return 'Good, nice and calm';
-    case 'normal':
-      return 'Perfect! This is your sweet spot';
-    case 'loud':
-      return 'Whoa, that\'s getting loud!';
-    case 'danger':
-      return 'Way too loud! \u{1F534}';
+    case "quiet":
+      return "Good, nice and calm";
+    case "normal":
+      return "Perfect! This is your sweet spot";
+    case "loud":
+      return "Whoa, that's getting loud!";
+    case "danger":
+      return "Way too loud! \u{1F534}";
     default:
-      return 'Speak naturally...';
+      return "Speak naturally...";
   }
 }
 
@@ -156,16 +160,21 @@ function getCoachingMessage(zone) {
  */
 function getZoneLabel(zone) {
   switch (zone) {
-    case 'quiet':  return 'Quiet';
-    case 'normal': return 'Normal';
-    case 'loud':   return 'Loud';
-    case 'danger': return 'Danger';
-    default:       return 'Waiting...';
+    case "quiet":
+      return "Quiet";
+    case "normal":
+      return "Normal";
+    case "loud":
+      return "Loud";
+    case "danger":
+      return "Danger";
+    default:
+      return "Waiting...";
   }
 }
 
 // Expose pure helpers for unit testing
-if (typeof globalThis !== 'undefined') {
+if (typeof globalThis !== "undefined") {
   globalThis.__onboardingHelpers = {
     resolveInitialStep,
     resolveStepButtons,
@@ -180,393 +189,427 @@ if (typeof globalThis !== 'undefined') {
 
 // ---- DOM wiring (only runs in browser with a document) ----
 
-if (typeof document === 'undefined') {
+if (typeof document === "undefined") {
   // Running in Node (e.g. vitest) — skip all DOM code
-  if (typeof module !== 'undefined') module.exports = {};
+  if (typeof module !== "undefined") module.exports = {};
 } else {
+  document.addEventListener("DOMContentLoaded", async () => {
+    await checkExistingPermissions();
+    setupEventHandlers();
+    updateStepDisplay();
 
-document.addEventListener('DOMContentLoaded', async () => {
-  await checkExistingPermissions();
-  setupEventHandlers();
-  updateStepDisplay();
-
-  // If mic already granted, we landed on step 3 — start the demo
-  if (currentStep === 3) {
-    setTimeout(function() { startDemoAudio(); }, 400);
-  }
-});
-
-async function checkExistingPermissions() {
-  try {
-    if (window.electronAPI && window.electronAPI.getMicrophoneStatus) {
-      const status = await window.electronAPI.getMicrophoneStatus();
-      if (status === 'granted') {
-        micPermissionGranted = true;
-        currentStep = resolveInitialStep(status);
-      }
-      return;
+    // If mic already granted, we landed on step 3 — start the demo
+    if (currentStep === 3) {
+      setTimeout(function () {
+        startDemoAudio();
+      }, 400);
     }
-    // Fallback: try Permissions API / getUserMedia
+  });
+
+  /**
+   * Raw-capture constraints for the mic quietpls would monitor with (2.1.1):
+   * never a Bluetooth default, which would make the user's headphones tinny.
+   */
+  async function micAudioConstraints() {
+    const base = {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+    };
+    const MP = window.MicPolicy;
+    if (!MP) return base;
+    const api = window.electronAPI;
+    const choice = await MP.resolveChoice(
+      navigator.mediaDevices,
+      api && api.getInputTransports ? () => api.getInputTransports() : null,
+      "",
+    );
+    return MP.audioConstraints(choice, base);
+  }
+
+  async function checkExistingPermissions() {
     try {
-      const result = await navigator.permissions.query({ name: 'microphone' });
-      if (result.state === 'granted') {
-        micPermissionGranted = true;
-        currentStep = 3;
-      }
-    } catch (_e) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-        });
-        stream.getTracks().forEach((t) => t.stop());
-        micPermissionGranted = true;
-        currentStep = 3;
-      } catch (_err) {
-        // No permission yet
-      }
-    }
-  } catch (_e) {
-    // Ignore — start at step 1
-  }
-}
-
-function setupEventHandlers() {
-  const getStartedBtn = document.getElementById('getStartedBtn');
-  const allowMicBtn = document.getElementById('allowMicBtn');
-  const openSettingsBtn = document.getElementById('openSettingsBtn');
-  const backBtn = document.getElementById('backBtn');
-  const skipBtn = document.getElementById('skipBtn');
-  const startMonitoringBtn = document.getElementById('startMonitoringBtn');
-
-  if (getStartedBtn) {
-    getStartedBtn.addEventListener('click', () => goToStep(2));
-  }
-
-  if (allowMicBtn) {
-    allowMicBtn.addEventListener('click', handlePermissionRequest);
-    // If already granted, update the button
-    if (micPermissionGranted) {
-      markMicGranted(allowMicBtn);
-    }
-  }
-
-  if (openSettingsBtn) {
-    openSettingsBtn.addEventListener('click', () => {
-      if (window.electronAPI && window.electronAPI.openSystemSettings) {
-        window.electronAPI.openSystemSettings();
-      }
-    });
-  }
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      if (currentStep > 1) goToStep(currentStep - 1);
-    });
-  }
-
-  if (skipBtn) {
-    skipBtn.addEventListener('click', () => completeOnboarding());
-  }
-
-  if (startMonitoringBtn) {
-    startMonitoringBtn.addEventListener('click', () => completeOnboarding(true));
-  }
-}
-
-async function handlePermissionRequest() {
-  const allowMicBtn = document.getElementById('allowMicBtn');
-  const permissionStatus = document.getElementById('permissionStatus');
-  const deniedHelp = document.getElementById('deniedHelp');
-
-  if (!allowMicBtn) return;
-  allowMicBtn.disabled = true;
-
-  if (permissionStatus) {
-    permissionStatus.textContent = 'Requesting microphone access...';
-    permissionStatus.className = 'permission-status';
-  }
-
-  try {
-    // Try electronAPI first (uses native macOS permission prompt)
-    if (window.electronAPI && window.electronAPI.requestMicrophoneAccess) {
-      const granted = await window.electronAPI.requestMicrophoneAccess();
-      if (granted) {
-        micPermissionGranted = true;
-        markMicGranted(allowMicBtn);
-        applyPermissionUI('granted');
-        // Auto-advance after a brief delay
-        setTimeout(() => goToStep(3), 600);
+      if (window.electronAPI && window.electronAPI.getMicrophoneStatus) {
+        const status = await window.electronAPI.getMicrophoneStatus();
+        if (status === "granted") {
+          micPermissionGranted = true;
+          currentStep = resolveInitialStep(status);
+        }
         return;
       }
-      // Not granted — check status for specific state
-      const status = window.electronAPI.getMicrophoneStatus
-        ? await window.electronAPI.getMicrophoneStatus()
-        : 'denied';
-      applyPermissionUI(status);
-      allowMicBtn.disabled = false;
-      return;
+      // Fallback: try Permissions API / getUserMedia
+      try {
+        const result = await navigator.permissions.query({
+          name: "microphone",
+        });
+        if (result.state === "granted") {
+          micPermissionGranted = true;
+          currentStep = 3;
+        }
+      } catch (_e) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: await micAudioConstraints(),
+          });
+          stream.getTracks().forEach((t) => t.stop());
+          micPermissionGranted = true;
+          currentStep = 3;
+        } catch (_err) {
+          // No permission yet
+        }
+      }
+    } catch (_e) {
+      // Ignore — start at step 1
+    }
+  }
+
+  function setupEventHandlers() {
+    const getStartedBtn = document.getElementById("getStartedBtn");
+    const allowMicBtn = document.getElementById("allowMicBtn");
+    const openSettingsBtn = document.getElementById("openSettingsBtn");
+    const backBtn = document.getElementById("backBtn");
+    const skipBtn = document.getElementById("skipBtn");
+    const startMonitoringBtn = document.getElementById("startMonitoringBtn");
+
+    if (getStartedBtn) {
+      getStartedBtn.addEventListener("click", () => goToStep(2));
     }
 
-    // Fallback: getUserMedia
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-    });
-    stream.getTracks().forEach((t) => t.stop());
-    micPermissionGranted = true;
-    markMicGranted(allowMicBtn);
-    applyPermissionUI('granted');
-    setTimeout(() => goToStep(3), 600);
-  } catch (_error) {
-    applyPermissionUI('denied');
-    allowMicBtn.disabled = false;
+    if (allowMicBtn) {
+      allowMicBtn.addEventListener("click", handlePermissionRequest);
+      // If already granted, update the button
+      if (micPermissionGranted) {
+        markMicGranted(allowMicBtn);
+      }
+    }
+
+    if (openSettingsBtn) {
+      openSettingsBtn.addEventListener("click", () => {
+        if (window.electronAPI && window.electronAPI.openSystemSettings) {
+          window.electronAPI.openSystemSettings();
+        }
+      });
+    }
+
+    if (backBtn) {
+      backBtn.addEventListener("click", () => {
+        if (currentStep > 1) goToStep(currentStep - 1);
+      });
+    }
+
+    if (skipBtn) {
+      skipBtn.addEventListener("click", () => completeOnboarding());
+    }
+
+    if (startMonitoringBtn) {
+      startMonitoringBtn.addEventListener("click", () =>
+        completeOnboarding(true),
+      );
+    }
   }
-}
 
-function applyPermissionUI(state) {
-  const permissionStatus = document.getElementById('permissionStatus');
-  const deniedHelp = document.getElementById('deniedHelp');
-  const ui = permissionStateToUI(state);
+  async function handlePermissionRequest() {
+    const allowMicBtn = document.getElementById("allowMicBtn");
+    const permissionStatus = document.getElementById("permissionStatus");
+    const deniedHelp = document.getElementById("deniedHelp");
 
-  if (permissionStatus) {
-    permissionStatus.textContent = ui.message;
-    permissionStatus.className = 'permission-status ' + ui.cssClass;
+    if (!allowMicBtn) return;
+    allowMicBtn.disabled = true;
+
+    if (permissionStatus) {
+      permissionStatus.textContent = "Requesting microphone access...";
+      permissionStatus.className = "permission-status";
+    }
+
+    try {
+      // Try electronAPI first (uses native macOS permission prompt)
+      if (window.electronAPI && window.electronAPI.requestMicrophoneAccess) {
+        const granted = await window.electronAPI.requestMicrophoneAccess();
+        if (granted) {
+          micPermissionGranted = true;
+          markMicGranted(allowMicBtn);
+          applyPermissionUI("granted");
+          // Auto-advance after a brief delay
+          setTimeout(() => goToStep(3), 600);
+          return;
+        }
+        // Not granted — check status for specific state
+        const status = window.electronAPI.getMicrophoneStatus
+          ? await window.electronAPI.getMicrophoneStatus()
+          : "denied";
+        applyPermissionUI(status);
+        allowMicBtn.disabled = false;
+        return;
+      }
+
+      // Fallback: getUserMedia
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: await micAudioConstraints(),
+      });
+      stream.getTracks().forEach((t) => t.stop());
+      micPermissionGranted = true;
+      markMicGranted(allowMicBtn);
+      applyPermissionUI("granted");
+      setTimeout(() => goToStep(3), 600);
+    } catch (_error) {
+      applyPermissionUI("denied");
+      allowMicBtn.disabled = false;
+    }
   }
 
-  if (deniedHelp) {
-    deniedHelp.style.display = ui.showDeniedHelp ? 'block' : 'none';
+  function applyPermissionUI(state) {
+    const permissionStatus = document.getElementById("permissionStatus");
+    const deniedHelp = document.getElementById("deniedHelp");
+    const ui = permissionStateToUI(state);
+
+    if (permissionStatus) {
+      permissionStatus.textContent = ui.message;
+      permissionStatus.className = "permission-status " + ui.cssClass;
+    }
+
+    if (deniedHelp) {
+      deniedHelp.style.display = ui.showDeniedHelp ? "block" : "none";
+    }
+
+    updateStepDisplay();
   }
 
-  updateStepDisplay();
-}
-
-function markMicGranted(btn) {
-  btn.classList.add('success');
-  btn.innerHTML = `
+  function markMicGranted(btn) {
+    btn.classList.add("success");
+    btn.innerHTML = `
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
       <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
     </svg>
     Microphone Enabled
   `;
-  btn.disabled = true;
-}
-
-function goToStep(step) {
-  if (transitioning || step === currentStep || step < 1 || step > TOTAL_STEPS) return;
-  transitioning = true;
-
-  const currentEl = document.getElementById('step' + currentStep);
-  const nextEl = document.getElementById('step' + step);
-
-  if (currentEl) {
-    currentEl.classList.remove('active');
-    currentEl.classList.add('exiting');
-    // Ensure exiting class is always removed — use both animationend and a safety timeout
-    var cleaned = false;
-    function cleanup() {
-      if (cleaned) return;
-      cleaned = true;
-      currentEl.classList.remove('exiting');
-    }
-    currentEl.addEventListener('animationend', cleanup, { once: true });
-    // Safety: force cleanup if animationend doesn't fire within 400ms
-    setTimeout(cleanup, 400);
+    btn.disabled = true;
   }
 
-  // Small delay so exit animation starts before enter
-  setTimeout(() => {
-    currentStep = step;
-    if (nextEl) {
-      nextEl.classList.add('active');
-    }
-    updateStepDisplay();
-    transitioning = false;
-  }, 200);
-}
+  function goToStep(step) {
+    if (transitioning || step === currentStep || step < 1 || step > TOTAL_STEPS)
+      return;
+    transitioning = true;
 
-function updateStepDisplay() {
-  // Sync step content visibility — only the current step should be active
-  for (var s = 1; s <= TOTAL_STEPS; s++) {
-    var stepEl = document.getElementById('step' + s);
-    if (stepEl) {
-      if (s === currentStep) {
-        stepEl.classList.add('active');
-        stepEl.classList.remove('exiting');
-      } else {
-        stepEl.classList.remove('active', 'exiting');
+    const currentEl = document.getElementById("step" + currentStep);
+    const nextEl = document.getElementById("step" + step);
+
+    if (currentEl) {
+      currentEl.classList.remove("active");
+      currentEl.classList.add("exiting");
+      // Ensure exiting class is always removed — use both animationend and a safety timeout
+      var cleaned = false;
+      function cleanup() {
+        if (cleaned) return;
+        cleaned = true;
+        currentEl.classList.remove("exiting");
+      }
+      currentEl.addEventListener("animationend", cleanup, { once: true });
+      // Safety: force cleanup if animationend doesn't fire within 400ms
+      setTimeout(cleanup, 400);
+    }
+
+    // Small delay so exit animation starts before enter
+    setTimeout(() => {
+      currentStep = step;
+      if (nextEl) {
+        nextEl.classList.add("active");
+      }
+      updateStepDisplay();
+      transitioning = false;
+    }, 200);
+  }
+
+  function updateStepDisplay() {
+    // Sync step content visibility — only the current step should be active
+    for (var s = 1; s <= TOTAL_STEPS; s++) {
+      var stepEl = document.getElementById("step" + s);
+      if (stepEl) {
+        if (s === currentStep) {
+          stepEl.classList.add("active");
+          stepEl.classList.remove("exiting");
+        } else {
+          stepEl.classList.remove("active", "exiting");
+        }
+      }
+    }
+
+    // Update dot indicators
+    document.querySelectorAll(".dot").forEach((dot) => {
+      const dotStep = parseInt(dot.dataset.step, 10);
+      dot.classList.toggle("active", dotStep === currentStep);
+      dot.classList.toggle("completed", dotStep < currentStep);
+    });
+
+    // Update nav buttons
+    const backBtn = document.getElementById("backBtn");
+    const skipBtn = document.getElementById("skipBtn");
+
+    const btnState = resolveStepButtons(currentStep, micPermissionGranted);
+
+    if (backBtn) {
+      backBtn.style.visibility = btnState.back;
+    }
+
+    if (skipBtn) {
+      skipBtn.style.visibility = btnState.skip;
+    }
+  }
+
+  function completeOnboarding(shouldStartMonitoring = false) {
+    if (window.electronAPI && window.electronAPI.onboardingComplete) {
+      window.electronAPI.onboardingComplete({
+        startMonitoring: shouldStartMonitoring,
+      });
+    }
+  }
+
+  // ---- Step 3: Interactive Voice Demo ----
+
+  /**
+   * Start the demo audio pipeline: getUserMedia -> AnalyserNode -> FFT vis + RMS zone detection.
+   */
+  async function startDemoAudio() {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: await micAudioConstraints(),
+      });
+
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.8;
+      source.connect(analyser);
+
+      demoAudioCtx = audioCtx;
+      demoStream = stream;
+      demoAnalyser = analyser;
+
+      // Start FFT visualizer on the canvas
+      const canvas = document.getElementById("demoFftCanvas");
+      if (canvas && window.FFTVisualizer) {
+        window.FFTVisualizer.startVisualization(analyser, canvas);
+      }
+
+      // Start RMS volume polling for zone detection
+      const timeDomainData = new Uint8Array(analyser.fftSize);
+      function pollVolume() {
+        if (!demoAnalyser) return; // cleaned up
+        analyser.getByteTimeDomainData(timeDomainData);
+        const volume = computeRmsVolume(timeDomainData);
+        const zone = getVolumeZone(volume, DEMO_THRESHOLDS);
+
+        updateDemoUI(zone);
+
+        // Sync zone to FFT visualizer for color changes
+        if (window.FFTVisualizer) {
+          window.FFTVisualizer.setVolumeZone(zone);
+        }
+
+        demoAnimFrameId = requestAnimationFrame(pollVolume);
+      }
+      pollVolume();
+    } catch (_err) {
+      // If audio fails, show a fallback message
+      const coachingText = document.getElementById("demoCoachingText");
+      if (coachingText) {
+        coachingText.textContent = "Could not access microphone for demo.";
       }
     }
   }
 
-  // Update dot indicators
-  document.querySelectorAll('.dot').forEach((dot) => {
-    const dotStep = parseInt(dot.dataset.step, 10);
-    dot.classList.toggle('active', dotStep === currentStep);
-    dot.classList.toggle('completed', dotStep < currentStep);
-  });
+  /**
+   * Update the demo UI elements based on the current volume zone.
+   */
+  function updateDemoUI(zone) {
+    const zoneDot = document.getElementById("demoZoneDot");
+    const zoneLabel = document.getElementById("demoZoneLabel");
+    const coachingText = document.getElementById("demoCoachingText");
+    const zoneIndicator = document.getElementById("demoZoneIndicator");
 
-  // Update nav buttons
-  const backBtn = document.getElementById('backBtn');
-  const skipBtn = document.getElementById('skipBtn');
-
-  const btnState = resolveStepButtons(currentStep, micPermissionGranted);
-
-  if (backBtn) {
-    backBtn.style.visibility = btnState.back;
-  }
-
-  if (skipBtn) {
-    skipBtn.style.visibility = btnState.skip;
-  }
-}
-
-function completeOnboarding(shouldStartMonitoring = false) {
-  if (window.electronAPI && window.electronAPI.onboardingComplete) {
-    window.electronAPI.onboardingComplete({
-      startMonitoring: shouldStartMonitoring,
-    });
-  }
-}
-
-// ---- Step 3: Interactive Voice Demo ----
-
-/**
- * Start the demo audio pipeline: getUserMedia -> AnalyserNode -> FFT vis + RMS zone detection.
- */
-async function startDemoAudio() {
-  try {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-    });
-
-    const source = audioCtx.createMediaStreamSource(stream);
-    const analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 512;
-    analyser.smoothingTimeConstant = 0.8;
-    source.connect(analyser);
-
-    demoAudioCtx = audioCtx;
-    demoStream = stream;
-    demoAnalyser = analyser;
-
-    // Start FFT visualizer on the canvas
-    const canvas = document.getElementById('demoFftCanvas');
-    if (canvas && window.FFTVisualizer) {
-      window.FFTVisualizer.startVisualization(analyser, canvas);
+    if (zoneLabel) {
+      zoneLabel.textContent = getZoneLabel(zone);
     }
 
-    // Start RMS volume polling for zone detection
-    const timeDomainData = new Uint8Array(analyser.fftSize);
-    function pollVolume() {
-      if (!demoAnalyser) return; // cleaned up
-      analyser.getByteTimeDomainData(timeDomainData);
-      const volume = computeRmsVolume(timeDomainData);
-      const zone = getVolumeZone(volume, DEMO_THRESHOLDS);
-
-      updateDemoUI(zone);
-
-      // Sync zone to FFT visualizer for color changes
-      if (window.FFTVisualizer) {
-        window.FFTVisualizer.setVolumeZone(zone);
-      }
-
-      demoAnimFrameId = requestAnimationFrame(pollVolume);
-    }
-    pollVolume();
-  } catch (_err) {
-    // If audio fails, show a fallback message
-    const coachingText = document.getElementById('demoCoachingText');
     if (coachingText) {
-      coachingText.textContent = 'Could not access microphone for demo.';
+      coachingText.textContent = getCoachingMessage(zone);
+      // Remove all zone classes and add current
+      coachingText.className = "demo-coaching-text demo-coaching-" + zone;
+    }
+
+    if (zoneDot) {
+      zoneDot.className = "demo-zone-dot demo-zone-dot-" + zone;
+    }
+
+    if (zoneIndicator) {
+      // Remove old zone classes and add current
+      zoneIndicator.className = "demo-zone-indicator zone-" + zone;
     }
   }
-}
 
-/**
- * Update the demo UI elements based on the current volume zone.
- */
-function updateDemoUI(zone) {
-  const zoneDot = document.getElementById('demoZoneDot');
-  const zoneLabel = document.getElementById('demoZoneLabel');
-  const coachingText = document.getElementById('demoCoachingText');
-  const zoneIndicator = document.getElementById('demoZoneIndicator');
+  /**
+   * Stop the demo audio pipeline and clean up all resources.
+   */
+  function stopDemoAudio() {
+    if (demoAnimFrameId) {
+      cancelAnimationFrame(demoAnimFrameId);
+      demoAnimFrameId = null;
+    }
 
-  if (zoneLabel) {
-    zoneLabel.textContent = getZoneLabel(zone);
+    if (window.FFTVisualizer) {
+      window.FFTVisualizer.stopVisualization();
+    }
+
+    if (demoStream) {
+      demoStream.getTracks().forEach(function (t) {
+        t.stop();
+      });
+      demoStream = null;
+    }
+
+    if (demoAudioCtx) {
+      demoAudioCtx.close().catch(function () {});
+      demoAudioCtx = null;
+    }
+
+    demoAnalyser = null;
   }
 
-  if (coachingText) {
-    coachingText.textContent = getCoachingMessage(zone);
-    // Remove all zone classes and add current
-    coachingText.className = 'demo-coaching-text demo-coaching-' + zone;
-  }
+  // Hook into goToStep to start/stop demo audio when entering/leaving step 3
+  const _originalGoToStep = goToStep;
+  goToStep = function (step) {
+    // If leaving step 3, clean up audio
+    if (currentStep === 3 && step !== 3) {
+      stopDemoAudio();
+    }
 
-  if (zoneDot) {
-    zoneDot.className = 'demo-zone-dot demo-zone-dot-' + zone;
-  }
+    _originalGoToStep(step);
 
-  if (zoneIndicator) {
-    // Remove old zone classes and add current
-    zoneIndicator.className = 'demo-zone-indicator zone-' + zone;
-  }
-}
+    // If entering step 3, start demo audio after a brief delay for animation
+    if (step === 3) {
+      setTimeout(function () {
+        startDemoAudio();
+      }, 200);
+    }
+  };
 
-/**
- * Stop the demo audio pipeline and clean up all resources.
- */
-function stopDemoAudio() {
-  if (demoAnimFrameId) {
-    cancelAnimationFrame(demoAnimFrameId);
-    demoAnimFrameId = null;
-  }
-
-  if (window.FFTVisualizer) {
-    window.FFTVisualizer.stopVisualization();
-  }
-
-  if (demoStream) {
-    demoStream.getTracks().forEach(function(t) { t.stop(); });
-    demoStream = null;
-  }
-
-  if (demoAudioCtx) {
-    demoAudioCtx.close().catch(function() {});
-    demoAudioCtx = null;
-  }
-
-  demoAnalyser = null;
-}
-
-// Hook into goToStep to start/stop demo audio when entering/leaving step 3
-const _originalGoToStep = goToStep;
-goToStep = function(step) {
-  // If leaving step 3, clean up audio
-  if (currentStep === 3 && step !== 3) {
+  // Also clean up audio on onboarding complete
+  const _originalCompleteOnboarding = completeOnboarding;
+  completeOnboarding = function (shouldStartMonitoring) {
     stopDemoAudio();
+    _originalCompleteOnboarding(shouldStartMonitoring);
+  };
+
+  // Listen for close command from main process
+  if (
+    typeof window !== "undefined" &&
+    window.electronAPI &&
+    window.electronAPI.onCloseWindow
+  ) {
+    window.electronAPI.onCloseWindow(() => {
+      stopDemoAudio();
+      window.close();
+    });
   }
-
-  _originalGoToStep(step);
-
-  // If entering step 3, start demo audio after a brief delay for animation
-  if (step === 3) {
-    setTimeout(function() { startDemoAudio(); }, 200);
-  }
-};
-
-// Also clean up audio on onboarding complete
-const _originalCompleteOnboarding = completeOnboarding;
-completeOnboarding = function(shouldStartMonitoring) {
-  stopDemoAudio();
-  _originalCompleteOnboarding(shouldStartMonitoring);
-};
-
-// Listen for close command from main process
-if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.onCloseWindow) {
-  window.electronAPI.onCloseWindow(() => {
-    stopDemoAudio();
-    window.close();
-  });
-}
-
 } // end of document guard

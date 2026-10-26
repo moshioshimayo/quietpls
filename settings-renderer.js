@@ -4,6 +4,7 @@
 const LL = window.LevelLogic || {};
 const SL = window.SettingsLogic || {};
 const SHL = window.SettingsHistoryLogic || {};
+const MP = window.MicPolicy || {};
 
 // ============================================================
 // State
@@ -14,6 +15,8 @@ let config = {
 };
 
 let selectedDeviceId = "";
+let bluetoothDeviceIds = new Set(); // inputs CoreAudio reports as Bluetooth
+let capturedBluetooth = false; // the widget is capturing from a Bluetooth mic
 let generalSettings = {
   launchAtLogin: false,
   showInMenubar: true,
@@ -100,6 +103,7 @@ function loadSettings() {
         selectedDeviceId = settings.audioDeviceId || "";
         const deviceSelect = document.getElementById("audioDeviceSelect");
         if (deviceSelect) deviceSelect.value = selectedDeviceId;
+        updateBluetoothNote();
       }
       updateUI();
     }
@@ -147,6 +151,7 @@ function setupDeviceHandlers() {
   if (deviceSelect) {
     deviceSelect.addEventListener("change", (e) => {
       selectedDeviceId = e.target.value;
+      updateBluetoothNote();
       saveSettings();
     });
   }
@@ -170,13 +175,22 @@ async function enumerateAudioDevices() {
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
     const audioInputs = SL.filterAudioInputDevices(devices);
+    const transports = await getInputTransports();
+    bluetoothDeviceIds = new Set(
+      MP.classifyInputs(devices, transports)
+        .filter((d) => d.bluetooth)
+        .map((d) => d.deviceId),
+    );
 
-    select.innerHTML = '<option value="">System Default</option>';
+    select.innerHTML =
+      '<option value="">System Default (skips Bluetooth mics)</option>';
 
     for (const device of audioInputs) {
       const option = document.createElement("option");
       option.value = device.deviceId;
-      option.textContent = device.label;
+      option.textContent =
+        device.label +
+        (bluetoothDeviceIds.has(device.deviceId) ? " (Bluetooth)" : "");
       select.appendChild(option);
     }
 
@@ -193,9 +207,30 @@ async function enumerateAudioDevices() {
       select.value = "";
       saveSettings();
     }
+    updateBluetoothNote();
   } catch (error) {
     console.error("Failed to enumerate audio devices:", error);
   }
+}
+
+async function getInputTransports() {
+  try {
+    return window.electronAPI.getInputTransports
+      ? await window.electronAPI.getInputTransports()
+      : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/** "Using a Bluetooth mic…" under the picker when the chosen (or, on System
+ * Default, the actually captured) mic is Bluetooth. */
+function updateBluetoothNote() {
+  const note = document.getElementById("bluetoothMicNote");
+  if (!note) return;
+  note.hidden = selectedDeviceId
+    ? !bluetoothDeviceIds.has(selectedDeviceId)
+    : !capturedBluetooth;
 }
 
 // ============================================================
@@ -208,10 +243,14 @@ async function startMicTest() {
   const label = document.getElementById("micTestLabel");
 
   try {
+    // Same mic choice as monitoring: never open a Bluetooth default.
+    const choice = await MP.resolveChoice(
+      navigator.mediaDevices,
+      getInputTransports,
+      selectedDeviceId,
+    );
     const constraints = {
-      audio: selectedDeviceId
-        ? { deviceId: { exact: selectedDeviceId } }
-        : true,
+      audio: choice.deviceId ? MP.audioConstraints(choice) : true,
     };
     micTestStream = await navigator.mediaDevices.getUserMedia(constraints);
     micTestAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -349,6 +388,12 @@ function renderCaptureStatus(s) {
   const statusEl = document.getElementById("calibrationStatus");
   if (!statusEl) return;
   const status = s || { state: "idle" };
+  capturedBluetooth = !!(
+    status.state !== "idle" &&
+    status.device &&
+    status.device.bluetooth
+  );
+  updateBluetoothNote();
 
   if (deviceEl) {
     let text = status.device ? status.device.label || "Unnamed mic" : "—";

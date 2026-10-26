@@ -10,18 +10,20 @@ const electronPath = require("electron");
 
 /**
  * Launch the Electron app.
+ * options.onboarding: start at first-run onboarding instead of past it.
+ * options.args: extra command-line switches.
  */
-async function launchApp() {
+async function launchApp(options = {}) {
   // Fresh profile per launch: never reads or writes the real app's data.
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), "quietpls-e2e-"));
   // Past first-run onboarding, like a returning user.
   fs.writeFileSync(
     path.join(userData, "quietpls-app-state.json"),
-    JSON.stringify({ onboardingComplete: true }),
+    JSON.stringify({ onboardingComplete: !options.onboarding }),
   );
   const app = await electron.launch({
     executablePath: electronPath,
-    args: [path.join(APP_ROOT, "main.js")],
+    args: [path.join(APP_ROOT, "main.js"), ...(options.args || [])],
     env: {
       ...process.env,
       QUIETPLS_E2E_TEST: "1",
@@ -147,14 +149,16 @@ async function getSettingsStore(app) {
 /**
  * Replace the microphone in `page` with a scripted synthetic voice: a 400 Hz
  * sawtooth in 150 ms syllables (speech-like for the gate), at a level the
- * test controls. Also fakes two input devices. Exposes window.__fakeMic.
+ * test controls. Also fakes the input devices (two by default; pass
+ * options.devices / options.defaultId to choose). Exposes window.__fakeMic,
+ * whose setDevices(devices, defaultId) simulates a mic (dis)connecting.
  */
-async function installFakeMic(page) {
-  await page.evaluate(() => {
+async function installFakeMic(page, options = {}) {
+  await page.evaluate((opts) => {
     if (window.__fakeMic) return;
     const ctx = new AudioContext();
     ctx.resume();
-    const devices = [
+    let devices = opts.devices || [
       {
         kind: "audioinput",
         deviceId: "fake-builtin",
@@ -168,6 +172,9 @@ async function installFakeMic(page) {
         label: "Fake Headset",
       },
     ];
+    let defaultId = opts.defaultId || devices[0].deviceId;
+    const systemDefault = () =>
+      devices.find((d) => d.deviceId === defaultId) || devices[0];
     const osc = ctx.createOscillator();
     osc.type = "sawtooth";
     osc.frequency.value = 400;
@@ -197,8 +204,8 @@ async function installFakeMic(page) {
       {
         kind: "audioinput",
         deviceId: "default",
-        groupId: "g-builtin",
-        label: "Default - Fake Built-in Mic",
+        groupId: systemDefault().groupId,
+        label: "Default - " + systemDefault().label,
       },
       ...devices,
     ];
@@ -208,7 +215,14 @@ async function installFakeMic(page) {
         constraints.audio &&
         constraints.audio.deviceId &&
         constraints.audio.deviceId.exact;
-      const dev = devices.find((d) => d.deviceId === exact) || devices[0];
+      const dev = exact
+        ? devices.find((d) => d.deviceId === exact)
+        : systemDefault();
+      if (!dev) {
+        const err = new Error("Requested device not found");
+        err.name = "NotFoundError";
+        throw err;
+      }
       const dest = ctx.createMediaStreamDestination();
       level.connect(dest);
       const track = dest.stream.getAudioTracks()[0];
@@ -225,13 +239,28 @@ async function installFakeMic(page) {
 
     window.__fakeMic = {
       setLevelDb,
+      setDevices: (next, nextDefault) => {
+        devices = next;
+        defaultId = nextDefault || next[0].deviceId;
+        navigator.mediaDevices.dispatchEvent(new Event("devicechange"));
+      },
       gumCalls: () => state.gumCalls,
       endCurrentTrack: () => {
         const t = state.tracks[state.tracks.length - 1];
         t.dispatchEvent(new Event("ended"));
       },
     };
-  });
+  }, options);
+}
+
+/**
+ * CoreAudio transport types the main process reports instead of the real
+ * Mac's (input-transports.js): [{ name, transport, isDefault }].
+ */
+async function setFakeTransports(app, inputs) {
+  await app.evaluate((_electron, list) => {
+    globalThis.__quietplsFakeTransports = list ? { inputs: list } : null;
+  }, inputs);
 }
 
 /**
@@ -257,6 +286,7 @@ async function getWindow(electronApp, titleSubstring, timeoutMs = 5000) {
 
 module.exports = {
   installFakeMic,
+  setFakeTransports,
   launchApp,
   getWidgetWindow,
   dismissOnboardingIfNeeded,

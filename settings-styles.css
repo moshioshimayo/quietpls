@@ -460,6 +460,12 @@ body {
   margin-bottom: 0;
 }
 
+.device-note {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
 .device-row label {
   display: block;
   font-size: var(--font-size-sm);

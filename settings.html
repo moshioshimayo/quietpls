@@ -61,7 +61,11 @@
             <div class="threshold-control zone-loud">
               <div class="threshold-header">
                 <span class="threshold-name">Warn me</span>
-                <span class="threshold-value sensitivity-value" id="sensitivityValue">Default</span>
+                <span
+                  class="threshold-value sensitivity-value"
+                  id="sensitivityValue"
+                  >Default</span
+                >
               </div>
               <div class="slider-row">
                 <span class="sensitivity-end">Later</span>
@@ -119,6 +123,10 @@
                 <select id="audioDeviceSelect">
                   <option value="">System Default</option>
                 </select>
+                <p class="device-note" id="bluetoothMicNote" hidden>
+                  Using a Bluetooth mic switches your headphones to call-quality
+                  audio.
+                </p>
               </div>
               <div class="device-row mic-test-row">
                 <button class="mic-test-btn" id="testMicBtn">Test Mic</button>
@@ -265,6 +273,7 @@
     <script src="level-logic.js"></script>
     <script src="settings-logic.js"></script>
     <script src="settings-history-logic.js"></script>
+    <script src="mic-policy.js"></script>
     <script src="settings-renderer.js"></script>
   </body>
 </html>

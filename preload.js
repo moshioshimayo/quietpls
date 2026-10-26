@@ -66,6 +66,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getWindowBounds: () => ipcRenderer.invoke("get-window-bounds"),
   setWindowPosition: (x, y) => ipcRenderer.invoke("set-window-position", x, y),
 
+  // Audio input transport types, for skipping Bluetooth mics (2.1.1)
+  getInputTransports: () => ipcRenderer.invoke("get-input-transports"),
+
   // Calibration (US-008/US-009)
   getCalibration: (deviceId) => ipcRenderer.invoke("get-calibration", deviceId),
   saveCalibration: (deviceId, data) =>

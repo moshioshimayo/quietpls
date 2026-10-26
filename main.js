@@ -22,6 +22,23 @@ if (process.env.QUIETPLS_E2E_TEST === "1" && process.env.QUIETPLS_USER_DATA) {
 }
 const { createWidgetStateMachine, STATES } = require("./widget-state-machine");
 const { createMeetingDetector } = require("./meeting-detector");
+const { createInputTransports } = require("./input-transports");
+
+// CoreAudio transport types of the audio inputs (Bluetooth detection).
+// E2E runs (unpackaged only) never read the real Mac's devices: tests set
+// globalThis.__quietplsFakeTransports, otherwise transports are unknown.
+const E2E_FAKES = process.env.QUIETPLS_E2E_TEST === "1" && !app.isPackaged;
+const inputTransports = E2E_FAKES
+  ? { get: async () => globalThis.__quietplsFakeTransports || null }
+  : createInputTransports();
+
+const BLUETOOTH_ONLY_NOTE = {
+  type: "info",
+  buttons: ["OK"],
+  message: "quietpls is using your Bluetooth mic",
+  detail:
+    "No other mic is available, so your headphones switch to call-quality audio and may sound tinny while quietpls listens. A wired or USB mic avoids this.",
+};
 
 // Calibration data store, keyed by the real captured device id.
 const calibrationStore = new Store({
@@ -805,9 +822,26 @@ app.whenReady().then(async () => {
     updateTrayIcon(update);
   });
 
+  ipcMain.handle("get-input-transports", () => inputTransports.get());
+
   ipcMain.on("capture-status", (event, status) => {
     if (!status || typeof status !== "object") return;
     lastCaptureStatus = status;
+    // One-time note when only a Bluetooth mic is available.
+    if (
+      status.state === "running" &&
+      status.policy === "bluetooth-only" &&
+      !appStateStore.get("bluetoothOnlyNoteShown")
+    ) {
+      appStateStore.set("bluetoothOnlyNoteShown", true);
+      if (E2E_FAKES) {
+        globalThis.__quietplsNotes = (globalThis.__quietplsNotes || []).concat(
+          BLUETOOTH_ONLY_NOTE.message,
+        );
+      } else {
+        dialog.showMessageBox(BLUETOOTH_ONLY_NOTE).catch(() => {});
+      }
+    }
     if (settingsWindow) {
       settingsWindow.webContents.send("capture-status", status);
     }

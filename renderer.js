@@ -527,6 +527,10 @@ if (typeof window === "undefined") {
       withAnalyser: true,
       onFrame: handleFrame,
       onStatus: handleCaptureStatus,
+      getTransports: () =>
+        window.electronAPI.getInputTransports
+          ? window.electronAPI.getInputTransports()
+          : null,
       log: (m) => console.log(m),
     });
 
@@ -586,8 +590,13 @@ if (typeof window === "undefined") {
       state: s.state,
       reason: s.reason || null,
       fallback: !!s.fallback,
+      policy: s.policy || null,
       device: s.device
-        ? { deviceId: s.device.deviceId, label: s.device.label }
+        ? {
+            deviceId: s.device.deviceId,
+            label: s.device.label,
+            bluetooth: !!s.device.bluetooth,
+          }
         : null,
       calibrating: !!(calibrationManager && calibrationManager.isCalibrating()),
       calibration: calibration

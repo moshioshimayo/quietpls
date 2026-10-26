@@ -484,3 +484,279 @@ describe("resolveDevice", () => {
     ).toBe("builtin-id");
   });
 });
+
+// ---- 2.1.1: never open a Bluetooth default (AirPods would go tinny) ----
+
+describe("capture controller — Bluetooth mic policy (2.1.1)", () => {
+  // Labels as Chromium shows them on macOS: built-in and USB carry a suffix,
+  // Bluetooth carries nothing.
+  const MAC_MIC = {
+    kind: "audioinput",
+    deviceId: "builtin-id",
+    groupId: "g-builtin",
+    label: "MacBook Pro Microphone (Built-in)",
+  };
+  const USB_MIC = {
+    kind: "audioinput",
+    deviceId: "usb-id",
+    groupId: "g-usb",
+    label: "RØDE NT-USB Mini (19f7:0015)",
+  };
+  const AIRPODS = {
+    kind: "audioinput",
+    deviceId: "airpods-id",
+    groupId: "g-airpods",
+    label: "AirPods",
+  };
+  const BT = { name: "Alex's AirPods", transport: "bluetooth" };
+  const CORE_MAC = { name: "MacBook Pro Microphone", transport: "builtin" };
+  const CORE_USB = { name: "RØDE NT-USB Mini", transport: "usb" };
+
+  let env;
+  // CoreAudio view of env.inputs, default flagged like system_profiler does.
+  const transportsFor = () => ({
+    inputs: env.inputs.map((d) => ({
+      ...(d === AIRPODS ? BT : d === USB_MIC ? CORE_USB : CORE_MAC),
+      isDefault: d === env.systemDefault,
+    })),
+  });
+  const openedAirPods = () =>
+    env.gumCalls.some((c) => {
+      const exact = c.audio.deviceId && c.audio.deviceId.exact;
+      return (
+        exact === "airpods-id" || (!exact && env.systemDefault === AIRPODS)
+      );
+    });
+  const start = async (id) => {
+    const out = makeController(env, {
+      getTransports: async () => transportsFor(),
+    });
+    await out.ctrl.start(id);
+    return out;
+  };
+
+  beforeEach(() => {
+    env = makeEnv();
+    env.inputs = [MAC_MIC, AIRPODS];
+    env.systemDefault = AIRPODS;
+  });
+
+  it("default mic = AirPods → captures the built-in mic, AirPods mic never opened", async () => {
+    const { ctrl } = await start("");
+    expect(ctrl.getStatus()).toMatchObject({
+      state: "running",
+      fallback: false,
+      policy: "avoid-bluetooth",
+      device: { deviceId: "builtin-id", bluetooth: false },
+    });
+    expect(openedAirPods()).toBe(false);
+  });
+
+  it("no built-in mic → prefers a wired/USB mic over the Bluetooth default", async () => {
+    env.inputs = [USB_MIC, AIRPODS];
+    const { ctrl } = await start("");
+    expect(ctrl.getStatus().device.deviceId).toBe("usb-id");
+    expect(openedAirPods()).toBe(false);
+  });
+
+  it("AirPods connecting mid-session (becoming the default) keep capture on the built-in mic", async () => {
+    env.inputs = [MAC_MIC];
+    env.systemDefault = MAC_MIC;
+    const { ctrl } = await start("");
+    expect(ctrl.getStatus().device.deviceId).toBe("builtin-id");
+    env.inputs = [MAC_MIC, AIRPODS];
+    env.systemDefault = AIRPODS;
+    await ctrl._onDeviceChange();
+    await flush();
+    expect(env.gumCalls).toHaveLength(1);
+    expect(ctrl.getStatus().device.deviceId).toBe("builtin-id");
+    expect(openedAirPods()).toBe(false);
+  });
+
+  it("an explicit Settings pick of the AirPods mic is respected", async () => {
+    const { ctrl } = await start("airpods-id");
+    expect(env.gumCalls[0].audio.deviceId).toEqual({ exact: "airpods-id" });
+    expect(ctrl.getStatus()).toMatchObject({
+      policy: "explicit",
+      fallback: false,
+      device: { deviceId: "airpods-id", bluetooth: true },
+    });
+  });
+
+  it("a missing explicit pick falls back to the built-in mic, not the Bluetooth default", async () => {
+    const { ctrl } = await start("usb-id");
+    expect(ctrl.getStatus()).toMatchObject({
+      fallback: true,
+      reason: "fallback",
+      device: { deviceId: "builtin-id" },
+    });
+    expect(openedAirPods()).toBe(false);
+  });
+
+  it("Bluetooth is the only mic → uses it and flags bluetooth-only (for the one-time note)", async () => {
+    env.inputs = [AIRPODS];
+    const { ctrl } = await start("");
+    expect(ctrl.getStatus()).toMatchObject({
+      state: "running",
+      policy: "bluetooth-only",
+      device: { deviceId: "airpods-id", bluetooth: true },
+    });
+  });
+
+  it("bluetooth-only switches to the built-in mic when it appears", async () => {
+    env.inputs = [AIRPODS];
+    const { ctrl } = await start("");
+    env.inputs = [MAC_MIC, AIRPODS];
+    await ctrl._onDeviceChange();
+    await flush();
+    expect(ctrl.getStatus()).toMatchObject({
+      policy: "avoid-bluetooth",
+      device: { deviceId: "builtin-id" },
+    });
+  });
+
+  it("a reconnect after a lost track still skips the Bluetooth default", async () => {
+    const { ctrl } = await start("");
+    env.tracks[0].emit("ended");
+    await advance(env, 600);
+    expect(ctrl.getStatus().state).toBe("running");
+    expect(env.gumCalls.length).toBeGreaterThan(1);
+    expect(openedAirPods()).toBe(false);
+  });
+
+  it("a non-Bluetooth default (e.g. a virtual mic) is still followed", async () => {
+    const VIRTUAL = {
+      kind: "audioinput",
+      deviceId: "krisp-id",
+      groupId: "g-krisp",
+      label: "Krisp Microphone",
+    };
+    env.inputs = [MAC_MIC, VIRTUAL];
+    env.systemDefault = VIRTUAL;
+    const { ctrl } = makeController(env, {
+      getTransports: async () => ({
+        inputs: [
+          { ...CORE_MAC, isDefault: false },
+          { name: "Krisp Microphone", transport: "virtual", isDefault: true },
+        ],
+      }),
+    });
+    await ctrl.start("");
+    expect(ctrl.getStatus()).toMatchObject({
+      policy: "default",
+      device: { deviceId: "krisp-id" },
+    });
+  });
+});
+
+// ---- 2.1.1 review fix: a stale transport snapshot must not open AirPods ----
+
+describe("capture controller — stale transport snapshot (2.1.1 review P1)", () => {
+  const MAC_MIC = {
+    kind: "audioinput",
+    deviceId: "builtin-id",
+    groupId: "g-builtin",
+    label: "MacBook Pro Microphone (Built-in)",
+  };
+  const AIRPODS = {
+    kind: "audioinput",
+    deviceId: "airpods-id",
+    groupId: "g-airpods",
+    label: "AirPods",
+  };
+  // Snapshot read while the built-in mic was still the default and before
+  // the AirPods existed as an audio device.
+  const STALE = {
+    inputs: [
+      { name: "MacBook Pro Microphone", transport: "builtin", isDefault: true },
+    ],
+  };
+  const FRESH = {
+    inputs: [
+      { name: "MacBook Pro Microphone", transport: "builtin", isDefault: false },
+      { name: "Alex's AirPods", transport: "bluetooth", isDefault: true },
+    ],
+  };
+  let env;
+  const openedAirPods = () =>
+    env.gumCalls.some((c) => {
+      const exact = c.audio.deviceId && c.audio.deviceId.exact;
+      return (
+        exact === "airpods-id" || (!exact && env.systemDefault === AIRPODS)
+      );
+    });
+
+  beforeEach(() => {
+    env = makeEnv();
+    env.inputs = [MAC_MIC];
+    env.systemDefault = MAC_MIC;
+  });
+
+  it("AirPods becoming the default while the snapshot still says built-in: stays on the built-in mic, then re-reads", async () => {
+    let snapshot = STALE;
+    let reads = 0;
+    const { ctrl } = makeController(env, {
+      getTransports: async () => {
+        reads++;
+        return snapshot;
+      },
+    });
+    await ctrl.start("");
+    expect(ctrl.getStatus().device.deviceId).toBe("builtin-id");
+
+    // AirPods connect and become the default; the transport read still
+    // returns the old snapshot (built-in default).
+    env.inputs = [MAC_MIC, AIRPODS];
+    env.systemDefault = AIRPODS;
+    const readsBefore = reads;
+    await ctrl._onDeviceChange();
+    await flush();
+    expect(reads).toBe(readsBefore + 1); // read again on the device change
+    expect(openedAirPods()).toBe(false);
+    expect(env.gumCalls).toHaveLength(1);
+    expect(ctrl.getStatus().device.deviceId).toBe("builtin-id");
+
+    // The re-check a second later sees the real state: still built-in.
+    snapshot = FRESH;
+    await advance(env, 1000);
+    expect(reads).toBe(readsBefore + 2);
+    expect(openedAirPods()).toBe(false);
+    expect(ctrl.getStatus().device.deviceId).toBe("builtin-id");
+  });
+
+  it("a snapshot that stays stale never opens AirPods and stops re-reading after a few tries", async () => {
+    let reads = 0;
+    const { ctrl } = makeController(env, {
+      getTransports: async () => {
+        reads++;
+        return STALE;
+      },
+    });
+    await ctrl.start("");
+    env.inputs = [MAC_MIC, AIRPODS];
+    env.systemDefault = AIRPODS;
+    await ctrl._onDeviceChange();
+    for (let i = 0; i < 10; i++) {
+      post(env);
+      await advance(env, 1000);
+    }
+    expect(openedAirPods()).toBe(false);
+    expect(ctrl.getStatus()).toMatchObject({
+      state: "running",
+      device: { deviceId: "builtin-id" },
+    });
+    expect(reads).toBe(1 + 1 + 5); // start, device change, 5 re-checks
+  });
+
+  it("starting with a stale snapshot (AirPods already default) opens the built-in mic", async () => {
+    env.inputs = [MAC_MIC, AIRPODS];
+    env.systemDefault = AIRPODS;
+    const { ctrl } = makeController(env, { getTransports: async () => STALE });
+    await ctrl.start("");
+    expect(openedAirPods()).toBe(false);
+    expect(ctrl.getStatus()).toMatchObject({
+      policy: "unresolved",
+      device: { deviceId: "builtin-id" },
+    });
+  });
+});

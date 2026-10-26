@@ -15,6 +15,11 @@
  * Frames are forwarded only while state is "running", so session time never
  * includes a gap.
  *
+ * Which mic is opened comes from mic-policy.js: an explicit pick as is, else
+ * the system default unless it is Bluetooth (2.1.1). A device id is always
+ * chosen before getUserMedia, so a Bluetooth default is never opened even
+ * briefly.
+ *
  * States: idle | starting | running | interrupted | reconnecting | unavailable
  *
  * Dual export: CommonJS + window.CaptureController.
@@ -24,7 +29,14 @@ const DEFAULT_RETRY_DELAYS_MS = [500, 1000, 2000, 4000, 8000];
 const DEFAULT_STALE_MS = 2000;
 // Continuous healthy frames needed before a reopened mic counts as recovered.
 const HEALTHY_RESET_MS = 2000;
+// Re-reads of the mic transports while the system default is unresolved.
+const RECHECK_MS = 1000;
+const MAX_RECHECKS = 5;
 const VIRTUAL_IDS = ["default", "communications", ""];
+const CaptureMicPolicy =
+  typeof module !== "undefined" && module.exports
+    ? require("./mic-policy")
+    : window.MicPolicy;
 
 function isPermissionError(err) {
   return (
@@ -88,6 +100,7 @@ function createCaptureController(options) {
   const onFrame = o.onFrame || (() => {});
   const onStatus = o.onStatus || (() => {});
   const log = o.log || (() => {});
+  const getTransports = o.getTransports || (async () => null);
   const constraintsBase = {
     echoCancellation: false,
     noiseSuppression: false,
@@ -107,9 +120,20 @@ function createCaptureController(options) {
   let lastMessageAt = 0;
   let healthySince = null; // first valid frame of the current healthy run
   let deviceListener = null;
+  let choice = null; // mic-policy decision behind the current device
+  let recheckTimer = null; // re-read transports while the default is unresolved
+  let rechecks = 0;
 
   function status() {
-    return { state, reason, device, fallback, attempt: attempts, preferredId };
+    return {
+      state,
+      reason,
+      device,
+      fallback,
+      attempt: attempts,
+      preferredId,
+      policy: choice ? choice.reason : null,
+    };
   }
 
   function setState(next, why) {
@@ -203,6 +227,14 @@ function createCaptureController(options) {
     return mediaDevices.getUserMedia({ audio });
   }
 
+  async function transports() {
+    try {
+      return await getTransports();
+    } catch (_) {
+      return null;
+    }
+  }
+
   async function enumerate() {
     try {
       return await mediaDevices.enumerateDevices();
@@ -234,17 +266,25 @@ function createCaptureController(options) {
     let ctx = null;
     const unsubs = [];
     try {
-      let usedFallback = false;
+      const devices = await enumerate();
+      const known = await transports();
+      if (gen !== generation) return false;
+      let next = CaptureMicPolicy.chooseInput(preferredId, devices, known);
       try {
-        stream = await getStream(preferredId);
+        stream = await getStream(next.deviceId);
       } catch (err) {
-        if (preferredId && isMissingDeviceError(err)) {
-          stream = await getStream("");
-          usedFallback = true;
+        if (next.reason === "explicit" && isMissingDeviceError(err)) {
+          next = CaptureMicPolicy.chooseInput(
+            "",
+            devices.filter((d) => d.deviceId !== preferredId),
+            known,
+          );
+          stream = await getStream(next.deviceId);
         } else {
           throw err;
         }
       }
+      const usedFallback = !!preferredId && next.reason !== "explicit";
       if (gen !== generation) {
         stopTracks(stream);
         return false;
@@ -317,7 +357,9 @@ function createCaptureController(options) {
       );
       if (gen !== generation) return false;
 
-      device = resolved;
+      device = { ...resolved, bluetooth: next.bluetooth };
+      choice = next;
+      scheduleRecheck(next.unresolved);
       fallback = usedFallback;
       healthySince = null;
       lastMessageAt = now();
@@ -360,6 +402,27 @@ function createCaptureController(options) {
     }
   }
 
+  /** The transport snapshot didn't match the current default (it changed
+   * while we read): look again shortly, a bounded number of times. */
+  function scheduleRecheck(unresolved) {
+    if (!unresolved) {
+      rechecks = 0;
+      return;
+    }
+    if (recheckTimer || rechecks >= MAX_RECHECKS) return;
+    rechecks++;
+    recheckTimer = timers.setTimeout(() => {
+      recheckTimer = null;
+      if (state === "running" || state === "interrupted") onDeviceChange();
+    }, RECHECK_MS);
+  }
+
+  function clearRecheck() {
+    if (recheckTimer) timers.clearTimeout(recheckTimer);
+    recheckTimer = null;
+    rechecks = 0;
+  }
+
   async function onDeviceChange() {
     if (state === "idle" || state === "starting") return;
     if (state === "reconnecting" || state === "unavailable") {
@@ -368,7 +431,8 @@ function createCaptureController(options) {
       acquire().catch(() => {});
       return;
     }
-    const inputs = (await enumerate()).filter((d) => d.kind === "audioinput");
+    const devices = await enumerate();
+    const inputs = devices.filter((d) => d.kind === "audioinput");
     if (state === "idle" || !device) return;
     const present = (id) => inputs.some((d) => d.deviceId === id);
     let why = null;
@@ -376,14 +440,17 @@ function createCaptureController(options) {
     else if (preferredId && fallback && present(preferredId))
       why = "preferred-returned";
     else if (!preferredId || fallback) {
-      const def = inputs.find((d) => d.deviceId === "default");
-      if (
-        def &&
-        def.groupId &&
-        device.groupId &&
-        def.groupId !== device.groupId
-      )
+      // Re-run the policy: a Bluetooth headset becoming the default keeps
+      // the current mic; a built-in mic appearing replaces a Bluetooth one.
+      const next = CaptureMicPolicy.chooseInput(
+        "",
+        devices,
+        await transports(),
+      );
+      if (state === "idle" || !device) return;
+      if (next.deviceId && next.deviceId !== device.deviceId)
         why = "default-changed";
+      else scheduleRecheck(next.unresolved);
     }
     if (why) {
       log("[capture] device change: " + why);
@@ -428,6 +495,7 @@ function createCaptureController(options) {
   function stop() {
     generation++;
     clearRetry();
+    clearRecheck();
     teardown();
     if (
       deviceListener &&
@@ -438,6 +506,7 @@ function createCaptureController(options) {
     }
     deviceListener = null;
     device = null;
+    choice = null;
     fallback = false;
     attempts = 0;
     setState("idle");

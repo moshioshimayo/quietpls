@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     });
   },
   getCaptureStatus: () => ipcRenderer.invoke("get-capture-status"),
+  getInputTransports: () => ipcRenderer.invoke("get-input-transports"),
   onCaptureStatus: (callback) => {
     ipcRenderer.on("capture-status", (event, status) => {
       callback(status);
