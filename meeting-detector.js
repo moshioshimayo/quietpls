@@ -73,6 +73,7 @@ function createMeetingDetector({
   let lastDetectedApps = [];
   let callbacks = [];
   let destroyed = false;
+  let generation = 0; // bumped by stop(): results of older polls are dropped
 
   function fireCallback(data) {
     for (const cb of callbacks) {
@@ -86,9 +87,10 @@ function createMeetingDetector({
 
   async function poll() {
     if (destroyed) return;
+    const gen = generation;
     try {
       const users = await pollMicUsers(helperPath, timeoutMs, _execFile);
-      if (destroyed) return;
+      if (destroyed || gen !== generation) return;
 
       const own = new Set(getOwnPids());
       const apps = [
@@ -124,6 +126,7 @@ function createMeetingDetector({
         }, graceMs);
       }
     } catch (err) {
+      if (gen !== generation) return;
       if (!err.killed) {
         // Helper missing, or it can't run (macOS < 14): detection is unavailable.
         console.warn(
@@ -145,10 +148,20 @@ function createMeetingDetector({
     pollTimer = setInterval(poll, pollIntervalMs);
   }
 
+  /** Stop polling and end any detection (listeners get detected:false). */
   function stop() {
+    generation++;
     if (pollTimer !== null) {
       clearInterval(pollTimer);
       pollTimer = null;
+    }
+    if (graceTimeout) {
+      clearTimeout(graceTimeout);
+      graceTimeout = null;
+    }
+    if (lastDetectedApps.length > 0) {
+      lastDetectedApps = [];
+      if (!destroyed) fireCallback({ detected: false, apps: [] });
     }
   }
 

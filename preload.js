@@ -83,6 +83,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("meeting-detection-changed", (event, data) =>
       callback(data),
     ),
+  getMeetingDetection: () => ipcRenderer.invoke("get-meeting-detection"),
   getMeetingDetectionEnabled: () =>
     ipcRenderer.invoke("get-meeting-detection-enabled"),
   setMeetingDetectionEnabled: (enabled) =>

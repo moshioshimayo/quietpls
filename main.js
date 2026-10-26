@@ -685,6 +685,15 @@ app.whenReady().then(async () => {
     }
   });
 
+  // The widget asks once its listener is in place, so a call already running
+  // at launch (detected before the window loaded) still starts monitoring.
+  ipcMain.handle("get-meeting-detection", function () {
+    return {
+      detected: meetingDetector.isDetected(),
+      apps: meetingDetector.getDetectedApps(),
+    };
+  });
+
   ipcMain.handle("get-meeting-detection-enabled", function () {
     return generalSettingsStore
       ? generalSettingsStore.get("meetingDetection", MEETING_DETECTION_DEFAULT)

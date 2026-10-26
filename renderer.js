@@ -352,27 +352,36 @@ if (typeof window === "undefined") {
     // A call started (another app took the mic): start monitoring, unless
     // the user stopped it during this call. When the call ends, stop again
     // only if the call is what started it.
-    if (window.electronAPI.onMeetingDetectionChanged) {
-      window.electronAPI.onMeetingDetectionChanged(async function (data) {
-        meetingDetected = data.detected;
-        if (data.detected) {
-          if (isMonitoring || manualStopDuringMeeting) return;
-          autoStartedForMeeting = true;
-          try {
-            await window.electronAPI.widgetTransition("expanded");
-            await startMonitoring();
-          } catch (err) {
-            autoStartedForMeeting = false;
-            await window.electronAPI.widgetTransition("compact");
-          }
-        } else {
-          manualStopDuringMeeting = false;
-          if (isMonitoring && autoStartedForMeeting) {
-            await finalizeAndShowSessionComplete();
-          }
+    async function onMeetingDetection(data) {
+      meetingDetected = data.detected;
+      if (data.detected) {
+        if (isMonitoring || manualStopDuringMeeting) return;
+        autoStartedForMeeting = true;
+        try {
+          await window.electronAPI.widgetTransition("expanded");
+          await startMonitoring();
+        } catch (err) {
           autoStartedForMeeting = false;
+          await window.electronAPI.widgetTransition("compact");
         }
-      });
+      } else {
+        // Take ownership before awaiting, so a call that starts meanwhile
+        // owns its own run.
+        const owned = autoStartedForMeeting;
+        autoStartedForMeeting = false;
+        manualStopDuringMeeting = false;
+        if (isMonitoring && owned) await finalizeAndShowSessionComplete();
+      }
+    }
+    if (
+      window.electronAPI.onMeetingDetectionChanged &&
+      window.electronAPI.getMeetingDetection
+    ) {
+      window.electronAPI.onMeetingDetectionChanged(onMeetingDetection);
+      window.electronAPI
+        .getMeetingDetection()
+        .then((data) => data && data.detected && onMeetingDetection(data))
+        .catch(() => {});
     }
   }
 

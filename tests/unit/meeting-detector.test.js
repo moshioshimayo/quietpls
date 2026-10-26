@@ -278,6 +278,72 @@ describe("meeting-detector", () => {
       detector.destroy();
     });
 
+    it("should end an ongoing detection on stop (toggle turned off mid-call)", async () => {
+      const onChange = vi.fn();
+      mockMicUsers([ZOOM_LINE]);
+      const detector = makeDetector({ graceMs: 30000 });
+      detector.onDetectionChange(onChange);
+      detector.start();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(onChange).toHaveBeenLastCalledWith({
+        detected: true,
+        apps: ["us.zoom.xos"],
+      });
+
+      detector.stop();
+      expect(detector.isDetected()).toBe(false);
+      expect(onChange).toHaveBeenLastCalledWith({ detected: false, apps: [] });
+
+      // Re-enabling during the same call reports it afresh
+      detector.start();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(onChange).toHaveBeenCalledTimes(3);
+      expect(onChange).toHaveBeenLastCalledWith({
+        detected: true,
+        apps: ["us.zoom.xos"],
+      });
+
+      detector.destroy();
+    });
+
+    it("should cancel a pending grace period on stop (no late event)", async () => {
+      const onChange = vi.fn();
+      mockMicUsers([ZOOM_LINE]);
+      const detector = makeDetector({ graceMs: 30000 });
+      detector.onDetectionChange(onChange);
+      detector.start();
+      await vi.advanceTimersByTimeAsync(0);
+      mockMicUsers([]);
+      await vi.advanceTimersByTimeAsync(10000); // grace starts
+
+      detector.stop();
+      // Ends now, not when the grace timer would have fired; nothing fires later
+      expect(onChange).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(60000);
+      expect(onChange).toHaveBeenCalledTimes(2);
+
+      detector.destroy();
+    });
+
+    it("should drop the result of a poll that was in flight when stopped", async () => {
+      let finish;
+      execFileStub = vi.fn((_cmd, _args, _opts, callback) => {
+        finish = () => callback(null, ZOOM_LINE);
+      });
+      const onChange = vi.fn();
+      const detector = makeDetector();
+      detector.onDetectionChange(onChange);
+      detector.start();
+      detector.stop();
+      finish();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(detector.isDetected()).toBe(false);
+      expect(onChange).not.toHaveBeenCalled();
+
+      detector.destroy();
+    });
+
     it("should resume polling after stop then start", async () => {
       mockMicUsers([]);
       const detector = makeDetector();
