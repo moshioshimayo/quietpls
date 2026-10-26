@@ -1,24 +1,30 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createRequire } from 'module';
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { createRequire } from "module";
 
 const require = createRequire(import.meta.url);
-const { createMeetingDetector } = require('../../meeting-detector');
+const {
+  createMeetingDetector,
+  parseMicUsers,
+} = require("../../meeting-detector");
+
+const OWN_PID = 100;
+const ZOOM_LINE = "500\tus.zoom.xos";
 
 let execFileStub;
 
 /**
- * Helper: create a mock execFile that calls back with given ps output lines.
+ * Helper: mock the mic-users helper printing these "<pid>\t<bundle>" lines.
  */
-function mockPsOutput(lines) {
+function mockMicUsers(lines) {
   execFileStub = vi.fn((_cmd, _args, _opts, callback) => {
-    callback(null, lines.join('\n'));
+    callback(null, lines.join("\n"));
   });
 }
 
 /**
  * Helper: create a mock execFile that calls back with an error.
  */
-function mockPsError(err) {
+function mockHelperError(err) {
   execFileStub = vi.fn((_cmd, _args, _opts, callback) => {
     callback(err);
   });
@@ -33,16 +39,18 @@ function makeDetector(opts = {}) {
     pollIntervalMs: 10000,
     graceMs: 0,
     timeoutMs: 3000,
+    getOwnPids: () => [OWN_PID],
     ...opts,
     _execFile: (...args) => execFileStub(...args),
   });
 }
 
-describe('meeting-detector', () => {
+describe("meeting-detector", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
     execFileStub = vi.fn((_cmd, _args, _opts, callback) => {
-      callback(null, '');
+      callback(null, "");
     });
   });
 
@@ -52,11 +60,11 @@ describe('meeting-detector', () => {
   });
 
   // ----------------------------------------------------------------
-  // Process detection
+  // Mic-use detection
   // ----------------------------------------------------------------
-  describe('process detection', () => {
-    it('should detect Zoom (zoom.us in ps output)', async () => {
-      mockPsOutput(['zoom.us', 'loginwindow', 'Finder']);
+  describe("mic-use detection", () => {
+    it("should detect another app using the mic", async () => {
+      mockMicUsers([ZOOM_LINE]);
       const detector = makeDetector();
       const onChange = vi.fn();
       detector.onDetectionChange(onChange);
@@ -65,14 +73,17 @@ describe('meeting-detector', () => {
       await vi.advanceTimersByTimeAsync(0);
 
       expect(detector.isDetected()).toBe(true);
-      expect(detector.getDetectedApps()).toEqual(['Zoom']);
-      expect(onChange).toHaveBeenCalledWith({ detected: true, apps: ['Zoom'] });
+      expect(detector.getDetectedApps()).toEqual(["us.zoom.xos"]);
+      expect(onChange).toHaveBeenCalledWith({
+        detected: true,
+        apps: ["us.zoom.xos"],
+      });
 
       detector.destroy();
     });
 
-    it('should detect multiple apps simultaneously (zoom.us + Slack)', async () => {
-      mockPsOutput(['zoom.us', 'Slack', 'Finder']);
+    it("should ignore quietpls's own mic use", async () => {
+      mockMicUsers([`${OWN_PID}\tcom.quietpls.app`]);
       const detector = makeDetector();
       const onChange = vi.fn();
       detector.onDetectionChange(onChange);
@@ -80,17 +91,40 @@ describe('meeting-detector', () => {
 
       await vi.advanceTimersByTimeAsync(0);
 
-      expect(detector.isDetected()).toBe(true);
-      const apps = detector.getDetectedApps();
-      expect(apps).toContain('Zoom');
-      expect(apps).toContain('Slack');
-      expect(apps.length).toBe(2);
+      expect(detector.isDetected()).toBe(false);
+      expect(onChange).not.toHaveBeenCalled();
 
       detector.destroy();
     });
 
-    it('should return empty when no meeting apps are running', async () => {
-      mockPsOutput(['loginwindow', 'Finder', 'WindowServer']);
+    it("should ignore Siri / dictation listening (CoreSpeech) but not FaceTime", async () => {
+      mockMicUsers(["547\tcom.apple.CoreSpeech"]);
+      const detector = makeDetector();
+      detector.start();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(detector.isDetected()).toBe(false);
+
+      mockMicUsers(["547\tcom.apple.CoreSpeech", "600\tcom.apple.FaceTime"]);
+      await vi.advanceTimersByTimeAsync(10000);
+      expect(detector.getDetectedApps()).toEqual(["com.apple.FaceTime"]);
+
+      detector.destroy();
+    });
+
+    it("should still detect a call while quietpls is also capturing", async () => {
+      mockMicUsers([`${OWN_PID}\tcom.quietpls.app`, ZOOM_LINE]);
+      const detector = makeDetector();
+      detector.start();
+
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(detector.getDetectedApps()).toEqual(["us.zoom.xos"]);
+
+      detector.destroy();
+    });
+
+    it("should return empty when nothing is using the mic", async () => {
+      mockMicUsers([]);
       const detector = makeDetector();
       const onChange = vi.fn();
       detector.onDetectionChange(onChange);
@@ -104,20 +138,50 @@ describe('meeting-detector', () => {
 
       detector.destroy();
     });
+
+    it("should stop polling when the helper cannot run (e.g. macOS < 14)", async () => {
+      const missing = new Error("spawn ENOENT");
+      missing.code = "ENOENT";
+      mockHelperError(missing);
+      const detector = makeDetector();
+      detector.start();
+
+      await vi.advanceTimersByTimeAsync(30000);
+
+      expect(execFileStub).toHaveBeenCalledTimes(1);
+      expect(detector.isDetected()).toBe(false);
+
+      detector.destroy();
+    });
   });
 
   // ----------------------------------------------------------------
-  // Deduplication
+  // Helper output parsing
   // ----------------------------------------------------------------
-  describe('deduplication', () => {
-    it('should deduplicate zoom.us + CptHost into one "Zoom" entry', async () => {
-      mockPsOutput(['zoom.us', 'CptHost', 'Finder']);
+  describe("parseMicUsers", () => {
+    it("should parse pid and bundle id, tolerating blanks and a missing bundle", () => {
+      expect(parseMicUsers("500\tus.zoom.xos\n\n77\t\n88\n")).toEqual([
+        { pid: 500, bundleId: "us.zoom.xos" },
+        { pid: 77, bundleId: "" },
+        { pid: 88, bundleId: "" },
+      ]);
+    });
+
+    it("should name an app without a bundle id by its pid, deduplicating bundles", async () => {
+      mockMicUsers([
+        "77\t",
+        "500\tcom.google.Chrome",
+        "501\tcom.google.Chrome",
+      ]);
       const detector = makeDetector();
       detector.start();
 
       await vi.advanceTimersByTimeAsync(0);
 
-      expect(detector.getDetectedApps()).toEqual(['Zoom']);
+      expect(detector.getDetectedApps().sort()).toEqual([
+        "com.google.Chrome",
+        "pid 77",
+      ]);
 
       detector.destroy();
     });
@@ -126,10 +190,10 @@ describe('meeting-detector', () => {
   // ----------------------------------------------------------------
   // Callback firing on state change
   // ----------------------------------------------------------------
-  describe('onDetectionChange callback', () => {
-    it('should fire on state change (none -> detected, detected -> none)', async () => {
+  describe("onDetectionChange callback", () => {
+    it("should fire on state change (none -> detected, detected -> none)", async () => {
       const onChange = vi.fn();
-      mockPsOutput(['Finder']);
+      mockMicUsers([]);
       const detector = makeDetector();
       detector.onDetectionChange(onChange);
 
@@ -139,13 +203,16 @@ describe('meeting-detector', () => {
       expect(onChange).not.toHaveBeenCalled();
 
       // Poll 2: Zoom detected
-      mockPsOutput(['zoom.us']);
+      mockMicUsers([ZOOM_LINE]);
       await vi.advanceTimersByTimeAsync(10000);
       expect(onChange).toHaveBeenCalledTimes(1);
-      expect(onChange).toHaveBeenCalledWith({ detected: true, apps: ['Zoom'] });
+      expect(onChange).toHaveBeenCalledWith({
+        detected: true,
+        apps: ["us.zoom.xos"],
+      });
 
       // Poll 3: Zoom gone (graceMs=0 so fires after setTimeout(0))
-      mockPsOutput(['Finder']);
+      mockMicUsers([]);
       await vi.advanceTimersByTimeAsync(10000);
       // Advance to let the setTimeout(0) grace period expire
       await vi.advanceTimersByTimeAsync(1);
@@ -159,11 +226,11 @@ describe('meeting-detector', () => {
   // ----------------------------------------------------------------
   // Timeout handling
   // ----------------------------------------------------------------
-  describe('timeout handling', () => {
-    it('should handle 3s timeout on ps command without crashing', async () => {
-      const timeoutError = new Error('Command timed out');
+  describe("timeout handling", () => {
+    it("should handle 3s timeout on the helper without crashing", async () => {
+      const timeoutError = new Error("Command timed out");
       timeoutError.killed = true;
-      mockPsError(timeoutError);
+      mockHelperError(timeoutError);
 
       const detector = makeDetector();
       const onChange = vi.fn();
@@ -177,7 +244,7 @@ describe('meeting-detector', () => {
       expect(onChange).not.toHaveBeenCalled();
 
       // Should continue polling on next interval
-      mockPsOutput(['zoom.us']);
+      mockMicUsers([ZOOM_LINE]);
       await vi.advanceTimersByTimeAsync(10000);
       expect(detector.isDetected()).toBe(true);
 
@@ -188,9 +255,9 @@ describe('meeting-detector', () => {
   // ----------------------------------------------------------------
   // start()/stop() lifecycle
   // ----------------------------------------------------------------
-  describe('start()/stop() lifecycle', () => {
-    it('should poll on start and stop polling on stop', async () => {
-      mockPsOutput(['Finder']);
+  describe("start()/stop() lifecycle", () => {
+    it("should poll on start and stop polling on stop", async () => {
+      mockMicUsers([]);
       const detector = makeDetector();
       detector.start();
 
@@ -211,8 +278,8 @@ describe('meeting-detector', () => {
       detector.destroy();
     });
 
-    it('should resume polling after stop then start', async () => {
-      mockPsOutput(['Finder']);
+    it("should resume polling after stop then start", async () => {
+      mockMicUsers([]);
       const detector = makeDetector();
       detector.start();
       await vi.advanceTimersByTimeAsync(0);
@@ -234,10 +301,10 @@ describe('meeting-detector', () => {
   // ----------------------------------------------------------------
   // destroy()
   // ----------------------------------------------------------------
-  describe('destroy()', () => {
-    it('should stop polling, clear all timers and listeners', async () => {
+  describe("destroy()", () => {
+    it("should stop polling, clear all timers and listeners", async () => {
       const onChange = vi.fn();
-      mockPsOutput(['zoom.us']);
+      mockMicUsers([ZOOM_LINE]);
       const detector = makeDetector({ graceMs: 30000 });
       detector.onDetectionChange(onChange);
 
@@ -247,7 +314,7 @@ describe('meeting-detector', () => {
       expect(onChange).toHaveBeenCalledTimes(1);
 
       // Remove Zoom — grace period starts
-      mockPsOutput(['Finder']);
+      mockMicUsers([]);
       await vi.advanceTimersByTimeAsync(10000);
 
       // Destroy before grace period expires
@@ -262,10 +329,10 @@ describe('meeting-detector', () => {
   // ----------------------------------------------------------------
   // Grace period
   // ----------------------------------------------------------------
-  describe('grace period', () => {
-    it('should persist detection for graceMs after last meeting app closes', async () => {
+  describe("grace period", () => {
+    it("should persist detection for graceMs after last meeting app closes", async () => {
       const onChange = vi.fn();
-      mockPsOutput(['zoom.us']);
+      mockMicUsers([ZOOM_LINE]);
       const detector = makeDetector({ graceMs: 30000 });
       detector.onDetectionChange(onChange);
 
@@ -276,7 +343,7 @@ describe('meeting-detector', () => {
       expect(onChange).toHaveBeenCalledTimes(1);
 
       // Zoom closes
-      mockPsOutput(['Finder']);
+      mockMicUsers([]);
       await vi.advanceTimersByTimeAsync(10000);
 
       // Still detected during grace period
@@ -296,9 +363,9 @@ describe('meeting-detector', () => {
       detector.destroy();
     });
 
-    it('should cancel grace period if meeting app returns before it expires', async () => {
+    it("should cancel grace period if meeting app returns before it expires", async () => {
       const onChange = vi.fn();
-      mockPsOutput(['zoom.us']);
+      mockMicUsers([ZOOM_LINE]);
       const detector = makeDetector({ graceMs: 30000 });
       detector.onDetectionChange(onChange);
 
@@ -308,11 +375,11 @@ describe('meeting-detector', () => {
       expect(onChange).toHaveBeenCalledTimes(1);
 
       // Zoom closes — grace period starts
-      mockPsOutput(['Finder']);
+      mockMicUsers([]);
       await vi.advanceTimersByTimeAsync(10000);
 
       // Zoom comes back within grace period
-      mockPsOutput(['zoom.us']);
+      mockMicUsers([ZOOM_LINE]);
       await vi.advanceTimersByTimeAsync(10000);
 
       // Should still be detected, grace cancelled

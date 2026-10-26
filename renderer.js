@@ -160,6 +160,7 @@ if (typeof window === "undefined") {
   // Meeting detection state (US-017)
   let meetingDetected = false;
   let manualStopDuringMeeting = false;
+  let autoStartedForMeeting = false; // this run was started by a call
 
   // Calibration: the live attempt and the saved record for the captured mic.
   let calibrationManager = null;
@@ -348,15 +349,28 @@ if (typeof window === "undefined") {
       }
     });
 
-    // Meeting detection indicator on compact pill (US-017)
+    // A call started (another app took the mic): start monitoring, unless
+    // the user stopped it during this call. When the call ends, stop again
+    // only if the call is what started it.
     if (window.electronAPI.onMeetingDetectionChanged) {
-      window.electronAPI.onMeetingDetectionChanged(function (data) {
+      window.electronAPI.onMeetingDetectionChanged(async function (data) {
         meetingDetected = data.detected;
-        if (data.detected && !isMonitoring && !manualStopDuringMeeting) {
-          if (compactPill) compactPill.classList.add("meeting-detected");
+        if (data.detected) {
+          if (isMonitoring || manualStopDuringMeeting) return;
+          autoStartedForMeeting = true;
+          try {
+            await window.electronAPI.widgetTransition("expanded");
+            await startMonitoring();
+          } catch (err) {
+            autoStartedForMeeting = false;
+            await window.electronAPI.widgetTransition("compact");
+          }
         } else {
-          if (compactPill) compactPill.classList.remove("meeting-detected");
-          if (!data.detected) manualStopDuringMeeting = false;
+          manualStopDuringMeeting = false;
+          if (isMonitoring && autoStartedForMeeting) {
+            await finalizeAndShowSessionComplete();
+          }
+          autoStartedForMeeting = false;
         }
       });
     }
@@ -1002,8 +1016,9 @@ if (typeof window === "undefined") {
    * to the sessionComplete widget state.
    */
   async function finalizeAndShowSessionComplete() {
-    // US-017: Track manual stop during meeting to suppress re-prompting
+    // A stop during a call holds until that call ends (no auto-restart).
     if (meetingDetected) manualStopDuringMeeting = true;
+    autoStartedForMeeting = false;
 
     // Stop audio monitoring first
     stopMonitoring();

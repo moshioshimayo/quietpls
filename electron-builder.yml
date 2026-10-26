@@ -20,6 +20,11 @@ files:
   - "*.css"
   - "assets/**/*"
   - "!assets/entitlements.mac.plist"
+# Native helper that lists which apps are using the mic (meeting-detector.js).
+# Built by scripts/build-native.sh (predist).
+extraResources:
+  - from: bin/mic-users
+    to: mic-users
 directories:
   output: dist
 publish:
