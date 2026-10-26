@@ -1,17 +1,16 @@
 // Shared configuration module for quietpls
 // Default settings and store names in one place.
 
-// Acoustic research–based defaults (see docs/specs and README):
-// <=30 dB calm/quiet, <=50 normal, <=78 loud-but-ok, >78 too loud.
-const defaultThresholds = {
-  quietThreshold: 30,
-  normalThreshold: 50,
-  warningThreshold: 78,
+// Zones are relative to each mic's calibrated normal voice (see level-logic.js):
+// yellow at +6 dB, red at +10 dB. Sensitivity (-4..+4 dB) shifts both.
+const defaultSettings = {
+  sensitivity: 0,
+  audioDeviceId: "",
 };
 
 const SETTINGS_STORE = "quietpls-settings";
 
 module.exports = {
-  defaultThresholds,
+  defaultSettings,
   SETTINGS_STORE,
 };

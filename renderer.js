@@ -1,37 +1,9 @@
 // Main window renderer - just the floating pill
 
-// ---- Pure helper functions (US-009) — no DOM/window dependencies ----
+// Zone decisions and units live in level-logic.js (window.LevelLogic): levels
+// are shown relative to the user's calibrated normal, never as acoustic dB.
 
-/**
- * Derive the volume zone and label from the normalized volume and current config.
- * Pure function — exported for testing.
- * @param {number} normalizedVolume — 0–100
- * @param {{ quietThreshold: number, normalThreshold: number, warningThreshold: number }} thresholds
- * @returns {{ zone: string, label: string }}
- */
-function deriveVolumeZone(normalizedVolume, thresholds) {
-  if (normalizedVolume < thresholds.quietThreshold) {
-    return { zone: "quiet", label: "Speak up" };
-  } else if (normalizedVolume < thresholds.normalThreshold) {
-    return { zone: "normal", label: "Good" };
-  } else if (normalizedVolume < thresholds.warningThreshold) {
-    return { zone: "warning", label: "Loud" };
-  }
-  return { zone: "danger", label: "Too loud!" };
-}
-
-/**
- * Convert a normalized 0–100 volume into an approximate dB SPL string.
- * Pure function — exported for testing.
- * @param {number} normalizedVolume — 0–100
- * @returns {string} e.g. "-42 dB" or "-- dB" when silent
- */
-function volumeToDbString(normalizedVolume) {
-  if (normalizedVolume <= 0) return "-- dB";
-  // Map 0–100 to a 30–100 dB SPL-like scale (louder = bigger number)
-  const db = Math.round(30 + (normalizedVolume / 100) * 70);
-  return db + " dB";
-}
+// ---- Pure helper functions — no DOM/window dependencies ----
 
 /**
  * Format a duration in seconds to a human-readable string.
@@ -56,8 +28,8 @@ function formatDuration(durationSec) {
  * Exported for testing.
  */
 const ALERT_THRESHOLDS = Object.freeze({
-  LOUD_TRIGGER_MS: 3000, // 3 seconds of continuous loud/danger before alert triggers
-  QUIET_DISMISS_MS: 5000, // 5 seconds below loud before auto-dismiss
+  LOUD_TRIGGER_MS: 3000, // 3 seconds of continuous "too loud" (red) before alert triggers
+  QUIET_DISMISS_MS: 5000, // 5 seconds below red before auto-dismiss
   UPDATE_INTERVAL_MS: 50, // expected interval between updateDisplay calls
 });
 
@@ -82,12 +54,13 @@ function createAlertTracker(opts) {
    * Update the tracker with the current volume zone and timestamp.
    * Returns an action string: 'trigger-alert', 'dismiss-alert', or 'none'.
    *
-   * @param {string} zone — 'quiet' | 'normal' | 'warning' | 'danger'
+   * @param {string} zone — a level-logic zone ('silent' | 'normal' | 'warning' | 'danger' | ...)
    * @param {number} now — current timestamp (ms), e.g. Date.now()
    * @returns {'trigger-alert' | 'dismiss-alert' | 'none'}
    */
   function update(zone, now) {
-    const isLoud = zone === "warning" || zone === "danger";
+    // The "TOO LOUD" alert is red only; yellow is shown as "getting loud".
+    const isLoud = zone === "danger";
 
     if (!isInAlert) {
       // Track consecutive loud time
@@ -159,27 +132,9 @@ function createAlertTracker(opts) {
   };
 }
 
-// ---- Pure helper functions (US-023) — resource throttle utilities ----
-
-/**
- * Detect whether audio input is idle.
- * Pure function — mirrors resource-throttle.js isIdleAudio.
- * @param {number} volume
- * @param {number} idleThreshold
- * @param {number} idleDurationMs
- * @param {number} elapsedSilenceMs
- * @returns {boolean}
- */
-function isIdleAudio(volume, idleThreshold, idleDurationMs, elapsedSilenceMs) {
-  if (volume >= idleThreshold) return false;
-  return elapsedSilenceMs >= idleDurationMs;
-}
-
 // Export pure functions for testing (Node.js / vitest)
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
-    deriveVolumeZone,
-    volumeToDbString,
     createAlertTracker,
     ALERT_THRESHOLDS,
     formatDuration,
@@ -193,39 +148,35 @@ if (typeof window === "undefined") {
   // Begin renderer-only code (wrapped in else block for clarity; no actual nesting needed
   // since the Node.js branch would have already exported and won't execute DOM code)
 
-  let audioContext = null;
-  let microphone = null;
-  let mediaStream = null; // Store stream separately for reliable cleanup
-  let workletNode = null;
-  let analyserNode = null;
+  const LL = window.LevelLogic;
+
+  // Capture (mic, nodes, health) is owned by one controller per monitoring run.
+  let capture = null;
+  let captureStatus = null;
   let isMonitoring = false;
-  let averageVolume = 0;
+  let lastDecision = null;
   let _autoCollapseTimer = null;
 
   // Meeting detection state (US-017)
   let meetingDetected = false;
   let manualStopDuringMeeting = false;
 
-  // Calibration manager instance (US-010)
+  // Calibration: the live attempt and the saved record for the captured mic.
   let calibrationManager = null;
+  let calibration = null; // { baselineDb, calibratedAt, ... } or null
+  let calibrationDeviceId = null; // real device id the record belongs to
+  let forceCalibration = false; // next device lookup recalibrates
 
   // ---- Performance management state (US-023) ----
   let perfTargetFps = 30; // Current target FPS (adjusted dynamically)
   let perfLastFrameTime = 0; // Timestamp of last rendered frame
-  let perfSilenceStart = null; // When silence began (for idle detection)
+  let perfSilenceStart = null; // When speech stopped (for idle detection)
   let perfIsIdle = false; // Whether audio is currently idle
-  const PERF_IDLE_THRESHOLD = 2; // Volume below this is "silent"
-  const PERF_IDLE_DURATION = 30000; // 30 seconds of silence → idle
+  const PERF_IDLE_DURATION = 30000; // 30 seconds without speech → idle
 
-  // Configuration with defaults from shared config (via preload)
-  const defaults = window.electronAPI.defaultThresholds;
+  // Settings pushed by the main process (single source of truth).
   let config = {
-    quietThreshold: defaults.quietThreshold,
-    normalThreshold: defaults.normalThreshold,
-    warningThreshold: defaults.warningThreshold,
-    updateInterval: 50,
-    minDecibels: -90,
-    maxDecibels: -10,
+    sensitivity: 0,
     audioDeviceId: "",
   };
 
@@ -262,8 +213,8 @@ if (typeof window === "undefined") {
     sessionCompletePanel = document.getElementById("sessionCompletePanel");
     sessionCloseBtn = document.getElementById("sessionCloseBtn");
 
-    // Load saved settings
-    loadSettings();
+    // Pre-2.1 renderer copy of score thresholds; no longer meaningful.
+    localStorage.removeItem("voiceMonitorSettings");
 
     // Setup event listeners
     setupEventListeners();
@@ -350,14 +301,23 @@ if (typeof window === "undefined") {
     // Listen for initial monitoring status
     window.electronAPI.onMonitoringStatus((status) => {
       if (status) {
-        startMonitoring();
+        startMonitoring().catch(() => {});
       }
     });
 
-    // Listen for settings updates
+    // Settings from main: sensitivity applies immediately; a new mic is
+    // reacquired right away (with its own calibration).
     window.electronAPI.onSettingsUpdated((settings) => {
-      config = { ...config, ...settings };
-      saveSettings();
+      const previousDevice = config.audioDeviceId || "";
+      config = {
+        sensitivity: LL.clampSensitivity(settings && settings.sensitivity),
+        audioDeviceId: (settings && settings.audioDeviceId) || "",
+      };
+      if (sessionTracker) sessionTracker.setThresholds(sessionThresholds());
+      if (capture && config.audioDeviceId !== previousDevice) {
+        console.log("[capture] mic selection changed — reacquiring");
+        capture.setDevice(config.audioDeviceId).catch(() => {});
+      }
     });
 
     // Listen for widget state changes from the state machine (US-006, US-024)
@@ -366,12 +326,25 @@ if (typeof window === "undefined") {
     });
 
     // Handle trigger-recalibration IPC from context menu (US-010)
-    window.electronAPI.onTriggerRecalibration(function () {
-      if (calibrationManager) {
-        console.log("[calibration] Recalibration triggered from context menu");
-        var calDeviceId = config.audioDeviceId || "default";
-        calibrationManager.reset();
-        registerCalibrationCallback(calDeviceId);
+    // Recalibrate (context menu or Settings): run the guided calibration live.
+    window.electronAPI.onTriggerRecalibration(async function () {
+      console.log("[calibration] Recalibration requested");
+      if (!isMonitoring) {
+        await window.electronAPI.widgetTransition("expanded");
+        await startMonitoring({ recalibrate: true }).catch(() => {});
+        return;
+      }
+      if (
+        captureStatus &&
+        captureStatus.state === "running" &&
+        captureStatus.device
+      ) {
+        calibrationDeviceId = captureStatus.device.deviceId;
+        beginCalibration();
+      } else {
+        // Not capturing right now; calibrate as soon as the mic is back.
+        forceCalibration = true;
+        calibrationDeviceId = null;
       }
     });
 
@@ -483,266 +456,400 @@ if (typeof window === "undefined") {
     });
   }
 
-  function loadSettings() {
-    const saved = localStorage.getItem("voiceMonitorSettings");
-    if (saved) {
-      try {
-        const settings = JSON.parse(saved);
-        config = { ...config, ...settings };
-      } catch (e) {
-        console.error("Failed to load settings:", e);
-      }
-    }
-  }
-
-  function saveSettings() {
-    localStorage.setItem(
-      "voiceMonitorSettings",
-      JSON.stringify({
-        quietThreshold: config.quietThreshold,
-        normalThreshold: config.normalThreshold,
-        warningThreshold: config.warningThreshold,
-      }),
-    );
-  }
-
   async function toggleMonitoring() {
     if (isMonitoring) {
       // Re-expand so the user can see controls and click stop
       await window.electronAPI.widgetTransition("expanded");
-      // Auto-collapse back to compact if they don't interact
-      if (_autoCollapseTimer) clearTimeout(_autoCollapseTimer);
-      _autoCollapseTimer = setTimeout(async () => {
-        _autoCollapseTimer = null;
-        if (isMonitoring) {
-          await window.electronAPI.widgetTransition("compact");
-        }
-      }, 5000);
+      // A click while the mic is unavailable also retries it now.
+      if (capture && captureStatus && captureStatus.state === "unavailable") {
+        capture.retry().catch(() => {});
+      }
+      scheduleAutoCollapse(5000);
     } else {
       // Try to transition widget to expanded state
       await window.electronAPI.widgetTransition("expanded");
-      // Start monitoring (notifies main process on success)
-      await startMonitoring();
+      try {
+        await startMonitoring();
+      } catch (err) {
+        await window.electronAPI.widgetTransition("compact");
+      }
     }
   }
 
-  async function startMonitoring() {
-    console.log("Starting monitoring...");
+  // ---- Monitoring: capture → one zone decision → pill, tray, session ----
 
-    // Create session tracker for this monitoring session
+  function workletUrl() {
+    // When running from ASAR, unpacked files are at app.asar.unpacked/
+    return window.location.href.includes("app.asar")
+      ? "../app.asar.unpacked/volume-processor.js"
+      : "volume-processor.js";
+  }
+
+  function currentContext() {
+    return {
+      captureState: captureStatus ? captureStatus.state : "starting",
+      calibrating: !!(calibrationManager && calibrationManager.isCalibrating()),
+      baselineDb: calibration ? calibration.baselineDb : null,
+      sensitivity: config.sensitivity,
+    };
+  }
+
+  function sessionThresholds() {
+    return {
+      baselineDb: calibration ? calibration.baselineDb : undefined,
+      sensitivity: config.sensitivity,
+      margins: LL.marginsFor(config.sensitivity),
+    };
+  }
+
+  async function startMonitoring(options) {
+    if (isMonitoring) return;
+    console.log("Starting monitoring...");
+    forceCalibration = !!(options && options.recalibrate);
+
     if (window.SessionTracker) {
       sessionTracker = window.SessionTracker.createSessionTracker({
-        quietThreshold: config.quietThreshold,
-        normalThreshold: config.normalThreshold,
-        warningThreshold: config.warningThreshold,
+        algorithmVersion: LL.ALGORITHM_VERSION,
+        ...sessionThresholds(),
       });
     }
+    calibrationManager = window.CalibrationManager.createCalibrationManager();
+    calibration = null;
+    calibrationDeviceId = null;
+    captureStatus = null;
 
-    // Initialize calibration manager (US-010)
-    if (window.CalibrationManager) {
-      var calDeviceId = config.audioDeviceId || "default";
-      var cachedCal = await window.electronAPI.getCalibration(calDeviceId);
-      calibrationManager = window.CalibrationManager.createCalibrationManager({
-        cachedCalibration: cachedCal || null,
-      });
+    capture = window.CaptureController.createCaptureController({
+      mediaDevices: navigator.mediaDevices,
+      createAudioContext: () =>
+        new (window.AudioContext || window.webkitAudioContext)(),
+      createWorkletNode: (ctx) => new AudioWorkletNode(ctx, "volume-processor"),
+      workletUrl: workletUrl(),
+      withAnalyser: true,
+      onFrame: handleFrame,
+      onStatus: handleCaptureStatus,
+      log: (m) => console.log(m),
+    });
 
-      // If cached thresholds exist, apply them to config immediately
-      if (cachedCal && cachedCal.thresholds) {
-        config.quietThreshold = cachedCal.thresholds.quiet;
-        config.normalThreshold = cachedCal.thresholds.normal;
-        config.warningThreshold = cachedCal.thresholds.warning;
-      }
-
-      // Register onComplete callback to swap thresholds and persist (US-011)
-      registerCalibrationCallback(calDeviceId);
+    // Monitoring is on from here: a missing mic shows as unavailable/retrying.
+    isMonitoring = true;
+    if (statusElement) statusElement.textContent = "Starting…";
+    if (compactPill) {
+      compactPill.classList.add("monitoring");
+      compactPill.classList.remove("animate-breathing");
+      compactPill.classList.remove("meeting-detected"); // US-017
     }
+    const pillCanvas = document.getElementById("pillWaveformCanvas");
+    if (window.PillWaveform && pillCanvas) {
+      window.PillWaveform.start(pillCanvas);
+    }
+    window.electronAPI.setMonitoring(true);
 
     try {
-      // Build audio constraints, including device selection if set
-      const audioConstraints = {
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false,
-      };
-
-      if (config.audioDeviceId) {
-        audioConstraints.deviceId = { exact: config.audioDeviceId };
-      }
-
-      // Get user permission for microphone
-      let stream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: audioConstraints,
-        });
-      } catch (deviceError) {
-        // If specific device failed, fall back to system default
-        if (
-          config.audioDeviceId &&
-          (deviceError.name === "NotFoundError" ||
-            deviceError.name === "OverconstrainedError")
-        ) {
-          console.warn(
-            "Selected audio device unavailable, falling back to system default",
-          );
-          stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: false,
-              noiseSuppression: false,
-              autoGainControl: false,
-            },
-          });
-        } else {
-          throw deviceError;
-        }
-      }
-
-      console.log("Microphone access granted");
-
-      // Store the stream globally for reliable cleanup
-      mediaStream = stream;
-
-      // Create audio context and load AudioWorklet processor
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      // When running from ASAR, unpacked files are at app.asar.unpacked/
-      // In dev or non-ASAR builds, the file is in the same directory as index.html
-      const workletPath = window.location.href.includes("app.asar")
-        ? "../app.asar.unpacked/volume-processor.js"
-        : "volume-processor.js";
-      await audioContext.audioWorklet.addModule(workletPath);
-      microphone = audioContext.createMediaStreamSource(stream);
-
-      // Create AudioWorklet node (replaces ScriptProcessorNode + AnalyserNode)
-      workletNode = new AudioWorkletNode(audioContext, "volume-processor");
-
-      // Receive volume data from the worklet and apply smoothing
-      workletNode.port.onmessage = function (event) {
-        const volume = event.data.volume;
-        averageVolume = volume;
-
-        // ---- Idle detection (US-023) ----
-        const now = performance.now();
-        if (averageVolume >= PERF_IDLE_THRESHOLD) {
-          perfSilenceStart = null;
-          if (perfIsIdle) {
-            perfIsIdle = false;
-            perfTargetFps = 30;
-            console.log("[perf] Audio resumed — exiting idle mode");
-            // Resume FFT visualization
-            const fftCanvas = document.getElementById("fftCanvas");
-            if (window.FFTVisualizer && fftCanvas && analyserNode) {
-              window.FFTVisualizer.startVisualization(analyserNode, fftCanvas);
-            }
-          }
-        } else {
-          if (perfSilenceStart === null) perfSilenceStart = now;
-          if (
-            !perfIsIdle &&
-            isIdleAudio(
-              averageVolume,
-              PERF_IDLE_THRESHOLD,
-              PERF_IDLE_DURATION,
-              now - perfSilenceStart,
-            )
-          ) {
-            perfIsIdle = true;
-            perfTargetFps = 5;
-            console.log("[perf] Audio idle — reducing resource usage");
-            // Pause FFT rendering to save CPU
-            if (window.FFTVisualizer) {
-              window.FFTVisualizer.stopVisualization();
-            }
-          }
-        }
-
-        // Feed volume to session tracker BEFORE frame throttling —
-        // session detection needs every sample, not just rendered frames
-        if (sessionTracker) {
-          sessionTracker.recordVolume(averageVolume);
-        }
-
-        // Feed volume to calibration manager (US-010)
-        if (calibrationManager && !calibrationManager.isCalibrated()) {
-          calibrationManager.addSample(averageVolume);
-        }
-
-        // ---- Frame throttling (US-023) ----
-        if (
-          perfTargetFps > 0 &&
-          perfLastFrameTime > 0 &&
-          now - perfLastFrameTime < 1000 / perfTargetFps
-        ) {
-          return; // Skip this frame to hit target FPS
-        }
-        perfLastFrameTime = now;
-
-        // Update display
-        updateDisplay(averageVolume);
-
-        // Send volume to settings window if open
-        window.electronAPI.sendVolumeUpdate(averageVolume);
-      };
-
-      // Create AnalyserNode for FFT frequency analysis (used by visualizer in US-008)
-      analyserNode = audioContext.createAnalyser();
-      analyserNode.fftSize = 512;
-      analyserNode.smoothingTimeConstant = 0.8;
-
-      // Connect: microphone -> workletNode (RMS), microphone -> analyserNode (FFT)
-      // Neither is connected to destination (no playback/feedback)
-      microphone.connect(workletNode);
-      microphone.connect(analyserNode);
-
-      // Update UI state
-      isMonitoring = true;
-      if (statusElement) statusElement.textContent = "Monitoring";
-
-      // Start FFT visualization (US-008)
-      const fftCanvas = document.getElementById("fftCanvas");
-      if (window.FFTVisualizer && fftCanvas && analyserNode) {
-        window.FFTVisualizer.startVisualization(analyserNode, fftCanvas);
-      }
-
-      // Mark compact pill as monitoring and start waveform
-      if (compactPill) {
-        compactPill.classList.add("monitoring");
-        compactPill.classList.remove("animate-breathing");
-        compactPill.classList.remove("meeting-detected"); // US-017: remove meeting indicator when monitoring starts
-      }
-      const pillCanvas = document.getElementById("pillWaveformCanvas");
-      if (window.PillWaveform && pillCanvas) {
-        window.PillWaveform.start(pillCanvas);
-      }
-
-      // Notify main process that monitoring is active
-      window.electronAPI.setMonitoring(true);
-
-      // Auto-collapse to compact pill with waveform after 3 seconds
-      if (_autoCollapseTimer) clearTimeout(_autoCollapseTimer);
-      _autoCollapseTimer = setTimeout(async () => {
-        _autoCollapseTimer = null;
-        if (isMonitoring) {
-          await window.electronAPI.widgetTransition("compact");
-        }
-      }, 3000);
-
-      console.log("Monitoring started successfully");
+      await capture.start(config.audioDeviceId || "");
     } catch (error) {
+      // Only permission errors reach here; everything else retries.
       console.error("Failed to start monitoring:", error);
-
-      if (
-        error.name === "NotAllowedError" ||
-        error.name === "PermissionDeniedError"
-      ) {
-        alert(
-          "Microphone access denied. Please grant microphone permissions to use quietpls.",
-        );
-      } else {
-        alert("Failed to access microphone: " + error.message);
-      }
-
-      isMonitoring = false;
+      stopMonitoring();
+      window.electronAPI.setMonitoring(false);
+      alert(
+        "Microphone access denied. Please grant microphone permissions to use quietpls.",
+      );
+      throw error;
     }
+    console.log("Monitoring started");
+  }
+
+  function scheduleAutoCollapse(ms) {
+    if (_autoCollapseTimer) clearTimeout(_autoCollapseTimer);
+    _autoCollapseTimer = setTimeout(async () => {
+      _autoCollapseTimer = null;
+      // Stay open while calibrating or while the mic is not working.
+      if (!isMonitoring || needsAttention()) return;
+      await window.electronAPI.widgetTransition("compact");
+    }, ms);
+  }
+
+  function needsAttention() {
+    const z = lastDecision && lastDecision.zone;
+    return (
+      z === "calibrating" ||
+      z === "uncalibrated" ||
+      z === "reconnecting" ||
+      z === "unavailable"
+    );
+  }
+
+  function reportCaptureStatus() {
+    if (!window.electronAPI.reportCaptureStatus) return;
+    const s = captureStatus || { state: "idle" };
+    window.electronAPI.reportCaptureStatus({
+      state: s.state,
+      reason: s.reason || null,
+      fallback: !!s.fallback,
+      device: s.device
+        ? { deviceId: s.device.deviceId, label: s.device.label }
+        : null,
+      calibrating: !!(calibrationManager && calibrationManager.isCalibrating()),
+      calibration: calibration
+        ? {
+            baselineDb: calibration.baselineDb,
+            calibratedAt: calibration.calibratedAt,
+          }
+        : null,
+    });
+  }
+
+  async function handleCaptureStatus(status) {
+    const previous = captureStatus;
+    captureStatus = status;
+    console.log(
+      "[capture] " +
+        status.state +
+        (status.reason ? " (" + status.reason + ")" : ""),
+    );
+
+    if (status.state === "running") {
+      const fftCanvas = document.getElementById("fftCanvas");
+      const analyser = capture && capture.getAnalyser();
+      if (window.FFTVisualizer && fftCanvas && analyser) {
+        window.FFTVisualizer.startVisualization(analyser, fftCanvas);
+      }
+      if (status.reason === "fallback") {
+        showCalibrationNotification(
+          "Selected mic unavailable — using " +
+            (status.device.label || "the default mic"),
+        );
+      }
+      if (status.device && status.device.deviceId !== calibrationDeviceId) {
+        await useCalibrationFor(status.device);
+      }
+      if (!previous || previous.state !== "running") scheduleAutoCollapse(3000);
+    } else if (
+      status.state === "reconnecting" ||
+      status.state === "unavailable"
+    ) {
+      // Make the problem visible: open the panel and drop stale levels.
+      await window.electronAPI.widgetTransition("expanded");
+    }
+    if (status.state !== "running" && status.state !== "idle") {
+      showDecision(LL.decideZone(null, currentContext()), null);
+    }
+    reportCaptureStatus();
+  }
+
+  async function useCalibrationFor(device) {
+    calibrationDeviceId = device.deviceId;
+    calibration = null;
+    let record = null;
+    if (!forceCalibration) {
+      try {
+        record = await window.electronAPI.getCalibration(device.deviceId);
+      } catch (err) {
+        console.warn("[calibration] lookup failed:", err);
+      }
+    }
+    // The device may have changed again while we waited.
+    if (!capture || calibrationDeviceId !== device.deviceId) return;
+    if (window.CalibrationManager.isValidCalibrationRecord(record)) {
+      calibration = record;
+      calibrationManager = window.CalibrationManager.createCalibrationManager();
+      if (sessionTracker) sessionTracker.setThresholds(sessionThresholds());
+      console.log(
+        "[calibration] using saved normal for",
+        device.label,
+        record.baselineDb,
+        "dBFS",
+      );
+    } else {
+      beginCalibration();
+    }
+  }
+
+  function beginCalibration() {
+    forceCalibration = false;
+    calibration = null;
+    calibrationManager = window.CalibrationManager.createCalibrationManager();
+    calibrationManager.start();
+    if (_autoCollapseTimer) clearTimeout(_autoCollapseTimer);
+    window.electronAPI.widgetTransition("expanded");
+    showCalibrationNotification("Talk normally for about 5 seconds");
+    reportCaptureStatus();
+  }
+
+  function handleCalibrationResult(result, device) {
+    if (result.status === "ok") {
+      calibration = window.CalibrationManager.makeCalibrationRecord(
+        result,
+        device,
+      );
+      window.electronAPI.saveCalibration(device.deviceId, calibration);
+      if (sessionTracker) sessionTracker.setThresholds(sessionThresholds());
+      showCalibrationNotification("Calibrated — that's your normal");
+      console.log(
+        "[calibration] normal =",
+        result.baselineDb,
+        "dBFS for",
+        device.label,
+      );
+      reportCaptureStatus();
+      scheduleAutoCollapse(3000);
+      return;
+    }
+    // Retry with a fresh attempt; nothing from the failed one carries over.
+    showCalibrationNotification(
+      result.status === "clipping"
+        ? "Mic is overloading — move back or lower input gain, then talk normally"
+        : "Didn't hear you — talk normally for about 5 seconds",
+    );
+    calibrationManager.start();
+  }
+
+  function handleFrame(msg, device) {
+    if (calibrationManager && calibrationManager.isCalibrating()) {
+      const result = calibrationManager.addFrame(msg);
+      if (result) handleCalibrationResult(result, device);
+    }
+
+    const decision = LL.decideZone(msg, currentContext());
+
+    // Session and alert see every frame; display is throttled below.
+    if (sessionTracker) sessionTracker.recordFrame(decision, msg.frameMs);
+    const alertAction = alertTracker.update(decision.zone, Date.now());
+    if (alertAction === "trigger-alert") {
+      window.electronAPI.widgetTransition("alert");
+    } else if (alertAction === "dismiss-alert") {
+      window.electronAPI.widgetTransition("expanded");
+    }
+
+    // ---- Idle detection (US-023): 30 s without speech pauses the FFT ----
+    const now = performance.now();
+    if (decision.speaking) {
+      perfSilenceStart = null;
+      if (perfIsIdle) {
+        perfIsIdle = false;
+        perfTargetFps = 30;
+        const fftCanvas = document.getElementById("fftCanvas");
+        const analyser = capture && capture.getAnalyser();
+        if (window.FFTVisualizer && fftCanvas && analyser) {
+          window.FFTVisualizer.startVisualization(analyser, fftCanvas);
+        }
+      }
+    } else {
+      if (perfSilenceStart === null) perfSilenceStart = now;
+      if (!perfIsIdle && now - perfSilenceStart >= PERF_IDLE_DURATION) {
+        perfIsIdle = true;
+        perfTargetFps = 5;
+        if (window.FFTVisualizer) window.FFTVisualizer.stopVisualization();
+      }
+    }
+
+    // ---- Frame throttling (US-023) ----
+    if (
+      perfLastFrameTime > 0 &&
+      now - perfLastFrameTime < 1000 / perfTargetFps &&
+      (!lastDecision || lastDecision.zone === decision.zone)
+    ) {
+      return;
+    }
+    perfLastFrameTime = now;
+    showDecision(decision, msg);
+  }
+
+  /**
+   * Render one zone decision everywhere: pill, panel, alert panel, tray and
+   * the Settings meter all receive the same object.
+   */
+  function showDecision(decision, msg) {
+    lastDecision = decision;
+    const visual = LL.zoneToVisual(decision.zone);
+    const lost =
+      decision.zone === "reconnecting" || decision.zone === "unavailable";
+    const level = msg && !lost ? LL.displayLevel(msg.dbfs) : 0;
+    const zoneClasses = [
+      "zone-quiet",
+      "zone-normal",
+      "zone-loud",
+      "zone-danger",
+    ];
+
+    if (window.PillWaveform) {
+      window.PillWaveform.updateVolume(level);
+      window.PillWaveform.setZone(visual);
+    }
+    [compactPill, expandedPanel].forEach((el) => {
+      if (!el) return;
+      el.classList.remove(...zoneClasses);
+      el.classList.add("zone-" + visual);
+      el.classList.toggle("capture-lost", lost);
+    });
+
+    let readout;
+    let label = decision.label;
+    if (decision.speaking) {
+      readout = LL.formatRelativeShort(decision.relDb);
+    } else if (decision.zone === "calibrating") {
+      readout = "Talk normally";
+      label =
+        "Calibrating… " +
+        Math.round(calibrationManager.getProgress() * 100) +
+        "%";
+    } else if (lost) {
+      readout = "Mic";
+      if (
+        decision.zone === "unavailable" &&
+        captureStatus &&
+        captureStatus.reason === "permission"
+      ) {
+        label = "Mic access denied";
+      }
+    } else {
+      readout = "—";
+    }
+    if (dbReadout) {
+      dbReadout.textContent = readout;
+      dbReadout.title = "Level relative to your calibrated normal voice";
+    }
+    if (zoneLabel) zoneLabel.textContent = label;
+
+    const alertDbReadout = document.getElementById("alertDbReadout");
+    if (alertDbReadout) {
+      alertDbReadout.textContent = decision.speaking
+        ? LL.formatRelative(decision.relDb)
+        : "";
+    }
+    if (alertPanel && alertPanel.style.display !== "none") {
+      alertPanel.classList.remove(...zoneClasses);
+      alertPanel.classList.add("zone-" + visual);
+    }
+
+    if (window.FFTVisualizer) window.FFTVisualizer.setVolumeZone(visual);
+
+    // ---- Volume-reactive micro-animations (US-024) ----
+    if (window.MicroAnimations) {
+      const activePanel =
+        expandedPanel && expandedPanel.style.display !== "none"
+          ? expandedPanel
+          : alertPanel && alertPanel.style.display !== "none"
+            ? alertPanel
+            : null;
+      if (activePanel) {
+        window.MicroAnimations.createGlowEffect(activePanel, visual, level);
+        if (decision.zone === "danger") {
+          window.MicroAnimations.pulseOnVolumeSpike(activePanel, 100, 50);
+        }
+      }
+    }
+
+    if (isMonitoring && statusElement) statusElement.textContent = label;
+
+    // One decision for tray and Settings, too.
+    window.electronAPI.sendLevelUpdate({
+      zone: decision.zone,
+      visual,
+      level,
+      relDb: decision.relDb,
+      label,
+    });
   }
 
   // ---- Calibration notification UI (US-011) ----
@@ -751,17 +858,14 @@ if (typeof window === "undefined") {
 
   /**
    * Show a brief non-blocking notification in the expanded panel.
-   * Auto-dismisses after 3 seconds.
+   * Auto-dismisses after 4 seconds.
    * @param {string} text — message to display
    */
   function showCalibrationNotification(text) {
-    // Clear any pending dismiss timer
     if (_calibrationNotificationTimer) {
       clearTimeout(_calibrationNotificationTimer);
       _calibrationNotificationTimer = null;
     }
-
-    // Find or create the notification element inside the expanded panel
     var el = document.getElementById("calibrationNotification");
     if (!el && expandedPanel) {
       el = document.createElement("span");
@@ -774,146 +878,36 @@ if (typeof window === "undefined") {
     el.textContent = text;
     el.style.display = "";
     el.style.opacity = "1";
-
-    // Auto-dismiss after 3 seconds
     _calibrationNotificationTimer = setTimeout(function () {
       el.style.opacity = "0";
-      // Remove from layout after fade
       setTimeout(function () {
         el.style.display = "none";
       }, 300);
       _calibrationNotificationTimer = null;
-    }, 3000);
+    }, 4000);
   }
-
-  /**
-   * Register the onComplete callback for the calibration manager.
-   * Handles edge-case statuses with user notifications (US-011).
-   * @param {string} deviceId — the audio device ID for persistence
-   */
-  function registerCalibrationCallback(deviceId) {
-    if (!calibrationManager) return;
-
-    calibrationManager.onComplete(function (result) {
-      if (result.status === "silent") {
-        showCalibrationNotification("Calibration skipped — no voice detected");
-        console.log("[calibration] Silent input — calibration skipped");
-      } else if (result.status === "muted") {
-        showCalibrationNotification("Mic appears muted. Unmute to calibrate.");
-        console.log("[calibration] Muted mic — calibration skipped");
-      } else if (result.status === "insufficient") {
-        showCalibrationNotification("Not enough audio for calibration.");
-        console.log("[calibration] Insufficient samples — calibration skipped");
-      } else if (result.status === "high-noise") {
-        showCalibrationNotification(
-          "High background noise detected. Thresholds adjusted.",
-        );
-        console.log(
-          "[calibration] High noise — thresholds capped:",
-          result.thresholds,
-        );
-        // Still apply thresholds from capped baseline
-        config.quietThreshold = result.thresholds.quiet;
-        config.normalThreshold = result.thresholds.normal;
-        config.warningThreshold = result.thresholds.warning;
-        window.electronAPI.saveCalibration(
-          deviceId,
-          calibrationManager.getCalibrationData(),
-        );
-      } else if (result.thresholds) {
-        config.quietThreshold = result.thresholds.quiet;
-        config.normalThreshold = result.thresholds.normal;
-        config.warningThreshold = result.thresholds.warning;
-        console.log("[calibration] Thresholds updated:", result.thresholds);
-        window.electronAPI.saveCalibration(
-          deviceId,
-          calibrationManager.getCalibrationData(),
-        );
-      }
-    });
-  }
-
-  // ---- Device switch handling (US-011) ----
-  navigator.mediaDevices.addEventListener("devicechange", async function () {
-    if (!isMonitoring || !calibrationManager) return;
-
-    var newDeviceId = config.audioDeviceId || "default";
-    console.log(
-      "[calibration] Device change detected, checking calibration for:",
-      newDeviceId,
-    );
-
-    try {
-      var cached = await window.electronAPI.getCalibration(newDeviceId);
-      if (cached && cached.thresholds) {
-        config.quietThreshold = cached.thresholds.quiet;
-        config.normalThreshold = cached.thresholds.normal;
-        config.warningThreshold = cached.thresholds.warning;
-        console.log(
-          "[calibration] Loaded cached thresholds for new device:",
-          cached.thresholds,
-        );
-      }
-    } catch (err) {
-      console.warn(
-        "[calibration] Failed to load cached calibration for new device:",
-        err,
-      );
-    }
-
-    // Reset calibration manager to recalibrate for the new device
-    calibrationManager.reset();
-    registerCalibrationCallback(newDeviceId);
-  });
 
   function stopMonitoring() {
     console.log("Stopping monitoring...");
 
-    // Cancel auto-collapse timer if pending
     if (_autoCollapseTimer) {
       clearTimeout(_autoCollapseTimer);
       _autoCollapseTimer = null;
     }
 
-    // First, stop all media stream tracks - this releases the microphone
-    if (mediaStream) {
-      console.log("Stopping media stream tracks...");
-      mediaStream.getTracks().forEach((track) => {
-        console.log(`Stopping track: ${track.kind} - ${track.label}`);
-        track.stop();
-      });
-      mediaStream = null;
+    // Releases the mic, nodes and AudioContext, and cancels any retry.
+    if (capture) {
+      capture.stop();
+      capture = null;
     }
-
-    // Then clean up audio nodes
-    if (audioContext) {
-      if (microphone) {
-        microphone.disconnect();
-      }
-      if (workletNode) {
-        workletNode.disconnect();
-        workletNode.port.onmessage = null;
-      }
-      if (analyserNode) {
-        analyserNode.disconnect();
-      }
-
-      // Close audio context to release all resources
-      audioContext.close().then(() => {
-        console.log("Audio context closed");
-      });
-
-      audioContext = null;
-      microphone = null;
-      workletNode = null;
-      analyserNode = null;
-    }
-
+    captureStatus = null;
     isMonitoring = false;
-    averageVolume = 0;
-
-    // Reset calibration manager (US-010)
     calibrationManager = null;
+    calibration = null;
+    calibrationDeviceId = null;
+    forceCalibration = false;
+    lastDecision = null;
+    reportCaptureStatus();
 
     // Reset performance state (US-023)
     perfLastFrameTime = 0;
@@ -921,28 +915,24 @@ if (typeof window === "undefined") {
     perfIsIdle = false;
     perfTargetFps = 30;
 
-    // Stop FFT visualization with fade-out (US-008)
     if (window.FFTVisualizer) {
       window.FFTVisualizer.stopVisualization();
     }
 
-    // Reset UI
     if (statusElement) statusElement.textContent = "Click to start";
-
-    // Reset expanded panel (US-009)
-    if (dbReadout) dbReadout.textContent = "-- dB";
-    if (zoneLabel) zoneLabel.textContent = "Quiet";
+    if (dbReadout) dbReadout.textContent = "—";
+    if (zoneLabel) zoneLabel.textContent = "Ready";
     if (expandedPanel) {
       expandedPanel.classList.remove(
         "zone-quiet",
         "zone-normal",
         "zone-loud",
         "zone-danger",
+        "capture-lost",
       );
       expandedPanel.classList.add("zone-quiet");
     }
 
-    // Reset alert state (US-010)
     alertTracker.reset();
     if (alertPanel) {
       alertPanel.classList.remove(
@@ -952,7 +942,6 @@ if (typeof window === "undefined") {
       );
     }
 
-    // Reset compact pill to idle state
     if (compactPill) {
       compactPill.classList.remove(
         "monitoring",
@@ -960,132 +949,16 @@ if (typeof window === "undefined") {
         "zone-normal",
         "zone-loud",
         "zone-danger",
+        "capture-lost",
       );
       compactPill.classList.add("animate-breathing");
     }
 
-    // Stop pill waveform
     if (window.PillWaveform) {
       window.PillWaveform.stop();
     }
 
     console.log("Monitoring stopped");
-  }
-
-  function updateDisplay(volume) {
-    // Normalize volume to 0-100 scale
-    const normalizedVolume = Math.min(100, Math.max(0, volume));
-
-    // Determine the zone and label
-    const { zone, label } = deriveVolumeZone(normalizedVolume, config);
-
-    // ---- Pill waveform + zone glow ----
-    if (window.PillWaveform) {
-      window.PillWaveform.updateVolume(normalizedVolume);
-      const vizZone = zone === "warning" ? "loud" : zone;
-      window.PillWaveform.setZone(vizZone);
-    }
-    if (compactPill) {
-      compactPill.classList.remove(
-        "zone-quiet",
-        "zone-normal",
-        "zone-loud",
-        "zone-danger",
-      );
-      const pillZoneClass = zone === "warning" ? "zone-loud" : "zone-" + zone;
-      compactPill.classList.add(pillZoneClass);
-    }
-
-    // ---- Expanded panel updates (US-009) ----
-    if (expandedPanel) {
-      // Update zone class on expanded panel for reactive glow/colors
-      expandedPanel.classList.remove(
-        "zone-quiet",
-        "zone-normal",
-        "zone-loud",
-        "zone-danger",
-      );
-      // Map 'warning' zone to 'loud' design-system class
-      const zoneClass = zone === "warning" ? "zone-loud" : "zone-" + zone;
-      expandedPanel.classList.add(zoneClass);
-    }
-
-    if (dbReadout) {
-      dbReadout.textContent = volumeToDbString(normalizedVolume);
-    }
-
-    // Update alert panel dB readout (US-010)
-    const alertDbReadout = document.getElementById("alertDbReadout");
-    if (alertDbReadout) {
-      alertDbReadout.textContent = volumeToDbString(normalizedVolume);
-    }
-
-    if (zoneLabel) {
-      if (calibrationManager && calibrationManager.isCalibrating()) {
-        zoneLabel.textContent = "Calibrating...";
-      } else {
-        zoneLabel.textContent = label;
-      }
-    }
-
-    // Update FFT visualizer zone color (US-008)
-    if (window.FFTVisualizer) {
-      // Map 'warning' state to 'loud' zone for the visualizer
-      const vizZone = zone === "warning" ? "loud" : zone;
-      window.FFTVisualizer.setVolumeZone(vizZone);
-    }
-
-    // ---- Volume-reactive micro-animations (US-024) ----
-    if (window.MicroAnimations) {
-      const vizZone = zone === "warning" ? "loud" : zone;
-      // Dynamic glow intensity on whichever panel is visible
-      const activePanel =
-        expandedPanel && expandedPanel.style.display !== "none"
-          ? expandedPanel
-          : alertPanel && alertPanel.style.display !== "none"
-            ? alertPanel
-            : null;
-      if (activePanel) {
-        window.MicroAnimations.createGlowEffect(
-          activePanel,
-          vizZone,
-          normalizedVolume,
-        );
-        // Micro-pulse on volume spikes above warning threshold
-        window.MicroAnimations.pulseOnVolumeSpike(
-          activePanel,
-          normalizedVolume,
-          config.warningThreshold,
-        );
-      }
-    }
-
-    // ---- Alert state auto-trigger / auto-dismiss (US-010) ----
-    const alertAction = alertTracker.update(zone, Date.now());
-    if (alertAction === "trigger-alert") {
-      window.electronAPI.widgetTransition("alert");
-    } else if (alertAction === "dismiss-alert") {
-      window.electronAPI.widgetTransition("expanded");
-    }
-
-    // Update alert panel zone class when in alert state
-    if (alertPanel && alertPanel.style.display !== "none") {
-      alertPanel.classList.remove(
-        "zone-quiet",
-        "zone-normal",
-        "zone-loud",
-        "zone-danger",
-      );
-      const alertZoneClass = zone === "warning" ? "zone-loud" : "zone-" + zone;
-      alertPanel.classList.add(alertZoneClass);
-    }
-
-    // Update displays
-    if (isMonitoring) {
-      if (statusElement) {
-        statusElement.textContent = label;
-      }
-    }
   }
 
   // ---- Session Complete Flow (US-014) ----

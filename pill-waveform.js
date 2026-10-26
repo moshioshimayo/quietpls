@@ -17,9 +17,9 @@
 // Design-system zone colours
 // ---------------------------------------------------------------------------
 var ZONE_COLORS = {
-  quiet:  '#f59e0b', // amber (speak up)
+  quiet:  '#9ca3af', // grey (not speaking)
   normal: '#06b6d4', // cyan (you're good)
-  loud:   '#ef4444', // red (too loud)
+  loud:   '#facc15', // yellow (getting loud)
   danger: '#dc2626', // deep red
 };
 

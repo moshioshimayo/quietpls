@@ -1,152 +1,90 @@
-import { describe, it, expect } from 'vitest';
-import { createRequire } from 'module';
+import { describe, it, expect } from "vitest";
+import { createRequire } from "module";
 
 const require = createRequire(import.meta.url);
+const { generateInsights } = require("../../session-insights");
 
-const { generateInsights } = require('../../session-insights');
+const base = {
+  algorithmVersion: 2,
+  startTime: "2026-10-25T12:00:00.000Z",
+  zoneTime: { silent: 300, normal: 80, warning: 10, danger: 10 },
+  volumeSamples: [],
+  peakMoments: [],
+};
 
-/**
- * Helper: build a sessionData object with sensible defaults that can be overridden.
- */
-function makeSession(overrides = {}) {
-  return {
-    zoneTime: { silent: 10, quiet: 20, normal: 50, loud: 20, ...overrides.zoneTime },
-    duration: overrides.duration ?? 300,
-    volumeSamples: overrides.volumeSamples ?? Array(100).fill(50),
-    peakMoments: overrides.peakMoments ?? [{ timestamp: '2026-03-16T10:05:30.000Z', value: 95 }],
-    startTime: overrides.startTime ?? '2026-03-16T10:00:00.000Z',
-    ...overrides,
-  };
-}
-
-describe('session-insights', () => {
-  describe('loud zone insight', () => {
-    it('includes loud zone percentage when loud > 0%', () => {
-      const data = makeSession({ zoneTime: { silent: 0, quiet: 10, normal: 70, loud: 20 } });
-      const insights = generateInsights(data);
-      expect(insights[0]).toMatch(/In your loud zone \d+% of the time/);
-    });
-
-    it('includes "stayed out of the loud zone" when loud = 0%', () => {
-      const data = makeSession({ zoneTime: { silent: 5, quiet: 30, normal: 65, loud: 0 } });
-      const insights = generateInsights(data);
-      expect(insights[0]).toBe('You stayed out of the loud zone entirely');
-    });
+describe("session insights (speaking-time denominators)", () => {
+  it("reports too-loud share of speaking time, not of all time", () => {
+    const out = generateInsights(base);
+    expect(out[0]).toBe("Too loud for 10% of your speaking time");
+    expect(out[1]).toBe("Getting loud for 10% of your speaking time");
   });
 
-  describe('volume trend insight', () => {
-    it('reports louder in second half when avg rises 15%+', () => {
-      // First 50 samples at 40, second 50 at 60 => 50% increase
-      const samples = [...Array(50).fill(40), ...Array(50).fill(60)];
-      const data = makeSession({ volumeSamples: samples });
-      const insights = generateInsights(data);
-      expect(insights).toContain('You got louder in the second half');
+  it("silence does not dilute the result", () => {
+    const quiet = generateInsights({
+      ...base,
+      zoneTime: { ...base.zoneTime, silent: 100000 },
     });
-
-    it('reports quieter toward the end when avg drops 15%+', () => {
-      // First 50 samples at 60, second 50 at 40 => ~33% decrease
-      const samples = [...Array(50).fill(60), ...Array(50).fill(40)];
-      const data = makeSession({ volumeSamples: samples });
-      const insights = generateInsights(data);
-      expect(insights).toContain('You got quieter toward the end');
-    });
-
-    it('reports consistent volume when change is within 15%', () => {
-      // All samples at 50 => 0% change
-      const samples = Array(100).fill(50);
-      const data = makeSession({ volumeSamples: samples });
-      const insights = generateInsights(data);
-      expect(insights).toContain('Your volume was consistent throughout');
-    });
+    expect(quiet[0]).toBe("Too loud for 10% of your speaking time");
   });
 
-  describe('peak moment formatting', () => {
-    it('formats peak as "Loudest at M:SS into the call"', () => {
-      // Peak at 5m 30s into the call
-      const data = makeSession({
-        startTime: '2026-03-16T10:00:00.000Z',
-        peakMoments: [{ timestamp: '2026-03-16T10:05:30.000Z', value: 95 }],
-      });
-      const insights = generateInsights(data);
-      expect(insights).toContain('Loudest at 5:30 into the call');
+  it("says so when red was never reached", () => {
+    const out = generateInsights({
+      ...base,
+      zoneTime: { silent: 10, normal: 100, warning: 0, danger: 0 },
     });
-
-    it('formats peak with zero-padded seconds', () => {
-      // Peak at 2m 5s
-      const data = makeSession({
-        startTime: '2026-03-16T10:00:00.000Z',
-        peakMoments: [{ timestamp: '2026-03-16T10:02:05.000Z', value: 90 }],
-      });
-      const insights = generateInsights(data);
-      expect(insights).toContain('Loudest at 2:05 into the call');
-    });
+    expect(out[0]).toBe("You never hit the too-loud zone");
   });
 
-  describe('overall assessment', () => {
-    it('gives positive assessment when loud < 10%', () => {
-      // loud = 5 out of 100 total => 5%
-      const data = makeSession({
-        zoneTime: { silent: 5, quiet: 30, normal: 60, loud: 5 },
-        volumeSamples: Array(10).fill(50), // too few for trend
-        peakMoments: [],
-      });
-      const insights = generateInsights(data);
-      expect(insights).toContain('Great job keeping it steady!');
-    });
-
-    it('gives constructive assessment when loud >= 30%', () => {
-      // loud = 40 out of 100 total => 40%
-      const data = makeSession({
-        zoneTime: { silent: 0, quiet: 10, normal: 50, loud: 40 },
-        volumeSamples: Array(10).fill(50), // too few for trend
-        peakMoments: [],
-      });
-      const insights = generateInsights(data);
-      expect(insights).toContain('Try to keep it down next time');
-    });
+  it("handles a session with no speech", () => {
+    expect(
+      generateInsights({
+        ...base,
+        zoneTime: { silent: 120, normal: 0, warning: 0, danger: 0 },
+      }),
+    ).toEqual(["No speech detected this session"]);
   });
 
-  describe('max 3 cap', () => {
-    it('never returns more than 3 insights', () => {
-      // Session with all conditions that could produce insights
-      const samples = [...Array(50).fill(30), ...Array(50).fill(60)];
-      const data = makeSession({
-        zoneTime: { silent: 0, quiet: 10, normal: 50, loud: 40 },
-        volumeSamples: samples,
-        peakMoments: [{ timestamp: '2026-03-16T10:05:00.000Z', value: 95 }],
-        startTime: '2026-03-16T10:00:00.000Z',
-      });
-      const insights = generateInsights(data);
-      expect(insights.length).toBeLessThanOrEqual(3);
+  it("detects a dB trend between halves", () => {
+    const zt = { silent: 0, normal: 100, warning: 0, danger: 0 };
+    const louder = generateInsights({
+      ...base,
+      zoneTime: zt,
+      volumeSamples: [...Array(20).fill(0), ...Array(20).fill(4)],
     });
+    expect(louder).toContain("You got louder in the second half");
+    const steady = generateInsights({
+      ...base,
+      zoneTime: zt,
+      volumeSamples: Array(40).fill(1),
+    });
+    expect(steady).toContain("Your level was consistent throughout");
   });
 
-  describe('edge cases', () => {
-    it('returns at least 1 fallback insight for null data', () => {
-      const insights = generateInsights(null);
-      expect(insights.length).toBeGreaterThanOrEqual(1);
-      expect(insights[0]).toBe('Keep monitoring to get more detailed insights');
+  it("names the loudest moment relative to normal", () => {
+    const out = generateInsights({
+      ...base,
+      zoneTime: { silent: 0, normal: 100, warning: 0, danger: 0 },
+      peakMoments: [{ timestamp: "2026-10-25T12:02:05.000Z", value: 11.6 }],
     });
+    expect(out).toContain("Loudest at 2:05: +12 dB above your normal");
+  });
 
-    it('returns at least 1 fallback insight for empty object', () => {
-      const insights = generateInsights({});
-      expect(insights.length).toBeGreaterThanOrEqual(1);
-      expect(insights[0]).toBe('Keep monitoring to get more detailed insights');
-    });
+  it("never uses acoustic comparisons or absolute dB", () => {
+    const out = generateInsights({
+      ...base,
+      volumeSamples: Array.from({ length: 40 }, (_, i) => i / 4),
+      peakMoments: [{ timestamp: "2026-10-25T12:00:30.000Z", value: 14 }],
+    }).join(" ");
+    expect(out).not.toMatch(/lawn|mower|\b\d+ dB\b(?! above your normal)/);
+  });
 
-    it('does not divide by zero when firstHalfAvg is zero or near-zero', () => {
-      const samples = [...Array(50).fill(0), ...Array(50).fill(50)];
-      const data = makeSession({
-        volumeSamples: samples,
-        zoneTime: { silent: 50, quiet: 20, normal: 20, loud: 10 },
-      });
-      // Should not throw
-      expect(() => generateInsights(data)).not.toThrow();
-      const insights = generateInsights(data);
-      // Should still return valid insights (loud zone at minimum)
-      expect(insights.length).toBeGreaterThanOrEqual(1);
-      // Volume trend should be skipped (firstHalfAvg is 0)
-      expect(insights).not.toContain('You got louder in the second half');
-    });
+  it("returns at most 3 insights", () => {
+    expect(
+      generateInsights({
+        ...base,
+        volumeSamples: Array(40).fill(0),
+        peakMoments: [{ timestamp: base.startTime, value: 5 }],
+      }).length,
+    ).toBeLessThanOrEqual(3);
   });
 });

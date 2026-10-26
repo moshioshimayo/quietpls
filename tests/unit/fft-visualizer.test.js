@@ -27,9 +27,9 @@ const {
 describe('FFT Visualizer — Color Palette Selection (US-008)', () => {
   it('should return quiet palette for "quiet" zone', () => {
     const palette = getColorPalette('quiet');
-    expect(palette.primary).toBe('#f59e0b');
-    expect(palette.secondary).toBe('#d97706');
-    expect(palette.glow).toBe('rgba(245, 158, 11, 0.4)');
+    expect(palette.primary).toBe('#9ca3af'); // neutral grey: not speaking
+    expect(palette.secondary).toBe('#6b7280');
+    expect(palette.glow).toBe('rgba(156, 163, 175, 0.25)');
   });
 
   it('should return normal palette for "normal" zone', () => {
@@ -40,8 +40,8 @@ describe('FFT Visualizer — Color Palette Selection (US-008)', () => {
 
   it('should return loud palette for "loud" zone', () => {
     const palette = getColorPalette('loud');
-    expect(palette.primary).toBe('#ef4444');
-    expect(palette.secondary).toBe('#f97316');
+    expect(palette.primary).toBe('#facc15'); // yellow: getting loud
+    expect(palette.secondary).toBe('#f59e0b');
   });
 
   it('should return danger palette for "danger" zone', () => {

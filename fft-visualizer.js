@@ -8,9 +8,9 @@
 
 // ── Color Palettes (keyed by volume zone) ────────────────────────────
 const COLOR_PALETTES = {
-  quiet:  { primary: '#f59e0b', secondary: '#d97706', glow: 'rgba(245, 158, 11, 0.4)'  },
+  quiet:  { primary: '#9ca3af', secondary: '#6b7280', glow: 'rgba(156, 163, 175, 0.25)' },
   normal: { primary: '#06b6d4', secondary: '#0ea5e9', glow: 'rgba(6, 182, 212, 0.4)' },
-  loud:   { primary: '#ef4444', secondary: '#f97316', glow: 'rgba(239, 68, 68, 0.4)'   },
+  loud:   { primary: '#facc15', secondary: '#f59e0b', glow: 'rgba(250, 204, 21, 0.4)'  },
   danger: { primary: '#dc2626', secondary: '#b91c1c', glow: 'rgba(220, 38, 38, 0.5)'   },
 };
 

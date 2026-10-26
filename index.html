@@ -24,8 +24,8 @@
         </div>
         <!-- Volume readout -->
         <div class="expanded-panel__info">
-          <span class="expanded-panel__db" id="dbReadout">-- dB</span>
-          <span class="expanded-panel__zone" id="zoneLabel">Quiet</span>
+          <span class="expanded-panel__db" id="dbReadout">—</span>
+          <span class="expanded-panel__zone" id="zoneLabel">Ready</span>
         </div>
         <!-- Stop / minimize button -->
         <button class="expanded-panel__stop" id="stopBtn" title="Stop monitoring">
@@ -44,7 +44,7 @@
         <!-- Warning content -->
         <div class="alert-panel__content">
           <span class="alert-panel__warning">TOO LOUD</span>
-          <span class="alert-panel__db" id="alertDbReadout">-- dB</span>
+          <span class="alert-panel__db" id="alertDbReadout"></span>
         </div>
         <!-- Dismiss button -->
         <button class="alert-panel__dismiss" id="alertDismissBtn" title="Dismiss alert">
@@ -77,7 +77,9 @@
   <script src="session-animations.js"></script>
   <script src="session-tracker.js"></script>
   <script src="session-insights.js"></script>
+  <script src="level-logic.js"></script>
   <script src="calibration-manager.js"></script>
+  <script src="capture-controller.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

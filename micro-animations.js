@@ -86,10 +86,10 @@ function getTransitionClasses(fromState, toState) {
  */
 function getGlowColorsForZone(zone) {
   var colors = {
-    quiet:   { glowColor: 'rgba(99, 102, 241, 0.4)',  glowIntenseColor: 'rgba(99, 102, 241, 0.7)' },
+    quiet:   { glowColor: 'rgba(156, 163, 175, 0.25)', glowIntenseColor: 'rgba(156, 163, 175, 0.4)' },
     normal:  { glowColor: 'rgba(255, 105, 180, 0.4)', glowIntenseColor: 'rgba(255, 105, 180, 0.7)' },
-    warning: { glowColor: 'rgba(239, 68, 68, 0.4)',   glowIntenseColor: 'rgba(239, 68, 68, 0.7)' },
-    loud:    { glowColor: 'rgba(239, 68, 68, 0.4)',   glowIntenseColor: 'rgba(239, 68, 68, 0.7)' },
+    warning: { glowColor: 'rgba(250, 204, 21, 0.4)',  glowIntenseColor: 'rgba(250, 204, 21, 0.7)' },
+    loud:    { glowColor: 'rgba(250, 204, 21, 0.4)',  glowIntenseColor: 'rgba(250, 204, 21, 0.7)' },
     danger:  { glowColor: 'rgba(220, 38, 38, 0.5)',   glowIntenseColor: 'rgba(220, 38, 38, 0.8)' },
   };
 

@@ -79,7 +79,6 @@ body {
   transform: scale(1.1);
 }
 
-
 /* ============================================================
    Tab Navigation (US-018)
    ============================================================ */
@@ -309,17 +308,47 @@ body {
   text-align: right;
 }
 
-.threshold-value::after {
-  content: '%';
-  font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
-  margin-left: 1px;
+.sensitivity-value {
+  font-size: var(--font-size-sm);
+  min-width: 0;
+}
+
+/* Calibration panel (actual mic + status) */
+.calibration-panel {
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+.calibration-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.calibration-label {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+  flex-shrink: 0;
+}
+
+.calibration-value {
+  color: var(--color-text-primary);
+  text-align: right;
 }
 
 .slider-row {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.sensitivity-end {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
 }
 
 .fine-tune-btn {
@@ -384,15 +413,27 @@ body {
 
 /* Quiet slider track fill */
 .zone-quiet .zone-slider {
-  background: linear-gradient(90deg, var(--color-quiet-primary) 0%, var(--glass-bg-medium) 100%);
+  background: linear-gradient(
+    90deg,
+    var(--color-quiet-primary) 0%,
+    var(--glass-bg-medium) 100%
+  );
 }
 
 .zone-normal .zone-slider {
-  background: linear-gradient(90deg, var(--color-normal-primary) 0%, var(--glass-bg-medium) 100%);
+  background: linear-gradient(
+    90deg,
+    var(--color-normal-primary) 0%,
+    var(--glass-bg-medium) 100%
+  );
 }
 
 .zone-loud .zone-slider {
-  background: linear-gradient(90deg, var(--color-loud-primary) 0%, var(--glass-bg-medium) 100%);
+  background: linear-gradient(
+    90deg,
+    var(--color-loud-primary) 0%,
+    var(--glass-bg-medium) 100%
+  );
 }
 
 .threshold-description {
@@ -507,7 +548,9 @@ body {
   width: 0;
   border-radius: var(--radius-pill);
   background: var(--color-quiet-gradient);
-  transition: width 80ms linear, background 300ms ease;
+  transition:
+    width 80ms linear,
+    background 300ms ease;
 }
 
 .mic-test-fill.level-normal {
@@ -597,7 +640,7 @@ body {
 }
 
 .toggle-track::before {
-  content: '';
+  content: "";
   position: absolute;
   width: 16px;
   height: 16px;
@@ -1103,4 +1146,3 @@ body {
 /* ============================================================
    Account Tab (US-018)
    ============================================================ */
-

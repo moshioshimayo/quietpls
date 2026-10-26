@@ -4,14 +4,15 @@ import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 
 describe("config.js", () => {
-  describe("defaultThresholds", () => {
-    it("should export correct default thresholds", () => {
-      const { defaultThresholds } = require("../../config");
-      expect(defaultThresholds).toEqual({
-        quietThreshold: 30,
-        normalThreshold: 50,
-        warningThreshold: 78,
-      });
+  describe("defaultSettings", () => {
+    it("defaults to neutral sensitivity and the system default mic", () => {
+      const { defaultSettings } = require("../../config");
+      expect(defaultSettings).toEqual({ sensitivity: 0, audioDeviceId: "" });
+    });
+
+    it("no longer exports score thresholds dressed up as acoustic dB", () => {
+      const config = require("../../config");
+      expect(config.defaultThresholds).toBeUndefined();
     });
   });
 

@@ -1,12 +1,5 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
-// Inline defaults since sandboxed preloads can't require local modules
-const defaultThresholds = {
-  quietThreshold: 30,
-  normalThreshold: 50,
-  warningThreshold: 78,
-};
-
 contextBridge.exposeInMainWorld("electronAPI", {
   onToggleMonitoring: (callback) => {
     ipcRenderer.on("toggle-monitoring", (event, isMonitoring) => {
@@ -33,8 +26,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
   showAbout: () => {
     ipcRenderer.send("show-about");
   },
-  sendVolumeUpdate: (volume) => {
-    ipcRenderer.send("volume-update", volume);
+  // One zone decision per displayed frame, for the tray and Settings meter.
+  sendLevelUpdate: (update) => {
+    ipcRenderer.send("level-update", update);
+  },
+  // Capture state + actual device + calibration, for Settings.
+  reportCaptureStatus: (status) => {
+    ipcRenderer.send("capture-status", status);
   },
   onSettingsUpdated: (callback) => {
     ipcRenderer.on("settings-updated", (event, settings) => {
@@ -51,7 +49,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
       callback(data);
     });
   },
-  defaultThresholds: { ...defaultThresholds },
 
   // Widget state machine (mirrored from main process via IPC)
   widgetGetState: () => ipcRenderer.invoke("widget-get-state"),

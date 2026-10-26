@@ -4,10 +4,13 @@
   box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   width: 100%;
   height: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
   background: transparent;
   overflow: hidden;
   user-select: none;
@@ -59,13 +62,17 @@ html, body {
 
 .compact-pill:hover {
   border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), var(--shadow-glow-brand);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.5),
+    var(--shadow-glow-brand);
 }
 
 /* When monitoring, pill glows with zone color */
 .compact-pill.monitoring {
   border-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4), var(--shadow-glow-brand);
+  box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.4),
+    var(--shadow-glow-brand);
 }
 
 /* Mini waveform canvas — hidden when idle, shown when monitoring */
@@ -92,8 +99,17 @@ html, body {
 }
 
 @keyframes meeting-pulse {
-  0%, 100% { box-shadow: var(--shadow-md), 0 0 8px rgba(var(--color-brand-rgb), 0.3); }
-  50% { box-shadow: var(--shadow-md), 0 0 16px rgba(var(--color-brand-rgb), 0.5); }
+  0%,
+  100% {
+    box-shadow:
+      var(--shadow-md),
+      0 0 8px rgba(var(--color-brand-rgb), 0.3);
+  }
+  50% {
+    box-shadow:
+      var(--shadow-md),
+      0 0 16px rgba(var(--color-brand-rgb), 0.5);
+  }
 }
 
 /* Zone-reactive pill glow during monitoring */
@@ -144,6 +160,14 @@ html, body {
   box-shadow: var(--shadow-lg), var(--shadow-glow-danger);
 }
 
+/* Mic lost / reconnecting: dim and dashed so it never looks authoritative */
+.compact-pill.capture-lost,
+.expanded-panel.capture-lost {
+  opacity: 0.75;
+  outline: 1px dashed rgba(255, 255, 255, 0.45);
+  outline-offset: -2px;
+}
+
 /* FFT canvas area inside expanded panel */
 .expanded-panel__fft {
   flex: 1 1 0%;
@@ -188,6 +212,7 @@ html, body {
   text-transform: uppercase;
   letter-spacing: var(--letter-spacing-wide);
   line-height: var(--line-height-tight);
+  white-space: nowrap;
   transition: color var(--duration-normal) var(--ease-default);
 }
 
@@ -271,12 +296,16 @@ html, body {
 /* Pulsing glow effect */
 .alert-panel.zone-danger,
 .alert-panel.zone-loud {
-  animation: glow-pulse 2s var(--ease-default) infinite, spring-in var(--duration-spring) var(--ease-spring-soft) both;
+  animation:
+    glow-pulse 2s var(--ease-default) infinite,
+    spring-in var(--duration-spring) var(--ease-spring-soft) both;
 }
 
 /* Entry shake — applied via JS, removed after one iteration */
 .alert-panel.animate-danger-shake {
-  animation: danger-shake 0.4s var(--ease-default), glow-pulse 2s var(--ease-default) infinite;
+  animation:
+    danger-shake 0.4s var(--ease-default),
+    glow-pulse 2s var(--ease-default) infinite;
 }
 
 /* FFT canvas area inside alert panel */
@@ -419,7 +448,7 @@ html, body {
 }
 
 .session-complete__insight-item::before {
-  content: '\2022';
+  content: "\2022";
   position: absolute;
   left: 0;
   color: var(--color-text-tertiary);
@@ -468,7 +497,6 @@ html, body {
   border-radius: var(--radius-round);
   margin-left: auto;
 }
-
 
 /* ---- Micro-Animation Keyframes (US-024) ---- */
 
@@ -552,7 +580,8 @@ html, body {
 }
 
 .animate-celebration-bounce {
-  animation: celebration-bounce var(--duration-spring) var(--ease-spring-soft) both;
+  animation: celebration-bounce var(--duration-spring) var(--ease-spring-soft)
+    both;
 }
 
 .animate-glow-shift {
@@ -617,7 +646,6 @@ html, body {
   z-index: var(--z-overlay, 100);
 }
 
-
 /* FFT Spectrum Visualization Canvas (US-008) — legacy fallback */
 .fft-canvas-container {
   position: absolute;
@@ -636,4 +664,3 @@ html, body {
   height: 100%;
   display: block;
 }
-

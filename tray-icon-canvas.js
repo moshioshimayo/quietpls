@@ -10,9 +10,9 @@
 
 // Design-system zone colours
 const ZONE_COLORS = {
-  quiet:    '#f59e0b', // amber (speak up)
+  quiet:    '#9ca3af', // grey (not speaking)
   normal:   '#06b6d4', // cyan (you're good)
-  loud:     '#ef4444', // red
+  loud:     '#facc15', // yellow (getting loud)
   danger:   '#dc2626', // dark red
   inactive: '#6b7280', // gray
 };

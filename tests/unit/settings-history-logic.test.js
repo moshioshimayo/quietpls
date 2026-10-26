@@ -271,3 +271,31 @@ describe('computeAverageGrade', () => {
     expect(computeAverageGrade(sessions)).toBe('F');
   });
 });
+
+describe('2.1 sessions vs pre-2.1 history', () => {
+  const SHL = require('../../settings-history-logic');
+  const v2 = (zoneTime) => ({ algorithmVersion: 2, zoneTime });
+
+  it('marks sessions without algorithmVersion as legacy', () => {
+    expect(SHL.isLegacySession({ zoneTime: { quiet: 10 } })).toBe(true);
+    expect(SHL.isLegacySession(v2({ normal: 10 }))).toBe(false);
+  });
+
+  it('grades 2.1 sessions over speaking time only', () => {
+    // Long silence must not inflate the grade
+    expect(SHL.computeSessionGrade(v2({ silent: 10000, normal: 30, warning: 0, danger: 70 })).letter).toBe('F');
+    expect(SHL.computeSessionGrade(v2({ silent: 0, normal: 100, warning: 0, danger: 0 })).letter).toBe('A');
+    expect(SHL.computeSessionGrade(v2({ silent: 60, normal: 0, warning: 0, danger: 0 })).letter).toBe('--');
+  });
+
+  it('keeps legacy sessions on their own (pre-2.1) grade', () => {
+    const legacy = { zoneTime: { silent: 0, quiet: 50, normal: 50, loud: 0 } };
+    expect(SHL.computeSessionGrade(legacy)).toEqual(SHL.computeGrade(legacy.zoneTime));
+  });
+
+  it('2.1 zone bars are shares of speaking time', () => {
+    expect(SHL.computeSessionZonePercentages(v2({ silent: 500, normal: 60, warning: 20, danger: 20 }))).toEqual({
+      quiet: 0, normal: 60, loud: 20, danger: 20,
+    });
+  });
+});

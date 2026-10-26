@@ -17,11 +17,18 @@ contextBridge.exposeInMainWorld("electronAPI", {
       callback(settings);
     });
   },
-  onVolumeUpdate: (callback) => {
-    ipcRenderer.on("volume-update", (event, volume) => {
-      callback(volume);
+  onLevelUpdate: (callback) => {
+    ipcRenderer.on("level-update", (event, update) => {
+      callback(update);
     });
   },
+  getCaptureStatus: () => ipcRenderer.invoke("get-capture-status"),
+  onCaptureStatus: (callback) => {
+    ipcRenderer.on("capture-status", (event, status) => {
+      callback(status);
+    });
+  },
+  requestRecalibration: () => ipcRenderer.send("request-recalibration"),
   onMonitoringStatus: (callback) => {
     ipcRenderer.on("monitoring-status", (event, status) => {
       callback(status);

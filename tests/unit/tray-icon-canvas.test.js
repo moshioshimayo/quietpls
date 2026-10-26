@@ -44,7 +44,7 @@ describe('tray-icon-canvas', () => {
 
   describe('getColorForZone', () => {
     it('returns amber for quiet zone', () => {
-      expect(mod.getColorForZone('quiet')).toBe('#f59e0b');
+      expect(mod.getColorForZone('quiet')).toBe('#9ca3af');
     });
 
     it('returns cyan for normal zone', () => {
@@ -52,7 +52,7 @@ describe('tray-icon-canvas', () => {
     });
 
     it('returns red for loud zone', () => {
-      expect(mod.getColorForZone('loud')).toBe('#ef4444');
+      expect(mod.getColorForZone('loud')).toBe('#facc15');
     });
 
     it('returns dark red for danger zone', () => {
@@ -88,7 +88,7 @@ describe('tray-icon-canvas', () => {
     it('sets fillStyle to zone colour', () => {
       const ctx = createMockCtx();
       mod.drawTrayIcon(ctx, 44, 44, 80, 'loud', [80]);
-      expect(ctx.fillStyle).toBe('#ef4444');
+      expect(ctx.fillStyle).toBe('#facc15');
     });
 
     it('handles zero volume without errors', () => {

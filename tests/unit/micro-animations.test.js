@@ -80,7 +80,7 @@ describe('micro-animations', () => {
   describe('getGlowColorsForZone', () => {
     it('returns quiet zone colors for "quiet"', () => {
       const colors = mod.getGlowColorsForZone('quiet');
-      expect(colors.glowColor).toContain('99, 102, 241');
+      expect(colors.glowColor).toContain('156, 163, 175');
     });
 
     it('returns normal zone colors for "normal"', () => {
@@ -95,12 +95,12 @@ describe('micro-animations', () => {
 
     it('returns loud zone colors for "warning" (alias)', () => {
       const colors = mod.getGlowColorsForZone('warning');
-      expect(colors.glowColor).toContain('239, 68, 68');
+      expect(colors.glowColor).toContain('250, 204, 21');
     });
 
     it('falls back to quiet for unknown zone', () => {
       const colors = mod.getGlowColorsForZone('nonexistent');
-      expect(colors.glowColor).toContain('99, 102, 241');
+      expect(colors.glowColor).toContain('156, 163, 175');
     });
   });
 

@@ -1,22 +1,16 @@
-// Settings window renderer — quietpls v2.0
-// Dependencies loaded via <script> tags: SettingsLogic, SettingsHistoryLogic
-// Access via SL.xxx and SHL.xxx to avoid redeclaration with script-loaded globals
+// Settings window renderer — quietpls 2.1
+// Dependencies loaded via <script> tags: LevelLogic, SettingsLogic, SettingsHistoryLogic
+// Access via LL / SL / SHL to avoid redeclaration with script-loaded globals
+const LL = window.LevelLogic || {};
 const SL = window.SettingsLogic || {};
 const SHL = window.SettingsHistoryLogic || {};
-const defaultThresholds = {
-  quietThreshold: 30,
-  normalThreshold: 50,
-  warningThreshold: 78,
-};
 
 // ============================================================
 // State
 // ============================================================
 
 let config = {
-  quietThreshold: defaultThresholds.quietThreshold,
-  normalThreshold: defaultThresholds.normalThreshold,
-  warningThreshold: defaultThresholds.warningThreshold,
+  sensitivity: 0,
 };
 
 let selectedDeviceId = "";
@@ -44,13 +38,13 @@ let isMicTesting = false;
 document.addEventListener("DOMContentLoaded", () => {
   setupTabNavigation();
   loadSettings();
-  setupThresholdHandlers();
+  setupSensitivityHandlers();
   setupDeviceHandlers();
   setupGeneralHandlers();
   setupFooterHandlers();
   setupSessionHandlers();
+  setupCalibrationHandlers();
   enumerateAudioDevices();
-  loadCalibrationStatus();
 
   // Device change listener
   if (
@@ -62,12 +56,16 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Volume updates from main window
-  window.electronAPI.onVolumeUpdate((volume) => {
-    updateCurrentLevel(volume);
-    updateLevelIndicator(volume);
-    updateMicTestFromMainVolume(volume);
+  // Live zone decisions from the widget (the same ones the pill shows)
+  window.electronAPI.onLevelUpdate((update) => {
+    updateCurrentLevel(update);
+    updateLevelIndicator(update);
+    updateMicTestFromMainLevel(update);
   });
+
+  // Actual captured mic + its calibration
+  window.electronAPI.getCaptureStatus().then(renderCaptureStatus);
+  window.electronAPI.onCaptureStatus(renderCaptureStatus);
 
   // Monitoring status
   window.electronAPI.onMonitoringStatus((isMonitoring) => {
@@ -97,7 +95,7 @@ function loadSettings() {
   window.electronAPI.requestSettings();
   window.electronAPI.onSettingsData((settings) => {
     if (settings) {
-      config = { ...config, ...settings };
+      config.sensitivity = LL.clampSensitivity(settings.sensitivity);
       if (settings.audioDeviceId !== undefined) {
         selectedDeviceId = settings.audioDeviceId || "";
         const deviceSelect = document.getElementById("audioDeviceSelect");
@@ -110,7 +108,7 @@ function loadSettings() {
 
 function saveSettings() {
   window.electronAPI.updateSettings({
-    ...config,
+    sensitivity: config.sensitivity,
     audioDeviceId: selectedDeviceId,
   });
 }
@@ -122,84 +120,22 @@ function saveGeneralSettings() {
 }
 
 // ============================================================
-// Threshold Handlers
+// Sensitivity
 // ============================================================
 
-function setupThresholdHandlers() {
-  const quietSlider = document.getElementById("quietThreshold");
-  const normalSlider = document.getElementById("normalThreshold");
-  const warningSlider = document.getElementById("warningThreshold");
-
-  const quietMinus = document.getElementById("quietMinus");
-  const quietPlus = document.getElementById("quietPlus");
-  const normalMinus = document.getElementById("normalMinus");
-  const normalPlus = document.getElementById("normalPlus");
-  const warningMinus = document.getElementById("warningMinus");
-  const warningPlus = document.getElementById("warningPlus");
-
-  // Quiet
-  quietSlider.addEventListener("input", (e) => {
-    updateQuietThreshold(parseInt(e.target.value));
-  });
-  quietMinus.addEventListener("click", () => {
-    updateQuietThreshold(config.quietThreshold - 1);
-  });
-  quietPlus.addEventListener("click", () => {
-    updateQuietThreshold(config.quietThreshold + 1);
-  });
-
-  // Normal
-  normalSlider.addEventListener("input", (e) => {
-    updateNormalThreshold(parseInt(e.target.value));
-  });
-  normalMinus.addEventListener("click", () => {
-    updateNormalThreshold(config.normalThreshold - 1);
-  });
-  normalPlus.addEventListener("click", () => {
-    updateNormalThreshold(config.normalThreshold + 1);
-  });
-
-  // Warning
-  warningSlider.addEventListener("input", (e) => {
-    updateWarningThreshold(parseInt(e.target.value));
-  });
-  warningMinus.addEventListener("click", () => {
-    updateWarningThreshold(config.warningThreshold - 1);
-  });
-  warningPlus.addEventListener("click", () => {
-    updateWarningThreshold(config.warningThreshold + 1);
+function setupSensitivityHandlers() {
+  const slider = document.getElementById("sensitivity");
+  if (!slider) return;
+  slider.addEventListener("input", (e) => {
+    config.sensitivity = LL.clampSensitivity(e.target.value);
+    updateUI();
+    saveSettings();
   });
 }
 
-function updateQuietThreshold(value) {
-  value = SL.clampThreshold(value, 1, config.normalThreshold - 1);
-  config.quietThreshold = value;
-  document.getElementById("quietValue").textContent = value;
-  document.getElementById("quietThreshold").value = value;
-  updateZoneBand();
-  saveSettings();
-}
-
-function updateNormalThreshold(value) {
-  value = SL.clampThreshold(
-    value,
-    config.quietThreshold + 1,
-    config.warningThreshold - 1,
-  );
-  config.normalThreshold = value;
-  document.getElementById("normalValue").textContent = value;
-  document.getElementById("normalThreshold").value = value;
-  updateZoneBand();
-  saveSettings();
-}
-
-function updateWarningThreshold(value) {
-  value = SL.clampThreshold(value, config.normalThreshold + 1, 100);
-  config.warningThreshold = value;
-  document.getElementById("warningValue").textContent = value;
-  document.getElementById("warningThreshold").value = value;
-  updateZoneBand();
-  saveSettings();
+function describeSensitivity(s) {
+  if (s === 0) return "Default";
+  return s > 0 ? s + " dB sooner" : -s + " dB later";
 }
 
 // ============================================================
@@ -303,15 +239,10 @@ async function startMicTest() {
       const rms = Math.sqrt(sum / dataArray.length);
       const pct = Math.min(100, Math.round((rms / 128) * 100));
 
+      // Raw signal check only: not calibrated, so no zone colours.
       fill.style.width = pct + "%";
-      label.textContent = pct + "%";
-
-      // Color based on zone
-      fill.className = "mic-test-fill";
-      const zone = SL.getZoneForVolume(pct, config);
-      if (zone === "normal") fill.classList.add("level-normal");
-      else if (zone === "loud") fill.classList.add("level-loud");
-      else if (zone === "danger") fill.classList.add("level-danger");
+      label.textContent = pct > 2 ? "Signal" : "No signal";
+      fill.className = "mic-test-fill level-normal";
 
       micTestAnimFrame = requestAnimationFrame(drawLevel);
     }
@@ -393,34 +324,57 @@ function updateGeneralUI() {
 }
 
 // ============================================================
-// Calibration Status (US-018)
+// Calibration (per actual mic)
 // ============================================================
 
-async function loadCalibrationStatus() {
-  var statusEl = document.getElementById("calibrationStatus");
-  var recalibrateBtn = document.getElementById("recalibrateBtn");
-  if (!statusEl) return;
+function setupCalibrationHandlers() {
+  const btn = document.getElementById("recalibrateBtn");
+  if (btn) {
+    // Same live operation as the pill's context-menu "Recalibrate": starts
+    // monitoring if needed and asks you to talk normally for ~5 s.
+    btn.addEventListener("click", () => {
+      window.electronAPI.requestRecalibration();
+      const statusEl = document.getElementById("calibrationStatus");
+      if (statusEl) statusEl.textContent = "Talk normally for about 5 seconds…";
+    });
+  }
+}
 
-  try {
-    // Get current audio device ID (or 'default')
-    var deviceId = selectedDeviceId || "default";
-    var data = await window.electronAPI.getCalibration(deviceId);
-    if (data && data.calibratedAt) {
-      var date = new Date(data.calibratedAt);
-      statusEl.textContent = "Calibrated on " + date.toLocaleDateString();
-    } else {
-      statusEl.textContent = "Not calibrated";
-    }
-  } catch (err) {
-    statusEl.textContent = "Not calibrated";
+/**
+ * Show which mic is really being captured and whether it is calibrated.
+ * @param {object} s — capture status reported by the widget
+ */
+function renderCaptureStatus(s) {
+  const deviceEl = document.getElementById("calibrationDevice");
+  const statusEl = document.getElementById("calibrationStatus");
+  if (!statusEl) return;
+  const status = s || { state: "idle" };
+
+  if (deviceEl) {
+    let text = status.device ? status.device.label || "Unnamed mic" : "—";
+    if (status.fallback) text += " (selected mic unavailable)";
+    deviceEl.textContent = text;
   }
 
-  if (recalibrateBtn) {
-    recalibrateBtn.addEventListener("click", function () {
-      var deviceId = selectedDeviceId || "default";
-      window.electronAPI.clearCalibration(deviceId);
-      statusEl.textContent = "Not calibrated";
-    });
+  if (status.state === "idle") {
+    statusEl.textContent = "Start monitoring to check your mic";
+  } else if (status.state === "unavailable") {
+    statusEl.textContent =
+      status.reason === "permission" ? "Mic access denied" : "Mic unavailable";
+  } else if (status.state !== "running") {
+    statusEl.textContent = "Reconnecting to mic…";
+  } else if (status.calibrating) {
+    statusEl.textContent = "Calibrating — talk normally for about 5 seconds";
+  } else if (status.calibration) {
+    const when = new Date(status.calibration.calibratedAt);
+    statusEl.textContent =
+      "Calibrated " +
+      (isNaN(when.getTime()) ? "" : when.toLocaleDateString() + " ") +
+      "(normal ≈ " +
+      Math.round(status.calibration.baselineDb) +
+      " dBFS)";
+  } else {
+    statusEl.textContent = "Not calibrated";
   }
 }
 
@@ -434,9 +388,7 @@ function setupFooterHandlers() {
 
   if (resetBtn) {
     resetBtn.addEventListener("click", () => {
-      config.quietThreshold = defaultThresholds.quietThreshold;
-      config.normalThreshold = defaultThresholds.normalThreshold;
-      config.warningThreshold = defaultThresholds.warningThreshold;
+      config.sensitivity = 0;
       updateUI();
       saveSettings();
     });
@@ -462,70 +414,79 @@ function setupFooterHandlers() {
 // ============================================================
 
 function updateUI() {
-  const quietSlider = document.getElementById("quietThreshold");
-  const normalSlider = document.getElementById("normalThreshold");
-  const warningSlider = document.getElementById("warningThreshold");
-  const quietValue = document.getElementById("quietValue");
-  const normalValue = document.getElementById("normalValue");
-  const warningValue = document.getElementById("warningValue");
+  const slider = document.getElementById("sensitivity");
+  const valueEl = document.getElementById("sensitivityValue");
+  const descEl = document.getElementById("marginsDescription");
+  const m = LL.marginsFor(config.sensitivity);
 
-  if (quietSlider) quietSlider.value = config.quietThreshold;
-  if (normalSlider) normalSlider.value = config.normalThreshold;
-  if (warningSlider) warningSlider.value = config.warningThreshold;
-  if (quietValue) quietValue.textContent = config.quietThreshold;
-  if (normalValue) normalValue.textContent = config.normalThreshold;
-  if (warningValue) warningValue.textContent = config.warningThreshold;
-
+  if (slider) slider.value = config.sensitivity;
+  if (valueEl) valueEl.textContent = describeSensitivity(config.sensitivity);
+  if (descEl) {
+    descEl.textContent =
+      "Yellow at +" +
+      m.warningDb +
+      " dB and red at +" +
+      m.dangerDb +
+      " dB above your normal voice";
+  }
   updateZoneBand();
 }
 
-function updateZoneBand() {
-  const q = config.quietThreshold;
-  const n = config.normalThreshold;
-  const w = config.warningThreshold;
+// Live band spans -10..+20 dB relative to the calibrated normal.
+const BAND_MIN_DB = -10;
+const BAND_MAX_DB = 20;
 
-  const zoneQuiet = document.getElementById("zoneQuiet");
+function bandPercent(relDb) {
+  const pct = ((relDb - BAND_MIN_DB) / (BAND_MAX_DB - BAND_MIN_DB)) * 100;
+  return Math.max(0, Math.min(100, pct));
+}
+
+function updateZoneBand() {
+  const m = LL.marginsFor(config.sensitivity);
   const zoneNormal = document.getElementById("zoneNormal");
   const zoneLoud = document.getElementById("zoneLoud");
   const zoneDanger = document.getElementById("zoneDanger");
-
-  if (zoneQuiet) zoneQuiet.style.flex = q;
-  if (zoneNormal) zoneNormal.style.flex = n - q;
-  if (zoneLoud) zoneLoud.style.flex = w - n;
-  if (zoneDanger) zoneDanger.style.flex = 100 - w;
+  if (zoneNormal) zoneNormal.style.flex = m.warningDb - BAND_MIN_DB;
+  if (zoneLoud) zoneLoud.style.flex = m.dangerDb - m.warningDb;
+  if (zoneDanger) zoneDanger.style.flex = BAND_MAX_DB - m.dangerDb;
 }
 
-function updateLevelIndicator(volume) {
+function updateLevelIndicator(update) {
   const marker = document.getElementById("levelMarker");
+  const text = document.getElementById("liveLevelText");
+  const speaking = update && typeof update.relDb === "number";
   if (marker) {
-    const pct = Math.max(0, Math.min(100, volume));
-    marker.style.left = pct + "%";
+    marker.style.opacity = speaking ? "1" : "0.25";
+    if (speaking) marker.style.left = bandPercent(update.relDb) + "%";
+  }
+  if (text) {
+    text.textContent = speaking
+      ? LL.formatRelative(update.relDb) + " · " + update.label
+      : (update && update.label) || "Not monitoring";
   }
 }
 
-function updateCurrentLevel(volume) {
+function updateCurrentLevel(update) {
   const levelElement = document.getElementById("currentLevel");
   if (levelElement) {
-    levelElement.textContent = Math.round(volume) + "%";
+    levelElement.textContent = (update && update.label) || "—";
   }
 }
 
-function updateMicTestFromMainVolume(volume) {
-  // When not doing a standalone mic test, update the mic test meter from main volume
+function updateMicTestFromMainLevel(update) {
+  // When not doing a standalone mic test, mirror the widget's live level
   if (isMicTesting) return;
   const fill = document.getElementById("micTestFill");
   const label = document.getElementById("micTestLabel");
-  if (!fill || !label) return;
+  if (!fill || !label || !update) return;
 
-  const pct = Math.max(0, Math.min(100, Math.round(volume)));
+  const pct = Math.max(0, Math.min(100, Math.round(update.level || 0)));
   fill.style.width = pct + "%";
-  label.textContent = pct + "%";
-
+  label.textContent = update.label || "--";
   fill.className = "mic-test-fill";
-  const zone = SL.getZoneForVolume(pct, config);
-  if (zone === "normal") fill.classList.add("level-normal");
-  else if (zone === "loud") fill.classList.add("level-loud");
-  else if (zone === "danger") fill.classList.add("level-danger");
+  if (update.visual === "normal") fill.classList.add("level-normal");
+  else if (update.visual === "loud") fill.classList.add("level-loud");
+  else if (update.visual === "danger") fill.classList.add("level-danger");
 }
 
 // ============================================================
@@ -650,8 +611,9 @@ function renderSessionList(sessions) {
 }
 
 function createSessionCard(session) {
-  const grade = SHL.computeGrade(session.zoneTime);
-  const zonePct = SHL.computeZonePercentages(session.zoneTime);
+  const grade = SHL.computeSessionGrade(session);
+  const zonePct = SHL.computeSessionZonePercentages(session);
+  const legacy = SHL.isLegacySession(session);
 
   const card = document.createElement("div");
   card.className = "session-card glass-panel";
@@ -662,6 +624,7 @@ function createSessionCard(session) {
       <div class="session-card-left">
         <span class="session-date">${SHL.formatDate(session.startTime)}</span>
         <span class="session-time">${SHL.formatTime(session.startTime)}</span>
+        ${legacy ? '<span class="session-time" title="Recorded with the old pre-2.1 scoring; not comparable with newer sessions">pre-2.1</span>' : ""}
       </div>
       <div class="session-card-center">
         <span class="session-duration">${SHL.formatDuration(session.duration)}</span>
@@ -700,8 +663,36 @@ function showSessionDetail(session) {
   const body = document.getElementById("sessionModalBody");
   if (!modal || !body) return;
 
-  const grade = SHL.computeGrade(session.zoneTime);
-  const zonePct = SHL.computeZonePercentages(session.zoneTime);
+  const grade = SHL.computeSessionGrade(session);
+  const zonePct = SHL.computeSessionZonePercentages(session);
+  const legacy = SHL.isLegacySession(session);
+  const breakdown = legacy
+    ? `
+      <span class="detail-label">Zone Breakdown (pre-2.1 scoring, not comparable)</span>
+      <div class="zone-mini-bar detail-bar">
+        <div class="zone-mini-segment zone-quiet" style="width:${zonePct.quiet}%"></div>
+        <div class="zone-mini-segment zone-normal" style="width:${zonePct.normal}%"></div>
+        <div class="zone-mini-segment zone-loud" style="width:${zonePct.loud}%"></div>
+        <div class="zone-mini-segment zone-danger" style="width:${zonePct.danger}%"></div>
+      </div>
+      <div class="zone-legend">
+        <span class="zone-legend-item"><span class="zone-dot-sm zone-quiet"></span>Quiet ${zonePct.quiet}%</span>
+        <span class="zone-legend-item"><span class="zone-dot-sm zone-normal"></span>Normal ${zonePct.normal}%</span>
+        <span class="zone-legend-item"><span class="zone-dot-sm zone-loud"></span>Loud ${zonePct.loud}%</span>
+        <span class="zone-legend-item"><span class="zone-dot-sm zone-danger"></span>Danger ${zonePct.danger}%</span>
+      </div>`
+    : `
+      <span class="detail-label">Speaking time ${SHL.formatDuration(session.speakingTime || 0)}</span>
+      <div class="zone-mini-bar detail-bar">
+        <div class="zone-mini-segment zone-normal" style="width:${zonePct.normal}%"></div>
+        <div class="zone-mini-segment zone-loud" style="width:${zonePct.loud}%"></div>
+        <div class="zone-mini-segment zone-danger" style="width:${zonePct.danger}%"></div>
+      </div>
+      <div class="zone-legend">
+        <span class="zone-legend-item"><span class="zone-dot-sm zone-normal"></span>Normal ${zonePct.normal}%</span>
+        <span class="zone-legend-item"><span class="zone-dot-sm zone-loud"></span>Getting loud ${zonePct.loud}%</span>
+        <span class="zone-legend-item"><span class="zone-dot-sm zone-danger"></span>Too loud ${zonePct.danger}%</span>
+      </div>`;
 
   body.innerHTML = `
     <div class="detail-row">
@@ -720,20 +711,7 @@ function showSessionDetail(session) {
       <span class="detail-label">Grade</span>
       <span class="detail-value session-grade grade-${grade.color}">${grade.letter}</span>
     </div>
-    <div class="detail-section">
-      <span class="detail-label">Zone Breakdown</span>
-      <div class="zone-mini-bar detail-bar">
-        <div class="zone-mini-segment zone-quiet" style="width:${zonePct.quiet}%"></div>
-        <div class="zone-mini-segment zone-normal" style="width:${zonePct.normal}%"></div>
-        <div class="zone-mini-segment zone-loud" style="width:${zonePct.loud}%"></div>
-        <div class="zone-mini-segment zone-danger" style="width:${zonePct.danger}%"></div>
-      </div>
-      <div class="zone-legend">
-        <span class="zone-legend-item"><span class="zone-dot-sm zone-quiet"></span>Quiet ${zonePct.quiet}%</span>
-        <span class="zone-legend-item"><span class="zone-dot-sm zone-normal"></span>Normal ${zonePct.normal}%</span>
-        <span class="zone-legend-item"><span class="zone-dot-sm zone-loud"></span>Loud ${zonePct.loud}%</span>
-        <span class="zone-legend-item"><span class="zone-dot-sm zone-danger"></span>Danger ${zonePct.danger}%</span>
-      </div>
+    <div class="detail-section">${breakdown}
     </div>
   `;
 

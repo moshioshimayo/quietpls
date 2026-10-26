@@ -3,6 +3,7 @@ const {
   launchApp,
   getWidgetWindow,
   dismissOnboardingIfNeeded,
+  installFakeMic,
 } = require("./helpers");
 
 /**
@@ -36,6 +37,9 @@ test.beforeEach(async () => {
   // identify the main widget window by its URL (index.html) instead.
   mainWindow = await getWidgetWindow(electronApp, 10000);
   await mainWindow.waitForLoadState("domcontentloaded");
+
+  // Deterministic synthetic voice instead of whatever the real mic hears
+  await installFakeMic(mainWindow);
 
   // Wait for initial widget state sync to complete
   await mainWindow.waitForTimeout(500);
@@ -179,10 +183,13 @@ test.describe("Widget State Transitions", () => {
     await mainWindow.waitForTimeout(1500);
     await expect(expandedPanel).toBeVisible();
 
-    // Monitor for 65s so the session crosses the 60s scorecard gate.
-    // The widget auto-collapses while monitoring (v2), so re-expand via pill
-    // click before stopping.
-    await mainWindow.waitForTimeout(65_000);
+    // Calibration (first run on this mic) is not session time, so wait for it
+    // to finish, then monitor 62 s so the session crosses the 60 s gate.
+    // The widget auto-collapses while monitoring, so re-expand before stopping.
+    await expect(mainWindow.locator("#zoneLabel")).toHaveText(/Normal/, {
+      timeout: 15000,
+    });
+    await mainWindow.waitForTimeout(62_000);
     await expect(compactPill).toBeVisible();
     await compactPill.click();
     await mainWindow.waitForTimeout(1000);
@@ -192,6 +199,13 @@ test.describe("Widget State Transitions", () => {
     await mainWindow.waitForTimeout(1500);
 
     await expect(sessionCompletePanel).toBeVisible();
+    // Scorecard speaks in speaking-time terms, never acoustic dB
+    await expect(mainWindow.locator("#insightList")).toContainText(
+      /too-loud zone|speaking time/,
+    );
+    await expect(mainWindow.locator("#insightList")).not.toContainText(
+      /lawn|80 dB/,
+    );
     await expect(expandedPanel).not.toBeVisible();
     await expect(compactPill).not.toBeVisible();
 
@@ -210,24 +224,26 @@ test.describe("Widget State Transitions", () => {
     // The renderer's contextmenu handler calls window.electronAPI.showContextMenu()
     // which sends this IPC. We cannot intercept electronAPI directly because
     // contextBridge.exposeInMainWorld creates read-only properties.
-    await electronApp.evaluate(({ ipcMain }) => {
+    // On macOS menu.popup() is modal and blocks the main process until the
+    // menu closes, which made this test hang/flake. Record the popup instead.
+    await electronApp.evaluate(({ ipcMain, Menu }) => {
       global.__contextMenuReceived = false;
+      global.__contextMenuLabels = null;
       ipcMain.on("show-context-menu", () => {
         global.__contextMenuReceived = true;
       });
+      Menu.prototype.popup = function () {
+        global.__contextMenuLabels = this.items.map((i) => i.label);
+      };
     });
 
     // Perform a native right-click via Playwright
     await compactPill.click({ button: "right" });
 
-    // Wait for the IPC round-trip
-    await mainWindow.waitForTimeout(500);
-
-    // Verify the IPC was received in the main process
-    const contextMenuReceived = await electronApp.evaluate(() => {
-      return global.__contextMenuReceived;
-    });
-
-    expect(contextMenuReceived).toBe(true);
+    await expect
+      .poll(() => electronApp.evaluate(() => global.__contextMenuReceived))
+      .toBe(true);
+    const labels = await electronApp.evaluate(() => global.__contextMenuLabels);
+    expect(labels).toContain("Recalibrate");
   });
 });

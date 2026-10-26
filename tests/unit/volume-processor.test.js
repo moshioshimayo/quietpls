@@ -1,143 +1,172 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from "vitest";
+import { createRequire } from "module";
 
-// Extract the volume computation logic from volume-processor.js for testing.
-// The AudioWorkletProcessor class is not available in Node, so we replicate
-// the exact same math here — any change to volume-processor.js must be
-// mirrored in these helpers (or the processor should be refactored to
-// export pure functions).
+const require = createRequire(import.meta.url);
+const h = require("./helpers/worklet-harness");
 
-function computeRms(samples) {
-  let sumSquares = 0;
-  for (let i = 0; i < samples.length; i++) {
-    sumSquares += samples[i] * samples[i];
-  }
-  return Math.sqrt(sumSquares / samples.length) * 100;
-}
+// These run the real volume-processor.js (vm, 128-sample render quanta).
 
-function mapVolume(rms) {
-  let volume;
-  if (rms < 0.3) {
-    volume = rms * 16.67;
-  } else if (rms < 1) {
-    volume = 5 + ((rms - 0.3) / 0.7) * 15;
-  } else if (rms < 2) {
-    volume = 20 + ((rms - 1) / 1) * 15;
-  } else if (rms < 3.5) {
-    volume = 35 + ((rms - 2) / 1.5) * 30;
-  } else if (rms < 5) {
-    volume = 65 + ((rms - 3.5) / 1.5) * 20;
-  } else {
-    volume = 85 + Math.min((rms - 5) * 10, 15);
-  }
-  return Math.min(100, Math.max(0, volume));
-}
+const last = (msgs) => msgs[msgs.length - 1];
+const levels = (msgs) => msgs.filter((m) => typeof m.dbfs === "number");
 
-describe('VolumeProcessor', () => {
-  describe('RMS calculation', () => {
-    it('should return 0 for all-zero samples', () => {
-      const samples = new Float32Array(128).fill(0);
-      expect(computeRms(samples)).toBe(0);
-    });
-
-    it('should return ~50 for all-0.5 samples', () => {
-      const samples = new Float32Array(128).fill(0.5);
-      const rms = computeRms(samples);
-      // RMS of constant 0.5 = 0.5 * 100 = 50
-      expect(rms).toBeCloseTo(50, 1);
-    });
-
-    it('should return 100 for all-1.0 samples', () => {
-      const samples = new Float32Array(128).fill(1.0);
-      const rms = computeRms(samples);
-      expect(rms).toBeCloseTo(100, 1);
-    });
-
-    it('should handle negative samples correctly', () => {
-      const samples = new Float32Array(128).fill(-0.5);
-      const rms = computeRms(samples);
-      // RMS of constant -0.5 = 0.5 * 100 = 50 (same as positive)
-      expect(rms).toBeCloseTo(50, 1);
-    });
-
-    it('should handle mixed samples', () => {
-      // Alternating +0.5 and -0.5 should give same RMS as constant 0.5
-      const samples = new Float32Array(128);
-      for (let i = 0; i < 128; i++) {
-        samples[i] = i % 2 === 0 ? 0.5 : -0.5;
-      }
-      const rms = computeRms(samples);
-      expect(rms).toBeCloseTo(50, 1);
-    });
+describe("volume-processor — level in true dBFS (F1/F3)", () => {
+  it("reports RMS 0.05 as −26.0 dBFS, not an invented 0–100 score", () => {
+    const w = h.createWorklet(48000);
+    const msgs = w.feed(h.tone(1000, 1000, 20 * Math.log10(0.05)));
+    expect(last(msgs).dbfs).toBeCloseTo(-26.02, 1);
+    expect(last(msgs).volume).toBeUndefined();
   });
 
-  describe('Piecewise mapping', () => {
-    it('should map rms=0 to volume=0', () => {
-      expect(mapVolume(0)).toBe(0);
-    });
-
-    it('should map rms=0.3 boundary to volume=~5', () => {
-      // At rms=0.3: volume = 0.3 * 16.67 = 5.001
-      expect(mapVolume(0.3)).toBeCloseTo(5, 0);
-    });
-
-    it('should map rms=1.0 boundary to volume=20', () => {
-      // At rms=1.0: volume = 5 + ((1.0 - 0.3) / 0.7) * 15 = 5 + 15 = 20
-      expect(mapVolume(1.0)).toBeCloseTo(20, 0);
-    });
-
-    it('should map rms=2.0 boundary to volume=35', () => {
-      // At rms=2.0: volume = 20 + ((2.0 - 1) / 1) * 15 = 20 + 15 = 35
-      expect(mapVolume(2.0)).toBeCloseTo(35, 0);
-    });
-
-    it('should map rms=3.5 boundary to volume=65', () => {
-      // At rms=3.5: volume = 35 + ((3.5 - 2) / 1.5) * 30 = 35 + 30 = 65
-      expect(mapVolume(3.5)).toBeCloseTo(65, 0);
-    });
-
-    it('should map rms=5.0 boundary to volume=85', () => {
-      // At rms=5.0: volume = 65 + ((5.0 - 3.5) / 1.5) * 20 = 65 + 20 = 85
-      expect(mapVolume(5.0)).toBeCloseTo(85, 0);
-    });
-
-    it('should map very high rms to capped 100', () => {
-      // At rms=6.5: volume = 85 + min((6.5-5)*10, 15) = 85 + 15 = 100
-      expect(mapVolume(6.5)).toBe(100);
-      // Even higher should still be 100
-      expect(mapVolume(50)).toBe(100);
-      expect(mapVolume(100)).toBe(100);
-    });
-
-    it('should clamp output to 0-100 range', () => {
-      // Low end
-      expect(mapVolume(0)).toBeGreaterThanOrEqual(0);
-      // High end
-      expect(mapVolume(1000)).toBeLessThanOrEqual(100);
-    });
-
-    it('should produce continuous values within tiers', () => {
-      // Mid-point of tier 2 (rms=0.65): volume = 5 + ((0.65-0.3)/0.7)*15 = 5 + 7.5 = 12.5
-      expect(mapVolume(0.65)).toBeCloseTo(12.5, 1);
-
-      // Mid-point of tier 4 (rms=2.75): volume = 35 + ((2.75-2)/1.5)*30 = 35 + 15 = 50
-      expect(mapVolume(2.75)).toBeCloseTo(50, 1);
-    });
+  it("doubling the amplitude adds 6.02 dB at any level", () => {
+    for (const base of [-40, -30, -20]) {
+      const a = h.createWorklet(48000);
+      const b = h.createWorklet(48000);
+      const la = last(a.feed(h.tone(800, 1000, base))).dbfs;
+      const lb = last(b.feed(h.tone(800, 1000, base + 6.0206))).dbfs;
+      expect(lb - la).toBeCloseTo(6.02, 1);
+    }
   });
 
-  describe('End-to-end: samples to volume', () => {
-    it('should produce 0 volume for silence', () => {
-      const samples = new Float32Array(128).fill(0);
-      const rms = computeRms(samples);
-      const volume = mapVolume(rms);
-      expect(volume).toBe(0);
-    });
+  it("works at a low 8 kHz sample rate too", () => {
+    const w = h.createWorklet(8000);
+    w.feed(h.noise(1000, -65, 8000));
+    const msgs = w.feed(h.speechLike(3000, -30, 8000));
+    expect(last(msgs).dbfs).toBeGreaterThan(-35);
+    expect(h.speechFrames(msgs).length).toBeGreaterThan(100);
+  });
 
-    it('should produce high volume for loud input', () => {
-      const samples = new Float32Array(128).fill(0.8);
-      const rms = computeRms(samples);
-      const volume = mapVolume(rms);
-      // rms = 80, well above 5 threshold -> volume should be 100
-      expect(volume).toBe(100);
-    });
+  it("is the same across sample rates", () => {
+    const got = [16000, 44100, 48000, 96000].map(
+      (fs) => last(h.createWorklet(fs).feed(h.tone(800, 1000, -30, fs))).dbfs,
+    );
+    for (const v of got) expect(v).toBeCloseTo(-30, 0);
+  });
+
+  it("uses a 400 ms window: a step settles by 400 ms, not instantly", () => {
+    const w = h.createWorklet(48000);
+    w.feed(h.noise(1000, -90));
+    const msgs = w.feed(h.tone(600, 1000, -20));
+    const at = (ms) => msgs[Math.round(ms / 20) - 1].dbfs;
+    expect(at(100)).toBeLessThan(-24); // still filling
+    expect(at(440)).toBeCloseTo(-20, 0);
+  });
+
+  it("flags clipping when samples reach full scale", () => {
+    const w = h.createWorklet(48000);
+    const clean = w.feed(h.tone(200, 1000, -10));
+    expect(clean.some((m) => m.clip)).toBe(false);
+    const hot = w.feed(h.tone(200, 1000, 0)); // peak 1.41 > full scale
+    expect(hot.some((m) => m.clip)).toBe(true);
+  });
+
+  it("high-pass removes DC and low hum from the level", () => {
+    const w = h.createWorklet(48000);
+    const dc = new Float32Array(48000).fill(0.3);
+    expect(last(w.feed(dc)).dbfs).toBeLessThan(-80);
+    const hum = last(h.createWorklet(48000).feed(h.tone(1000, 30, -20))).dbfs;
+    expect(hum).toBeLessThan(-40);
+  });
+
+  it("posts one message per ~20 ms frame", () => {
+    const w = h.createWorklet(48000);
+    const msgs = w.feed(h.noise(1000, -60));
+    expect(msgs.length).toBe(50);
+    expect(msgs[0].frameMs).toBeCloseTo(20, 5);
+  });
+});
+
+describe("volume-processor — speech gate (F6)", () => {
+  it("marks speech-like sound as speech", () => {
+    const w = h.createWorklet(48000);
+    w.feed(h.noise(1000, -65));
+    const msgs = w.feed(h.speechLike(3000, -30));
+    const share = msgs.filter((m) => m.speech).length / msgs.length;
+    expect(share).toBeGreaterThan(0.9);
+  });
+
+  it("silence and a quiet room are not speech", () => {
+    const w = h.createWorklet(48000);
+    expect(h.speechFrames(w.feed(h.noise(3000, -65)))).toHaveLength(0);
+    expect(
+      h.speechFrames(h.createWorklet(48000).feed(new Float32Array(48000))),
+    ).toHaveLength(0);
+  });
+
+  it("rejects low hum and high hiss (frequency gate)", () => {
+    const hum = h.createWorklet(48000);
+    expect(
+      h.speechFrames(
+        hum.feed(h.concat(h.noise(1000, -65), h.tone(4000, 40, -20))),
+      ),
+    ).toHaveLength(0);
+    const hiss = h.createWorklet(48000);
+    expect(
+      h.speechFrames(
+        hiss.feed(h.concat(h.noise(1000, -65), h.tone(4000, 8000, -30))),
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("digital zeros at stream start do not make room tone look like speech", () => {
+    // Real capture opens with a few hundred ms of exact zeros; they must not
+    // become the noise floor (found in the real-mic smoke test).
+    const w = h.createWorklet(48000);
+    const msgs = w.feed(
+      h.concat(new Float32Array(24000), h.roomTone(5000, -61)),
+    );
+    expect(h.speechFrames(msgs)).toHaveLength(0);
+  });
+
+  it("a mic start-up ramp (zeros, one very quiet frame) does not open the gate", () => {
+    // Shape measured on the MacBook built-in mic: ~150 ms of zeros, one frame
+    // around -91 dB, then room tone around -66 dB.
+    const w = h.createWorklet(48000);
+    const msgs = w.feed(
+      h.concat(
+        new Float32Array(7200),
+        h.roomTone(20, -91),
+        h.roomTone(5000, -66),
+      ),
+    );
+    expect(h.speechFrames(msgs)).toHaveLength(0);
+    // ...while real speech right after start still registers quickly
+    const v = h.createWorklet(48000);
+    const sp = v.feed(
+      h.concat(
+        new Float32Array(7200),
+        h.roomTone(300, -66),
+        h.speechLike(2000, -30),
+      ),
+    );
+    expect(h.speechFrames(sp).length).toBeGreaterThan(70);
+  });
+
+  it("rejects short transients such as clicks and taps", () => {
+    const w = h.createWorklet(48000);
+    expect(h.speechFrames(w.feed(h.clicks(5000, 250, -10)))).toHaveLength(0);
+  });
+
+  it("does not treat steady broadband noise (fan) as speech", () => {
+    const w = h.createWorklet(48000);
+    const msgs = w.feed(
+      h.concat(h.noise(1000, -65), h.noise(8000, -40, 48000, 5)),
+    );
+    expect(h.speechFrames(msgs)).toHaveLength(0);
+  });
+
+  it("holds through short word gaps but ends after speech stops", () => {
+    const w = h.createWorklet(48000);
+    w.feed(h.noise(1000, -65));
+    w.feed(h.speechLike(2000, -30));
+    const after = w.feed(h.noise(1000, -65));
+    expect(after[0].speech).toBe(true); // hangover
+    expect(last(after).speech).toBe(false);
+  });
+
+  it("reports missing input instead of going silent", () => {
+    const w = h.createWorklet(48000);
+    const msgs = w.feedNoInput(40);
+    expect(msgs.length).toBeGreaterThan(0);
+    expect(msgs.every((m) => m.noInput === true)).toBe(true);
   });
 });

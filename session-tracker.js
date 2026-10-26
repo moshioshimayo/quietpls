@@ -1,82 +1,64 @@
-'use strict';
+"use strict";
 
 // Generate UUID in both Node.js and browser environments
 function _generateUUID() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID();
   }
   // Fallback for older environments
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    var r = Math.random() * 16 | 0;
-    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+    var r = (Math.random() * 16) | 0;
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
   });
 }
 
 /**
- * Session detection and tracking module (US-011).
+ * Session tracking (quietpls 2.1).
  *
- * Pure logic — no Electron or storage imports.  The caller is responsible for
- * persisting the finalised session object via IPC.
+ * Fed the same zone decision the pill and tray show, one call per analysis
+ * frame. Time is counted from each frame's audio duration, so capture gaps
+ * (mic lost, reconnecting, calibrating) are never charged to any zone.
  *
- * Usage:
- *   const tracker = createSessionTracker({ quietThreshold: 30, normalThreshold: 50, warningThreshold: 78 });
- *   // on every volume update from the AudioWorklet:
- *   tracker.recordVolume(averageVolume);
- *   // when monitoring stops:
+ *   const tracker = createSessionTracker({ algorithmVersion: 2, sensitivity: 0, margins });
+ *   tracker.recordFrame({ zone, relDb }, frameMs);   // zone: silent|normal|warning|danger
  *   const session = tracker.finalize();
+ *
+ * "Too loud" = red (danger) time over speaking time; yellow (warning) is
+ * reported separately as "getting loud".
  */
 
-const SESSION_DETECTION_SECONDS = 60;
-const SAMPLE_INTERVAL_MS = 100; // 10 Hz
+const SAMPLE_INTERVAL_MS = 100; // relDb sample every 100 ms of speech
 const MAX_PEAKS = 5;
-const MAX_VOLUME_SAMPLES = 36000; // Cap at 1 hour of 10 Hz data to prevent memory leak
+const MAX_VOLUME_SAMPLES = 36000; // 1 hour of speech at 10 Hz
+const TRACKED_ZONES = ["silent", "normal", "warning", "danger"];
 
-function createSessionTracker(thresholds) {
-  const { quietThreshold, normalThreshold, warningThreshold } = thresholds;
+function createSessionTracker(options) {
+  const opts = options || {};
+  const algorithmVersion = opts.algorithmVersion || 2;
 
-  // ---- internal state ----
-  let sessionActive = false;
-  let sessionStartTime = null;       // Date
-  let lastSampleTime = null;         // timestamp (ms) of last 10 Hz sample
-  let lastZoneTime = null;           // timestamp (ms) used for zone accumulation
-  let volumeSamples = [];
-  let peakMoments = [];              // sorted descending by value, max 5
-  let zoneTime = { silent: 0, quiet: 0, normal: 0, loud: 0 };
-  let consecutiveActiveMs = 0;       // ms of continuous above-quiet activity
-  let consecutiveSilenceMs = 0;      // ms of silence during detection (grace period)
-  const DETECTION_GRACE_MS = 5000;   // allow up to 5s silence without resetting
-  let lastVolume = null;             // previous volume for transition detection
-  let wasAboveQuiet = false;         // for speaking pace transitions
-  let transitionCount = 0;           // silence → speech transitions
-  let totalElapsedMs = 0;            // total tracked time for pace calculation
-  let lastRecordTime = null;         // timestamp of last recordVolume call
+  let sessionStartTime = null; // Date
+  let zoneMs = { silent: 0, normal: 0, warning: 0, danger: 0 };
+  let volumeSamples = []; // relDb while speaking
+  let peakMoments = []; // { timestamp, value: relDb }, descending
+  let sinceSampleMs = SAMPLE_INTERVAL_MS;
+  let wasSpeaking = false;
+  let transitionCount = 0;
+  let margins = opts.margins || null;
+  let sensitivity = typeof opts.sensitivity === "number" ? opts.sensitivity : 0;
+  let baselineDb = typeof opts.baselineDb === "number" ? opts.baselineDb : null;
 
-  // ---- helpers ----
-
-  function classifyZone(volume) {
-    if (volume < quietThreshold) return 'silent';
-    if (volume < normalThreshold) return 'quiet';
-    if (volume < warningThreshold) return 'normal';
-    return 'loud';
-  }
+  const now = opts.now || (() => Date.now());
 
   function insertPeak(timestamp, value) {
     const entry = { timestamp, value };
-    // Insert in sorted position (descending by value)
-    let inserted = false;
-    for (let i = 0; i < peakMoments.length; i++) {
-      if (value > peakMoments[i].value) {
-        peakMoments.splice(i, 0, entry);
-        inserted = true;
-        break;
-      }
-    }
-    if (!inserted && peakMoments.length < MAX_PEAKS) {
-      peakMoments.push(entry);
-    }
-    if (peakMoments.length > MAX_PEAKS) {
-      peakMoments.length = MAX_PEAKS;
-    }
+    let i = 0;
+    while (i < peakMoments.length && peakMoments[i].value >= value) i++;
+    if (i >= MAX_PEAKS) return;
+    peakMoments.splice(i, 0, entry);
+    if (peakMoments.length > MAX_PEAKS) peakMoments.length = MAX_PEAKS;
   }
 
   function computeVariance(samples) {
@@ -86,121 +68,115 @@ function createSessionTracker(thresholds) {
     return Math.sqrt(sumSqDiff / samples.length);
   }
 
-  // ---- public API ----
+  /**
+   * @param {{ zone: string, relDb?: number|null }} decision
+   * @param {number} frameMs — audio duration this decision covers
+   */
+  function recordFrame(decision, frameMs) {
+    if (!decision || TRACKED_ZONES.indexOf(decision.zone) === -1) return;
+    const ms = typeof frameMs === "number" && frameMs > 0 ? frameMs : 0;
+    if (sessionStartTime === null) sessionStartTime = new Date(now());
+    zoneMs[decision.zone] += ms;
 
-  function recordVolume(volume) {
-    const now = Date.now();
+    const speaking = decision.zone !== "silent";
+    if (speaking && !wasSpeaking) transitionCount++;
+    wasSpeaking = speaking;
 
-    // First call — activate session immediately
-    if (lastRecordTime === null) {
-      lastRecordTime = now;
-      lastSampleTime = now;
-      lastZoneTime = now;
-      lastVolume = volume;
-      wasAboveQuiet = volume >= quietThreshold;
-      sessionActive = true;
-      sessionStartTime = new Date(now);
-      return;
-    }
-
-    const deltaMs = now - lastRecordTime;
-    lastRecordTime = now;
-
-    // ---- Zone accumulation ----
-    const zoneDelta = (now - lastZoneTime) / 1000; // seconds
-    const zone = classifyZone(volume);
-    zoneTime[zone] += zoneDelta;
-    lastZoneTime = now;
-    totalElapsedMs += deltaMs;
-
-    // ---- Speaking pace (silence → speech transitions) ----
-    const isAboveQuiet = volume >= quietThreshold;
-    if (isAboveQuiet && !wasAboveQuiet) {
-      transitionCount++;
-    }
-    wasAboveQuiet = isAboveQuiet;
-
-    // ---- 10 Hz sampling ----
-    if (now - lastSampleTime >= SAMPLE_INTERVAL_MS) {
-      volumeSamples.push(volume);
-      // Prevent unbounded growth on very long sessions
-      if (volumeSamples.length > MAX_VOLUME_SAMPLES) {
-        volumeSamples.shift();
+    if (speaking && typeof decision.relDb === "number") {
+      sinceSampleMs += ms;
+      if (sinceSampleMs >= SAMPLE_INTERVAL_MS) {
+        sinceSampleMs = 0;
+        const v = Math.round(decision.relDb * 10) / 10;
+        volumeSamples.push(v);
+        if (volumeSamples.length > MAX_VOLUME_SAMPLES) volumeSamples.shift();
+        insertPeak(new Date(now()).toISOString(), v);
       }
-      lastSampleTime = now;
-
-      // Peak tracking
-      insertPeak(new Date(now).toISOString(), volume);
     }
+  }
 
-    lastVolume = volume;
+  /** Keep the thresholds stored with the session in step with the live ones. */
+  function setThresholds(next) {
+    if (!next) return;
+    if (next.margins) margins = next.margins;
+    if (typeof next.sensitivity === "number") sensitivity = next.sensitivity;
+    if (typeof next.baselineDb === "number") baselineDb = next.baselineDb;
   }
 
   function isSessionActive() {
-    return sessionActive;
+    return sessionStartTime !== null;
   }
 
   function getSessionDuration() {
-    if (!sessionActive || !sessionStartTime) return 0;
-    return (Date.now() - sessionStartTime.getTime()) / 1000;
+    if (!sessionStartTime) return 0;
+    return (now() - sessionStartTime.getTime()) / 1000;
   }
 
+  const round2 = (x) => Math.round(x * 100) / 100;
+
   function finalize() {
-    if (!sessionActive) return null;
+    if (!sessionStartTime) return null;
 
-    const endTime = new Date(Date.now());
+    const endTime = new Date(now());
     const duration = (endTime.getTime() - sessionStartTime.getTime()) / 1000;
-
-    const totalZoneSec = zoneTime.silent + zoneTime.quiet + zoneTime.normal + zoneTime.loud;
-    const silenceRatio = totalZoneSec > 0
-      ? zoneTime.silent / totalZoneSec
-      : 0;
-
-    const totalMinutes = totalElapsedMs / 60000;
-    const speakingPace = totalMinutes > 0
-      ? Math.round((transitionCount / totalMinutes) * 100) / 100
-      : 0;
-
-    const volumeVariance = computeVariance(volumeSamples);
+    const zoneTime = {
+      silent: round2(zoneMs.silent / 1000),
+      normal: round2(zoneMs.normal / 1000),
+      warning: round2(zoneMs.warning / 1000),
+      danger: round2(zoneMs.danger / 1000),
+    };
+    const speakingMs = zoneMs.normal + zoneMs.warning + zoneMs.danger;
+    const coveredMs = speakingMs + zoneMs.silent;
+    const minutes = coveredMs / 60000;
 
     return {
       id: _generateUUID(),
+      algorithmVersion,
       startTime: sessionStartTime.toISOString(),
       endTime: endTime.toISOString(),
-      duration: Math.round(duration * 100) / 100,
+      duration: round2(duration),
+      coveredTime: round2(coveredMs / 1000),
+      gapTime: round2(Math.max(0, duration - coveredMs / 1000)),
+      speakingTime: round2(speakingMs / 1000),
+      zoneTime,
+      tooLoudRatio:
+        speakingMs > 0
+          ? Math.round((zoneMs.danger / speakingMs) * 10000) / 10000
+          : 0,
+      gettingLoudRatio:
+        speakingMs > 0
+          ? Math.round((zoneMs.warning / speakingMs) * 10000) / 10000
+          : 0,
+      thresholds: {
+        baselineDb,
+        sensitivity,
+        warningDb: margins ? margins.warningDb : null,
+        dangerDb: margins ? margins.dangerDb : null,
+      },
       volumeSamples: volumeSamples.slice(),
       peakMoments: peakMoments.slice(0, MAX_PEAKS),
-      zoneTime: {
-        silent: Math.round(zoneTime.silent * 100) / 100,
-        quiet: Math.round(zoneTime.quiet * 100) / 100,
-        normal: Math.round(zoneTime.normal * 100) / 100,
-        loud: Math.round(zoneTime.loud * 100) / 100,
-      },
-      silenceRatio: Math.round(silenceRatio * 10000) / 10000,
-      speakingPace,
-      volumeVariance: Math.round(volumeVariance * 100) / 100,
+      silenceRatio:
+        coveredMs > 0
+          ? Math.round((zoneMs.silent / coveredMs) * 10000) / 10000
+          : 0,
+      speakingPace:
+        minutes > 0 ? Math.round((transitionCount / minutes) * 100) / 100 : 0,
+      volumeVariance: round2(computeVariance(volumeSamples)),
     };
   }
 
   function reset() {
-    sessionActive = false;
     sessionStartTime = null;
-    lastSampleTime = null;
-    lastZoneTime = null;
+    zoneMs = { silent: 0, normal: 0, warning: 0, danger: 0 };
     volumeSamples = [];
     peakMoments = [];
-    zoneTime = { silent: 0, quiet: 0, normal: 0, loud: 0 };
-    consecutiveActiveMs = 0;
-    consecutiveSilenceMs = 0;
-    lastVolume = null;
-    wasAboveQuiet = false;
+    sinceSampleMs = SAMPLE_INTERVAL_MS;
+    wasSpeaking = false;
     transitionCount = 0;
-    totalElapsedMs = 0;
-    lastRecordTime = null;
   }
 
   return {
-    recordVolume,
+    recordFrame,
+    setThresholds,
     isSessionActive,
     getSessionDuration,
     finalize,
@@ -218,8 +194,8 @@ function pruneSessions(sessions, maxSessions = 50) {
   return sessions.slice(sessions.length - maxSessions);
 }
 
-if (typeof module !== 'undefined' && module.exports) {
+if (typeof module !== "undefined" && module.exports) {
   module.exports = { createSessionTracker, pruneSessions };
-} else if (typeof window !== 'undefined') {
+} else if (typeof window !== "undefined") {
   window.SessionTracker = { createSessionTracker, pruneSessions };
 }

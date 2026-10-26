@@ -10,140 +10,145 @@
    ------------------------------------------------------------ */
 :root {
   /* --- Brand Palette --- */
-  --color-brand:            #ff69b4;
-  --color-brand-light:      #ff8cc8;
-  --color-brand-dark:       #e0559e;
-  --color-brand-rgb:        255, 105, 180;
+  --color-brand: #ff69b4;
+  --color-brand-light: #ff8cc8;
+  --color-brand-dark: #e0559e;
+  --color-brand-rgb: 255, 105, 180;
 
-  /* --- Volume Zone Colors: Quiet — soft amber (speak up) --- */
-  --color-quiet-primary:    #f59e0b;
-  --color-quiet-secondary:  #d97706;
-  --color-quiet-glow:       rgba(245, 158, 11, 0.4);
-  --color-quiet-gradient:   linear-gradient(135deg, #f59e0b, #d97706);
+  /* --- Volume Zone Colors: Quiet — neutral grey (not speaking / no data) --- */
+  --color-quiet-primary: #9ca3af;
+  --color-quiet-secondary: #6b7280;
+  --color-quiet-glow: rgba(156, 163, 175, 0.25);
+  --color-quiet-gradient: linear-gradient(135deg, #9ca3af, #6b7280);
 
   /* --- Volume Zone Colors: Normal — cyan/blue (you're good) --- */
-  --color-normal-primary:   #06b6d4;
+  --color-normal-primary: #06b6d4;
   --color-normal-secondary: #0ea5e9;
-  --color-normal-glow:      rgba(6, 182, 212, 0.4);
-  --color-normal-gradient:  linear-gradient(135deg, #06b6d4, #0ea5e9);
+  --color-normal-glow: rgba(6, 182, 212, 0.4);
+  --color-normal-gradient: linear-gradient(135deg, #06b6d4, #0ea5e9);
 
-  /* --- Volume Zone Colors: Loud / Warning (warm reds/oranges) --- */
-  --color-loud-primary:     #ef4444;
-  --color-loud-secondary:   #f97316;
-  --color-loud-glow:        rgba(239, 68, 68, 0.4);
-  --color-loud-gradient:    linear-gradient(135deg, #f97316, #ef4444);
+  /* --- Volume Zone Colors: Loud / Warning — yellow (getting loud) --- */
+  --color-loud-primary: #facc15;
+  --color-loud-secondary: #f59e0b;
+  --color-loud-glow: rgba(250, 204, 21, 0.4);
+  --color-loud-gradient: linear-gradient(135deg, #facc15, #f59e0b);
 
   /* --- Volume Zone Colors: Danger (intense reds) --- */
-  --color-danger-primary:   #dc2626;
+  --color-danger-primary: #dc2626;
   --color-danger-secondary: #b91c1c;
-  --color-danger-glow:      rgba(220, 38, 38, 0.5);
-  --color-danger-gradient:  linear-gradient(135deg, #ef4444, #dc2626);
+  --color-danger-glow: rgba(220, 38, 38, 0.5);
+  --color-danger-gradient: linear-gradient(135deg, #ef4444, #dc2626);
 
   /* --- Dark Background --- */
-  --color-bg-base:          #0a0a0a;
-  --color-bg-elevated:      #141414;
-  --color-bg-subtle:        #1a1a1a;
+  --color-bg-base: #0a0a0a;
+  --color-bg-elevated: #141414;
+  --color-bg-subtle: #1a1a1a;
 
   /* --- Neutral / Text --- */
-  --color-text-primary:     rgba(255, 255, 255, 0.95);
-  --color-text-secondary:   rgba(255, 255, 255, 0.7);
-  --color-text-tertiary:    rgba(255, 255, 255, 0.45);
-  --color-text-disabled:    rgba(255, 255, 255, 0.25);
+  --color-text-primary: rgba(255, 255, 255, 0.95);
+  --color-text-secondary: rgba(255, 255, 255, 0.7);
+  --color-text-tertiary: rgba(255, 255, 255, 0.45);
+  --color-text-disabled: rgba(255, 255, 255, 0.25);
 
   /* --- Glassmorphic Surfaces --- */
-  --glass-bg-heavy:         rgba(255, 255, 255, 0.15);
-  --glass-bg-medium:        rgba(255, 255, 255, 0.10);
-  --glass-bg-light:         rgba(255, 255, 255, 0.05);
-  --glass-border-strong:    rgba(255, 255, 255, 0.20);
-  --glass-border-medium:    rgba(255, 255, 255, 0.15);
-  --glass-border-subtle:    rgba(255, 255, 255, 0.10);
-  --glass-blur:             blur(20px) saturate(180%);
-  --glass-blur-light:       blur(12px) saturate(150%);
-  --glass-blur-heavy:       blur(30px) saturate(200%);
+  --glass-bg-heavy: rgba(255, 255, 255, 0.15);
+  --glass-bg-medium: rgba(255, 255, 255, 0.1);
+  --glass-bg-light: rgba(255, 255, 255, 0.05);
+  --glass-border-strong: rgba(255, 255, 255, 0.2);
+  --glass-border-medium: rgba(255, 255, 255, 0.15);
+  --glass-border-subtle: rgba(255, 255, 255, 0.1);
+  --glass-blur: blur(20px) saturate(180%);
+  --glass-blur-light: blur(12px) saturate(150%);
+  --glass-blur-heavy: blur(30px) saturate(200%);
 
   /* --- Shadows --- */
-  --shadow-sm:              0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md:              0 4px 12px rgba(0, 0, 0, 0.3);
-  --shadow-lg:              0 8px 32px rgba(0, 0, 0, 0.4);
-  --shadow-glow-brand:      0 0 24px rgba(var(--color-brand-rgb), 0.35), 0 0 60px rgba(var(--color-brand-rgb), 0.15);
-  --shadow-glow-quiet:      0 0 24px var(--color-quiet-glow), 0 0 60px rgba(245, 158, 11, 0.15);
-  --shadow-glow-normal:     0 0 24px var(--color-normal-glow), 0 0 60px rgba(6, 182, 212, 0.15);
-  --shadow-glow-loud:       0 0 24px var(--color-loud-glow), 0 0 60px rgba(239, 68, 68, 0.2);
-  --shadow-glow-danger:     0 0 28px var(--color-danger-glow), 0 0 70px rgba(220, 38, 38, 0.25);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-glow-brand:
+    0 0 24px rgba(var(--color-brand-rgb), 0.35),
+    0 0 60px rgba(var(--color-brand-rgb), 0.15);
+  --shadow-glow-quiet: 0 0 16px var(--color-quiet-glow);
+  --shadow-glow-normal:
+    0 0 24px var(--color-normal-glow), 0 0 60px rgba(6, 182, 212, 0.15);
+  --shadow-glow-loud:
+    0 0 24px var(--color-loud-glow), 0 0 60px rgba(250, 204, 21, 0.18);
+  --shadow-glow-danger:
+    0 0 28px var(--color-danger-glow), 0 0 70px rgba(220, 38, 38, 0.25);
 
   /* --- Typography --- */
-  --font-family:            -apple-system, BlinkMacSystemFont, 'SF Pro Display',
-                            'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  --font-family-mono:       'SF Mono', SFMono-Regular, ui-monospace, Menlo, monospace;
+  --font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-family-mono: "SF Mono", SFMono-Regular, ui-monospace, Menlo, monospace;
 
-  --font-size-xs:           11px;
-  --font-size-sm:           13px;
-  --font-size-md:           15px;
-  --font-size-lg:           18px;
-  --font-size-xl:           24px;
-  --font-size-2xl:          32px;
+  --font-size-xs: 11px;
+  --font-size-sm: 13px;
+  --font-size-md: 15px;
+  --font-size-lg: 18px;
+  --font-size-xl: 24px;
+  --font-size-2xl: 32px;
 
-  --font-weight-normal:     400;
-  --font-weight-medium:     500;
-  --font-weight-semibold:   600;
-  --font-weight-bold:       700;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
 
-  --line-height-tight:      1.2;
-  --line-height-normal:     1.5;
-  --line-height-relaxed:    1.65;
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.65;
 
-  --letter-spacing-tight:   -0.02em;
-  --letter-spacing-normal:  0;
-  --letter-spacing-wide:    0.02em;
+  --letter-spacing-tight: -0.02em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.02em;
 
   /* --- Spacing (4px grid) --- */
-  --space-0:   0;
-  --space-1:   4px;
-  --space-2:   8px;
-  --space-3:   12px;
-  --space-4:   16px;
-  --space-5:   20px;
-  --space-6:   24px;
-  --space-7:   28px;
-  --space-8:   32px;
-  --space-10:  40px;
-  --space-12:  48px;
-  --space-16:  64px;
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
 
   /* --- Border Radius --- */
-  --radius-sm:    4px;
-  --radius-md:    8px;
-  --radius-lg:    12px;
-  --radius-xl:    16px;
-  --radius-2xl:   24px;
-  --radius-pill:  9999px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+  --radius-pill: 9999px;
   --radius-round: 50%;
 
   /* --- Animation Easings --- */
-  --ease-default:    cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-in:         cubic-bezier(0.4, 0, 1, 1);
-  --ease-out:        cubic-bezier(0, 0, 0.2, 1);
-  --ease-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);
-  --ease-spring-soft: cubic-bezier(0.22, 1.0, 0.36, 1);
-  --ease-bounce:     cubic-bezier(0.68, -0.55, 0.27, 1.55);
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-spring-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.27, 1.55);
 
   /* --- Animation Durations --- */
-  --duration-instant:  50ms;
-  --duration-fast:     150ms;
-  --duration-normal:   250ms;
-  --duration-slow:     400ms;
-  --duration-slower:   600ms;
-  --duration-spring:   500ms;
+  --duration-instant: 50ms;
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+  --duration-slower: 600ms;
+  --duration-spring: 500ms;
 
   /* --- Z-Index Scale --- */
-  --z-base:       0;
-  --z-raised:     10;
-  --z-overlay:    100;
-  --z-modal:      200;
-  --z-tooltip:    300;
-  --z-top:        999;
+  --z-base: 0;
+  --z-raised: 10;
+  --z-overlay: 100;
+  --z-modal: 200;
+  --z-tooltip: 300;
+  --z-top: 999;
 }
-
 
 /* ------------------------------------------------------------
    2. Glassmorphic Utility Classes
@@ -192,39 +197,37 @@
   box-shadow: var(--shadow-lg);
 }
 
-
 /* ------------------------------------------------------------
    3. Volume Zone Color Classes
    ------------------------------------------------------------ */
 
 .zone-quiet {
-  --zone-primary:   var(--color-quiet-primary);
+  --zone-primary: var(--color-quiet-primary);
   --zone-secondary: var(--color-quiet-secondary);
-  --zone-glow:      var(--color-quiet-glow);
-  --zone-gradient:  var(--color-quiet-gradient);
+  --zone-glow: var(--color-quiet-glow);
+  --zone-gradient: var(--color-quiet-gradient);
 }
 
 .zone-normal {
-  --zone-primary:   var(--color-normal-primary);
+  --zone-primary: var(--color-normal-primary);
   --zone-secondary: var(--color-normal-secondary);
-  --zone-glow:      var(--color-normal-glow);
-  --zone-gradient:  var(--color-normal-gradient);
+  --zone-glow: var(--color-normal-glow);
+  --zone-gradient: var(--color-normal-gradient);
 }
 
 .zone-loud {
-  --zone-primary:   var(--color-loud-primary);
+  --zone-primary: var(--color-loud-primary);
   --zone-secondary: var(--color-loud-secondary);
-  --zone-glow:      var(--color-loud-glow);
-  --zone-gradient:  var(--color-loud-gradient);
+  --zone-glow: var(--color-loud-glow);
+  --zone-gradient: var(--color-loud-gradient);
 }
 
 .zone-danger {
-  --zone-primary:   var(--color-danger-primary);
+  --zone-primary: var(--color-danger-primary);
   --zone-secondary: var(--color-danger-secondary);
-  --zone-glow:      var(--color-danger-glow);
-  --zone-gradient:  var(--color-danger-gradient);
+  --zone-glow: var(--color-danger-glow);
+  --zone-gradient: var(--color-danger-gradient);
 }
-
 
 /* ------------------------------------------------------------
    4. Pill Shape Utility
@@ -240,26 +243,31 @@
     transform var(--duration-fast) var(--ease-spring);
 }
 
-
 /* ------------------------------------------------------------
    5. Standard Keyframe Animations
    ------------------------------------------------------------ */
 
 /* Gentle breathing glow — use for idle/listening state */
 @keyframes breathing {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
-    box-shadow: 0 0 16px var(--color-quiet-glow), 0 0 40px rgba(245, 158, 11, 0.1);
+    box-shadow:
+      0 0 16px var(--color-quiet-glow),
+      0 0 40px rgba(245, 158, 11, 0.1);
   }
   50% {
     opacity: 0.88;
-    box-shadow: 0 0 28px var(--color-quiet-glow), 0 0 60px rgba(245, 158, 11, 0.2);
+    box-shadow:
+      0 0 28px var(--color-quiet-glow),
+      0 0 60px rgba(245, 158, 11, 0.2);
   }
 }
 
 /* Pulse — use for active monitoring indicator */
 @keyframes ds-pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     opacity: 1;
   }
@@ -309,27 +317,34 @@
 
 /* Danger shake — use for loud/danger alerts */
 @keyframes danger-shake {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateX(0);
   }
-  20%, 60% {
+  20%,
+  60% {
     transform: translateX(-2px);
   }
-  40%, 80% {
+  40%,
+  80% {
     transform: translateX(2px);
   }
 }
 
 /* Glow pulse — for zone-colored glowing effects */
 @keyframes glow-pulse {
-  0%, 100% {
-    box-shadow: 0 0 14px var(--zone-glow, var(--color-normal-glow)), 0 0 50px var(--zone-glow, rgba(6, 182, 212, 0.1));
+  0%,
+  100% {
+    box-shadow:
+      0 0 14px var(--zone-glow, var(--color-normal-glow)),
+      0 0 50px var(--zone-glow, rgba(6, 182, 212, 0.1));
   }
   50% {
-    box-shadow: 0 0 32px var(--zone-glow, var(--color-normal-glow)), 0 0 80px var(--zone-glow, rgba(6, 182, 212, 0.2));
+    box-shadow:
+      0 0 32px var(--zone-glow, var(--color-normal-glow)),
+      0 0 80px var(--zone-glow, rgba(6, 182, 212, 0.2));
   }
 }
-
 
 /* ------------------------------------------------------------
    6. Animation Utility Classes
@@ -362,7 +377,6 @@
 .animate-glow-pulse {
   animation: glow-pulse 2s var(--ease-default) infinite;
 }
-
 
 /* ------------------------------------------------------------
    7. Dark Mode Surface Base

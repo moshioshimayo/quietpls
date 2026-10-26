@@ -14,15 +14,41 @@ const {
 const path = require("path");
 const Store = require("electron-store");
 const { autoUpdater } = require("electron-updater");
-const { defaultThresholds, SETTINGS_STORE } = require("./config");
+const { defaultSettings, SETTINGS_STORE } = require("./config");
+
+// E2E runs use a throwaway profile so tests never touch real user data.
+if (process.env.QUIETPLS_E2E_TEST === "1" && process.env.QUIETPLS_USER_DATA) {
+  app.setPath("userData", process.env.QUIETPLS_USER_DATA);
+}
 const { createWidgetStateMachine, STATES } = require("./widget-state-machine");
 const { createMeetingDetector } = require("./meeting-detector");
 
-// Calibration data store (per-device, US-008)
+// Calibration data store, keyed by the real captured device id.
 const calibrationStore = new Store({
   name: "quietpls-calibrations",
   defaults: { calibrations: {} },
 });
+const CALIBRATION_VERSION = 2;
+
+// 2.0 calibrations were score-based and keyed by configured id ("default");
+// they cannot be converted, so drop them. Each mic is calibrated once again.
+function discardLegacyCalibrations() {
+  const all = calibrationStore.get("calibrations") || {};
+  const kept = {};
+  for (const [key, value] of Object.entries(all)) {
+    if (value && value.version === CALIBRATION_VERSION) kept[key] = value;
+  }
+  if (Object.keys(kept).length !== Object.keys(all).length) {
+    calibrationStore.set("calibrations", kept);
+  }
+}
+discardLegacyCalibrations();
+
+function clampSensitivity(value) {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(4, Math.max(-4, n));
+}
 const { createWidgetAnimator } = require("./widget-animator");
 const { registerSessionIpc } = require("./session-ipc");
 const PermissionManager = require("./permission-manager");
@@ -64,9 +90,7 @@ const appStateStore = new Store({
 const settingsStore = new Store({
   name: SETTINGS_STORE,
   defaults: {
-    quietThreshold: defaultThresholds.quietThreshold,
-    normalThreshold: defaultThresholds.normalThreshold,
-    warningThreshold: defaultThresholds.warningThreshold,
+    sensitivity: defaultSettings.sensitivity,
     audioDeviceId: null,
   },
 });
@@ -79,21 +103,9 @@ let tray = null;
 let meetingDetector = null;
 let isMonitoring = false;
 let monitoringStartTime = null;
-let volumeStats = {
-  total: 0,
-  samples: 0,
-  peak: 0,
-  quietCount: 0,
-  normalCount: 0,
-  warningCount: 0,
-  loudCount: 0,
-};
-let currentSettings = {
-  quietThreshold: defaultThresholds.quietThreshold,
-  normalThreshold: defaultThresholds.normalThreshold,
-  warningThreshold: defaultThresholds.warningThreshold,
-  audioDeviceId: "",
-};
+let currentSettings = { ...defaultSettings };
+// Latest capture status from the widget (actual mic, calibration), for Settings.
+let lastCaptureStatus = { state: "idle" };
 
 // General settings store (launch at login, menubar, notification sounds)
 const generalSettingsStore = new Store({
@@ -495,22 +507,26 @@ function updateTrayMenu() {
   tray.setContextMenu(contextMenu);
 }
 
-function volumeToZone(volume) {
-  if (volume < currentSettings.quietThreshold) return "quiet";
-  if (volume < currentSettings.normalThreshold) return "normal";
-  if (volume < currentSettings.warningThreshold) return "loud";
-  return "danger";
-}
+/**
+ * Draw the tray from the widget's zone decision — the tray never classifies
+ * levels itself, so it always agrees with the pill.
+ * @param {{ visual: string, level: number }} update
+ */
+function updateTrayIcon(update) {
+  if (!tray || !isMonitoring || !update) return;
 
-function updateTrayIconForVolume(volume) {
-  if (!tray || !isMonitoring) return;
-
-  // Throttle updates to max ~10/second
+  // Throttle updates to max ~10/second, but never drop a zone change
+  const zone = ["quiet", "normal", "loud", "danger"].includes(update.visual)
+    ? update.visual
+    : "quiet";
   const now = Date.now();
-  if (now - lastTrayIconUpdate < TRAY_ICON_THROTTLE_MS) return;
+  if (
+    now - lastTrayIconUpdate < TRAY_ICON_THROTTLE_MS &&
+    zone === currentTrayIconState
+  )
+    return;
   lastTrayIconUpdate = now;
-
-  const zone = volumeToZone(volume);
+  const volume = Math.max(0, Math.min(100, Number(update.level) || 0));
 
   // Try dynamic icon first
   if (trayIconRenderer) {
@@ -551,11 +567,13 @@ function resetTrayIcon() {
 app.whenReady().then(async () => {
   // Load locally persisted settings (single source of truth)
   currentSettings = {
-    quietThreshold: settingsStore.get("quietThreshold"),
-    normalThreshold: settingsStore.get("normalThreshold"),
-    warningThreshold: settingsStore.get("warningThreshold"),
+    sensitivity: clampSensitivity(settingsStore.get("sensitivity")),
     audioDeviceId: settingsStore.get("audioDeviceId") || "",
   };
+  // 2.0 score thresholds have no meaning on the dB scale.
+  for (const key of ["quietThreshold", "normalThreshold", "warningThreshold"]) {
+    if (settingsStore.has(key)) settingsStore.delete(key);
+  }
 
   // Check and request microphone access (centralized in PermissionManager)
   await permissionManager.checkAndRequestPermission();
@@ -696,15 +714,6 @@ app.whenReady().then(async () => {
     if (status && !previousStatus) {
       // Started monitoring
       monitoringStartTime = Date.now();
-      volumeStats = {
-        total: 0,
-        samples: 0,
-        peak: 0,
-        quietCount: 0,
-        normalCount: 0,
-        warningCount: 0,
-        loudCount: 0,
-      };
     } else if (!status && previousStatus && monitoringStartTime) {
       // Stopped monitoring
       monitoringStartTime = null;
@@ -759,16 +768,8 @@ app.whenReady().then(async () => {
   ipcMain.on("update-settings", async (event, settings) => {
     // Validate and sanitize renderer-supplied settings
     if (!settings || typeof settings !== "object") return;
-    const q = Number(settings.quietThreshold);
-    const n = Number(settings.normalThreshold);
-    const w = Number(settings.warningThreshold);
-    if ([q, n, w].some((v) => !Number.isFinite(v) || v < 0 || v > 100)) return;
-    if (!(q < n && n < w)) return;
-
     const sanitized = {
-      quietThreshold: q,
-      normalThreshold: n,
-      warningThreshold: w,
+      sensitivity: clampSensitivity(settings.sensitivity),
       audioDeviceId:
         typeof settings.audioDeviceId === "string"
           ? settings.audioDeviceId
@@ -777,9 +778,7 @@ app.whenReady().then(async () => {
     currentSettings = sanitized;
 
     // Persist locally
-    settingsStore.set("quietThreshold", sanitized.quietThreshold);
-    settingsStore.set("normalThreshold", sanitized.normalThreshold);
-    settingsStore.set("warningThreshold", sanitized.warningThreshold);
+    settingsStore.set("sensitivity", sanitized.sensitivity);
     settingsStore.set("audioDeviceId", sanitized.audioDeviceId || null);
 
     // Send to main window
@@ -797,31 +796,30 @@ app.whenReady().then(async () => {
   });
 
   // Volume updates from main window to settings
-  ipcMain.on("volume-update", (event, volume) => {
-    // Update volume statistics
-    if (isMonitoring && volume !== undefined) {
-      volumeStats.total += volume;
-      volumeStats.samples++;
-      volumeStats.peak = Math.max(volumeStats.peak, volume);
-
-      // Categorize volume level
-      if (volume <= currentSettings.quietThreshold) {
-        volumeStats.quietCount++;
-      } else if (volume <= currentSettings.normalThreshold) {
-        volumeStats.normalCount++;
-      } else if (volume <= currentSettings.warningThreshold) {
-        volumeStats.warningCount++;
-      } else {
-        volumeStats.loudCount++;
-      }
-    }
-
+  // The widget's zone decision drives the tray and the Settings meter.
+  ipcMain.on("level-update", (event, update) => {
+    if (!update || typeof update !== "object") return;
     if (settingsWindow) {
-      settingsWindow.webContents.send("volume-update", volume);
+      settingsWindow.webContents.send("level-update", update);
     }
+    updateTrayIcon(update);
+  });
 
-    // Update tray icon based on volume level
-    updateTrayIconForVolume(volume);
+  ipcMain.on("capture-status", (event, status) => {
+    if (!status || typeof status !== "object") return;
+    lastCaptureStatus = status;
+    if (settingsWindow) {
+      settingsWindow.webContents.send("capture-status", status);
+    }
+  });
+
+  ipcMain.handle("get-capture-status", () => lastCaptureStatus);
+
+  // Settings "Recalibrate": same live operation as the context-menu item.
+  ipcMain.on("request-recalibration", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("trigger-recalibration");
+    }
   });
 
   // ---- Widget State Machine IPC ----

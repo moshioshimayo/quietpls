@@ -1,7 +1,9 @@
 /**
- * session-insights.js — Post-session plain-language insights (US-012)
+ * session-insights.js — post-session plain-language insights.
  *
  * Pure-logic module. No Electron dependencies.
+ * Percentages are over speaking time only; silence is never counted as
+ * quiet or loud. Levels are relative to the user's calibrated normal.
  * Dual export: CommonJS module.exports + window.SessionInsights
  */
 
@@ -13,68 +15,71 @@ function average(arr) {
 function formatTimeSinceStart(timestamp, startTime) {
   const start = new Date(startTime).getTime();
   const peak = new Date(timestamp).getTime();
-  const diffMs = peak - start;
-  const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
+  const totalSeconds = Math.max(0, Math.floor((peak - start) / 1000));
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
+
+const TREND_DB = 2; // half-to-half change that counts as a trend
 
 function generateInsights(sessionData) {
   const insights = [];
-  const { zoneTime, duration, volumeSamples, peakMoments, startTime } = sessionData || {};
+  const s = sessionData || {};
+  const zoneTime = s.zoneTime || {};
+  const speaking =
+    (zoneTime.normal || 0) + (zoneTime.warning || 0) + (zoneTime.danger || 0);
 
-  // Total zone time (including silent — all tracked time)
-  const total = (zoneTime?.silent || 0) + (zoneTime?.quiet || 0) +
-                (zoneTime?.normal || 0) + (zoneTime?.loud || 0);
-
-  // 1. Loud zone percentage (always first priority)
-  if (total > 0) {
-    const loudPct = Math.round(((zoneTime.loud || 0) / total) * 100);
-    if (loudPct > 0) {
-      insights.push(`In your loud zone ${loudPct}% of the time`);
-    } else {
-      insights.push('You stayed out of the loud zone entirely');
-    }
+  if (speaking <= 0) {
+    return ["No speech detected this session"];
   }
 
-  // 2. Volume trend: first half vs second half
-  if (volumeSamples && volumeSamples.length > 20) {
-    const mid = Math.floor(volumeSamples.length / 2);
-    const firstHalfAvg = average(volumeSamples.slice(0, mid));
-    const secondHalfAvg = average(volumeSamples.slice(mid));
-    if (firstHalfAvg > 0) {
-      const change = (secondHalfAvg - firstHalfAvg) / firstHalfAvg;
-      if (change > 0.15) insights.push('You got louder in the second half');
-      else if (change < -0.15) insights.push('You got quieter toward the end');
-      else insights.push('Your volume was consistent throughout');
-    }
+  // 1. Too loud (red) share of speaking time
+  const redPct = Math.round(((zoneTime.danger || 0) / speaking) * 100);
+  const yellowPct = Math.round(((zoneTime.warning || 0) / speaking) * 100);
+  if (redPct > 0) {
+    insights.push(`Too loud for ${redPct}% of your speaking time`);
+  } else {
+    insights.push("You never hit the too-loud zone");
   }
 
-  // 3. Peak moment
-  if (peakMoments && peakMoments.length > 0 && startTime) {
-    const peakTime = formatTimeSinceStart(peakMoments[0].timestamp, startTime);
-    insights.push(`Loudest at ${peakTime} into the call`);
+  // 2. Getting loud (yellow) share, if any
+  if (yellowPct > 0) {
+    insights.push(`Getting loud for ${yellowPct}% of your speaking time`);
   }
 
-  // 4. Overall assessment (if room for one more)
-  if (insights.length < 3 && total > 0) {
-    const loudPct = ((zoneTime.loud || 0) / total) * 100;
-    if (loudPct < 10) insights.push('Great job keeping it steady!');
-    else if (loudPct >= 30) insights.push('Try to keep it down next time');
+  // 3. Trend: first half vs second half of speech, in dB
+  const samples = s.volumeSamples;
+  if (insights.length < 3 && samples && samples.length > 20) {
+    const mid = Math.floor(samples.length / 2);
+    const change = average(samples.slice(mid)) - average(samples.slice(0, mid));
+    if (change > TREND_DB) insights.push("You got louder in the second half");
+    else if (change < -TREND_DB)
+      insights.push("You got quieter toward the end");
+    else insights.push("Your level was consistent throughout");
   }
 
-  // Ensure at least 1 insight
-  if (insights.length === 0) {
-    insights.push('Keep monitoring to get more detailed insights');
+  // 4. Loudest moment
+  const peaks = s.peakMoments;
+  if (
+    insights.length < 3 &&
+    peaks &&
+    peaks.length > 0 &&
+    s.startTime &&
+    peaks[0].value >= 1
+  ) {
+    const at = formatTimeSinceStart(peaks[0].timestamp, s.startTime);
+    insights.push(
+      `Loudest at ${at}: +${Math.round(peaks[0].value)} dB above your normal`,
+    );
   }
 
   return insights.slice(0, 3);
 }
 
 // Dual export: CommonJS + browser global
-if (typeof module !== 'undefined' && module.exports) {
+if (typeof module !== "undefined" && module.exports) {
   module.exports = { generateInsights };
-} else if (typeof window !== 'undefined') {
+} else if (typeof window !== "undefined") {
   window.SessionInsights = { generateInsights };
 }

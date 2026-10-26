@@ -19,7 +19,7 @@
 
       <!-- Tab Navigation -->
       <nav class="settings-tabs" id="settingsTabs">
-        <button class="tab-btn active" data-tab="thresholds">Thresholds</button>
+        <button class="tab-btn active" data-tab="thresholds">Monitoring</button>
         <button class="tab-btn" data-tab="history">History</button>
       </nav>
 
@@ -27,125 +27,69 @@
       <div class="settings-content">
         <!-- ============ THRESHOLDS TAB ============ -->
         <div class="tab-content active" id="tab-thresholds">
-          <!-- Threshold Configuration Section -->
+          <!-- Sensitivity Section -->
           <section class="settings-section">
-            <h4 class="section-title">Threshold Configuration</h4>
+            <h4 class="section-title">Sensitivity</h4>
 
-            <!-- Visual Zone Band -->
+            <!-- Live level relative to your calibrated normal -->
             <div class="zone-band-container glass-panel">
               <div class="zone-band">
-                <div class="zone-segment zone-quiet" id="zoneQuiet">
-                  <span class="zone-label">Quiet</span>
-                </div>
                 <div class="zone-segment zone-normal" id="zoneNormal">
                   <span class="zone-label">Normal</span>
                 </div>
                 <div class="zone-segment zone-loud" id="zoneLoud">
-                  <span class="zone-label">Loud</span>
+                  <span class="zone-label" title="Getting loud">Loud</span>
                 </div>
                 <div class="zone-segment zone-danger" id="zoneDanger">
-                  <span class="zone-label">Danger</span>
+                  <span class="zone-label">Too loud</span>
                 </div>
               </div>
-              <!-- Real-time level indicator -->
               <div class="level-indicator" id="levelIndicator">
                 <div class="level-marker" id="levelMarker"></div>
               </div>
               <div class="zone-band-scale">
-                <span>0%</span>
-                <span>25%</span>
-                <span>50%</span>
-                <span>75%</span>
-                <span>100%</span>
+                <span>−10 dB</span>
+                <span>your normal</span>
+                <span>+10</span>
+                <span>+20 dB</span>
+              </div>
+              <div class="threshold-description" id="liveLevelText">
+                Not monitoring
               </div>
             </div>
 
-            <!-- Quiet Threshold Slider -->
-            <div class="threshold-control zone-quiet">
-              <div class="threshold-header">
-                <span class="threshold-name">
-                  <span class="zone-dot"></span>
-                  Quiet Max
-                </span>
-                <span class="threshold-value" id="quietValue">30</span>
-              </div>
-              <div class="slider-row">
-                <button class="fine-tune-btn" id="quietMinus">&minus;</button>
-                <input
-                  type="range"
-                  id="quietThreshold"
-                  min="1"
-                  max="98"
-                  value="30"
-                  step="1"
-                  class="zone-slider"
-                />
-                <button class="fine-tune-btn" id="quietPlus">+</button>
-              </div>
-              <div class="threshold-description">
-                Below this level is considered quiet / silent
-              </div>
-            </div>
-
-            <!-- Normal Threshold Slider -->
-            <div class="threshold-control zone-normal">
-              <div class="threshold-header">
-                <span class="threshold-name">
-                  <span class="zone-dot"></span>
-                  Normal Max
-                </span>
-                <span class="threshold-value" id="normalValue">50</span>
-              </div>
-              <div class="slider-row">
-                <button class="fine-tune-btn" id="normalMinus">&minus;</button>
-                <input
-                  type="range"
-                  id="normalThreshold"
-                  min="2"
-                  max="99"
-                  value="50"
-                  step="1"
-                  class="zone-slider"
-                />
-                <button class="fine-tune-btn" id="normalPlus">+</button>
-              </div>
-              <div class="threshold-description">
-                Normal conversation level boundary
-              </div>
-            </div>
-
-            <!-- Warning / Loud Threshold Slider -->
             <div class="threshold-control zone-loud">
               <div class="threshold-header">
-                <span class="threshold-name">
-                  <span class="zone-dot"></span>
-                  Loud Max
-                </span>
-                <span class="threshold-value" id="warningValue">78</span>
+                <span class="threshold-name">Warn me</span>
+                <span class="threshold-value sensitivity-value" id="sensitivityValue">Default</span>
               </div>
               <div class="slider-row">
-                <button class="fine-tune-btn" id="warningMinus">&minus;</button>
+                <span class="sensitivity-end">Later</span>
                 <input
                   type="range"
-                  id="warningThreshold"
-                  min="3"
-                  max="100"
-                  value="78"
+                  id="sensitivity"
+                  min="-4"
+                  max="4"
+                  value="0"
                   step="1"
                   class="zone-slider"
                 />
-                <button class="fine-tune-btn" id="warningPlus">+</button>
+                <span class="sensitivity-end">Sooner</span>
               </div>
-              <div class="threshold-description">
-                Above this level triggers danger alert
+              <div class="threshold-description" id="marginsDescription">
+                Yellow at +6 dB and red at +10 dB above your normal voice
               </div>
             </div>
           </section>
 
-          <!-- Auto-Calibration Section -->
+          <!-- Calibration Section -->
           <section class="settings-section">
-            <h4 class="section-title">Auto-Calibration</h4>
+            <h4 class="section-title">Calibration</h4>
             <div class="glass-panel calibration-panel">
+              <div class="calibration-row">
+                <span class="calibration-label">Mic</span>
+                <span class="calibration-value" id="calibrationDevice">—</span>
+              </div>
               <div class="calibration-row">
                 <span class="calibration-label">Status</span>
                 <span class="calibration-value" id="calibrationStatus"
@@ -156,6 +100,12 @@
                 <button class="mic-test-btn" id="recalibrateBtn">
                   Recalibrate
                 </button>
+              </div>
+              <div class="threshold-description">
+                You talk normally for about 5 seconds; that level becomes your
+                normal for this mic. Recalibrate after moving the mic or
+                changing its input gain. Headphones work best: sound from your
+                speakers or nearby voices can be counted as you.
               </div>
             </div>
           </section>
@@ -300,7 +250,7 @@
           <button class="reset-btn" id="resetDefaults">Reset Defaults</button>
           <div class="status-info">
             <span class="status-label" id="settingsStatus">Inactive</span>
-            <span class="status-level" id="currentLevel">0%</span>
+            <span class="status-level" id="currentLevel">—</span>
           </div>
         </div>
 
@@ -312,6 +262,7 @@
         </div>
       </div>
     </div>
+    <script src="level-logic.js"></script>
     <script src="settings-logic.js"></script>
     <script src="settings-history-logic.js"></script>
     <script src="settings-renderer.js"></script>

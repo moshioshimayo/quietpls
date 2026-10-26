@@ -1,4 +1,6 @@
 const { _electron: electron } = require("@playwright/test");
+const fs = require("fs");
+const os = require("os");
 const path = require("path");
 
 const APP_ROOT = path.resolve(__dirname, "..", "..");
@@ -10,12 +12,20 @@ const electronPath = require("electron");
  * Launch the Electron app.
  */
 async function launchApp() {
+  // Fresh profile per launch: never reads or writes the real app's data.
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), "quietpls-e2e-"));
+  // Past first-run onboarding, like a returning user.
+  fs.writeFileSync(
+    path.join(userData, "quietpls-app-state.json"),
+    JSON.stringify({ onboardingComplete: true }),
+  );
   const app = await electron.launch({
     executablePath: electronPath,
     args: [path.join(APP_ROOT, "main.js")],
     env: {
       ...process.env,
       QUIETPLS_E2E_TEST: "1",
+      QUIETPLS_USER_DATA: userData,
       NODE_ENV: "test",
     },
   });
@@ -124,14 +134,102 @@ async function setSettingsStore(app, values) {
  * Read the settings store from the main process.
  */
 async function getSettingsStore(app) {
-  return app.evaluate(async () => {
-    const { default: Store } = await import("electron-store");
-    const store = new Store({ name: "quietpls-settings" });
-    return {
-      quietThreshold: store.get("quietThreshold"),
-      normalThreshold: store.get("normalThreshold"),
-      warningThreshold: store.get("warningThreshold"),
-      audioDeviceId: store.get("audioDeviceId"),
+  // Read the persisted file directly (the ESM main process has no dynamic
+  // import callback inside evaluate()).
+  const userData = await app.evaluate(({ app: a }) => a.getPath("userData"));
+  const file = path.join(userData, "quietpls-settings.json");
+  const data = fs.existsSync(file)
+    ? JSON.parse(fs.readFileSync(file, "utf8"))
+    : {};
+  return { sensitivity: data.sensitivity, audioDeviceId: data.audioDeviceId };
+}
+
+/**
+ * Replace the microphone in `page` with a scripted synthetic voice: a 400 Hz
+ * sawtooth in 150 ms syllables (speech-like for the gate), at a level the
+ * test controls. Also fakes two input devices. Exposes window.__fakeMic.
+ */
+async function installFakeMic(page) {
+  await page.evaluate(() => {
+    if (window.__fakeMic) return;
+    const ctx = new AudioContext();
+    ctx.resume();
+    const devices = [
+      {
+        kind: "audioinput",
+        deviceId: "fake-builtin",
+        groupId: "g-builtin",
+        label: "Fake Built-in Mic",
+      },
+      {
+        kind: "audioinput",
+        deviceId: "fake-headset",
+        groupId: "g-headset",
+        label: "Fake Headset",
+      },
+    ];
+    const osc = ctx.createOscillator();
+    osc.type = "sawtooth";
+    osc.frequency.value = 400;
+    const syllables = ctx.createGain();
+    syllables.gain.value = 0.5;
+    const lfo = ctx.createOscillator();
+    lfo.type = "square";
+    lfo.frequency.value = 3.33;
+    const lfoDepth = ctx.createGain();
+    lfoDepth.gain.value = 0.5;
+    lfo.connect(lfoDepth).connect(syllables.gain);
+    const level = ctx.createGain();
+    osc.connect(syllables).connect(level);
+    osc.start();
+    lfo.start();
+
+    const state = { gumCalls: [], tracks: [] };
+    const setLevelDb = (db) => {
+      level.gain.setValueAtTime(
+        db === null ? 0 : Math.pow(10, db / 20),
+        ctx.currentTime,
+      );
+    };
+    setLevelDb(-30);
+
+    navigator.mediaDevices.enumerateDevices = async () => [
+      {
+        kind: "audioinput",
+        deviceId: "default",
+        groupId: "g-builtin",
+        label: "Default - Fake Built-in Mic",
+      },
+      ...devices,
+    ];
+    navigator.mediaDevices.getUserMedia = async (constraints) => {
+      state.gumCalls.push(JSON.parse(JSON.stringify(constraints)));
+      const exact =
+        constraints.audio &&
+        constraints.audio.deviceId &&
+        constraints.audio.deviceId.exact;
+      const dev = devices.find((d) => d.deviceId === exact) || devices[0];
+      const dest = ctx.createMediaStreamDestination();
+      level.connect(dest);
+      const track = dest.stream.getAudioTracks()[0];
+      track.getSettings = () => ({
+        deviceId: exact ? dev.deviceId : "default",
+        groupId: dev.groupId,
+      });
+      Object.defineProperty(track, "label", {
+        value: exact ? dev.label : "Default - " + dev.label,
+      });
+      state.tracks.push(track);
+      return dest.stream;
+    };
+
+    window.__fakeMic = {
+      setLevelDb,
+      gumCalls: () => state.gumCalls,
+      endCurrentTrack: () => {
+        const t = state.tracks[state.tracks.length - 1];
+        t.dispatchEvent(new Event("ended"));
+      },
     };
   });
 }
@@ -158,6 +256,7 @@ async function getWindow(electronApp, titleSubstring, timeoutMs = 5000) {
 }
 
 module.exports = {
+  installFakeMic,
   launchApp,
   getWidgetWindow,
   dismissOnboardingIfNeeded,
