@@ -5,10 +5,32 @@
 //   node capture/mcp/server.js /path/to/transcripts   (or: npm run capture:mcp -- /path)
 // One tool: search_transcripts(query, from?, to?, limit?) → markdown chunks.
 // Newline-delimited JSON-RPC 2.0 on stdin/stdout; it never writes to the folder.
+// Always-on transcripts (ambient/<date>-<time>-always-on.md) older than
+// AMBIENT_KEEP_HOURS are never returned, even when the desktop app hasn't run to
+// delete them. Default 24 (the app's default); set QP_AMBIENT_KEEP_HOURS to match a
+// changed retention setting.
 const fs = require("fs");
 const path = require("path");
 const readline = require("readline");
 const { search } = require("../lib/search");
+const { OWN_FILE } = require("../lib/ambient");
+
+const AMBIENT_KEEP_HOURS =
+  Number(process.env.QP_AMBIENT_KEEP_HOURS) > 0
+    ? Number(process.env.QP_AMBIENT_KEEP_HOURS)
+    : 24;
+
+/** An always-on file past retention: its name's local start time, else its mtime. */
+function expiredAmbient(rel, now = Date.now()) {
+  const name = path.basename(rel);
+  if (path.dirname(rel) !== "ambient" || !OWN_FILE.test(name)) return false;
+  const [, y, mo, d, h, mi] = /^(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})/.exec(
+    name,
+  );
+  let t = new Date(+y, mo - 1, +d, +h, +mi).getTime();
+  if (!Number.isFinite(t)) t = fs.statSync(path.join(dir, rel)).mtimeMs;
+  return now - t > AMBIENT_KEEP_HOURS * 3600 * 1000;
+}
 
 const dir = path.resolve(
   process.argv[2] || process.env.QUIETPLS_TRANSCRIPTS || ".",
@@ -90,7 +112,10 @@ function handle(msg) {
           { code: -32602 },
         );
       }
-      const hits = search(dir, args);
+      const hits = search(dir, {
+        ...args,
+        include: (rel) => !expiredAmbient(rel),
+      });
       const text = hits.length
         ? hits.map((h) => h.markdown).join("\n\n---\n\n")
         : `No transcripts match${params.arguments && params.arguments.query ? ` "${params.arguments.query}"` : ""}.`;

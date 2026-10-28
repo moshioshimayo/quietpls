@@ -13,7 +13,9 @@ const mkdtemp = (prefix) => {
   made.push(d);
   return d;
 };
-afterAll(() => made.forEach((d) => fs.rmSync(d, { recursive: true, force: true })));
+afterAll(() =>
+  made.forEach((d) => fs.rmSync(d, { recursive: true, force: true })),
+);
 
 let dir;
 beforeAll(() => {
@@ -102,6 +104,77 @@ describe("transcript search", () => {
     expect(S.search(dir, { query: "", limit: 1 }).map((h) => h.file)).toEqual([
       "ambient/x.md",
     ]);
+  });
+});
+
+/** Start the MCP server on folder, send each tools/call, return the replies by id. */
+async function askServer(folder, calls) {
+  const child = spawn(process.execPath, [
+    path.join(__dirname, "..", "..", "..", "capture", "mcp", "server.js"),
+    folder,
+  ]);
+  const replies = [];
+  let buf = "";
+  child.stdout.on("data", (d) => {
+    buf += d;
+    let i;
+    while ((i = buf.indexOf("\n")) >= 0) {
+      replies.push(JSON.parse(buf.slice(0, i)));
+      buf = buf.slice(i + 1);
+    }
+  });
+  calls.forEach((args, i) =>
+    child.stdin.write(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: i + 1,
+        method: "tools/call",
+        params: { name: "search_transcripts", arguments: args },
+      }) + "\n",
+    ),
+  );
+  for (let t = 0; replies.length < calls.length && t < 100; t++)
+    await new Promise((r) => setTimeout(r, 20));
+  child.kill();
+  return Object.fromEntries(
+    replies.map((r) => [r.id, r.result.content[0].text]),
+  );
+}
+
+describe("MCP server and always-on retention", () => {
+  it("never returns always-on text past 24h even when the app hasn't swept it", async () => {
+    const folder = mkdtemp(path.join(os.tmpdir(), "qpc-mcp-expiry-"));
+    fs.mkdirSync(path.join(folder, "ambient"));
+    const write = (rel, start, apps, text) =>
+      fs.writeFileSync(
+        path.join(folder, rel),
+        T.toMarkdown({
+          start,
+          end: new Date(start.getTime() + 600000),
+          apps,
+          title: apps.length ? undefined : "Always-on",
+          model: "base.en",
+          audioKept: false,
+          lines: [{ at: 0, who: "you", text }],
+        }),
+      );
+    const old = new Date(Date.now() - 25 * 3600 * 1000);
+    const expired = path.join("ambient", T.fileName(old, ["always-on"]));
+    write(expired, old, [], "retentionprobe expired ambient");
+    fs.utimesSync(path.join(folder, expired), old, old);
+    const recent = new Date(Date.now() - 3600 * 1000);
+    const fresh = path.join("ambient", T.fileName(recent, ["always-on"]));
+    write(fresh, recent, [], "retentionprobe fresh ambient");
+    const call = T.fileName(old, ["Zoom"]);
+    write(call, old, ["Zoom"], "retentionprobe old call");
+
+    const r = await askServer(folder, [{ query: "retentionprobe" }, {}]);
+    for (const text of [r[1], r[2]]) {
+      expect(text).not.toContain("expired ambient");
+      expect(text).toContain("fresh ambient");
+      expect(text).toContain("retentionprobe old call"); // calls never expire
+    }
+    expect(fs.existsSync(path.join(folder, expired))).toBe(true); // read-only
   });
 });
 

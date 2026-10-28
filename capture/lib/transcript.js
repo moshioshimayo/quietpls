@@ -1,8 +1,9 @@
 "use strict";
 
-// Below this peak a side is treated as silent: whisper invents words ("Thank you.")
-// on near-silence, so a silent side is not transcribed at all.
-const SILENT_PEAK = 0.02;
+// A side at or below this peak is treated as silent and not transcribed (whisper
+// invents words like "Thank you." on silence). Only digital silence counts: a quiet
+// mic or low gain is still speech, and the audio is deleted after the transcript.
+const SILENT_PEAK = 0;
 
 // Whisper's markers for non-speech: [BLANK_AUDIO], (silence), [Music], *coughs* ...
 const NON_SPEECH = /^\s*([[(*].*[\])*]|\.+)?\s*$/;

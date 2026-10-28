@@ -313,6 +313,53 @@ describe("consent covers the apps that were on the call", () => {
     await t.handlers["set-enabled"]({}, false);
   }, 20000);
 
+  it("stops at a gap with nobody on the mic and asks fresh when the same app starts another call within the grace", async () => {
+    const t = makeMode();
+    t.micUsers = ZOOM;
+    await inCall(t);
+    await t.handlers.accept();
+    expect(t.mode.summary().phase).toBe("recording");
+
+    t.micUsers = ""; // call A ends: one poll sees nobody (well inside the 8s grace)
+    const polls = t.polls;
+    await until(() => t.polls > polls);
+    expect(t.child.kills).toEqual([]);
+    t.micUsers = ZOOM; // call B on Zoom: no change for the detector
+    await until(() => t.child.kills.length > 0, 6000);
+    expect(t.child.kills).toEqual(["SIGINT"]);
+    expect(t.mode.summary().phase).toBe("transcribing");
+
+    // A is saved on its own; then B is asked about, not recorded.
+    const a = t.child;
+    fs.writeFileSync(
+      a.opts.output,
+      Wav.encode([new Int16Array(1600), new Int16Array(1600)]),
+    );
+    a.opts.onMessage({ type: "saved" });
+    a.opts.onExit(0);
+    await until(() => t.mode.summary().phase === "saved");
+    await until(() => t.mode.summary().phase === "asking", 12000);
+    expect(t.launches).toBe(1);
+    await t.handlers["set-enabled"]({}, false);
+  }, 30000);
+
+  it("stops the recording when an app on the call is set to Never, not when another app is", async () => {
+    const t = makeMode();
+    t.micUsers = TEAMS;
+    await inCall(t);
+    await t.handlers.accept();
+    expect(t.mode.summary().phase).toBe("recording");
+
+    await t.handlers.settings({}, { neverApps: ["Zoom"] });
+    expect(t.child.kills).toEqual([]);
+    expect(t.mode.summary().phase).toBe("recording");
+
+    await t.handlers.settings({}, { neverApps: ["Zoom", "Microsoft Teams"] });
+    expect(t.child.kills).toEqual(["SIGINT"]);
+    expect(t.mode.summary().phase).toBe("transcribing");
+    await t.handlers["set-enabled"]({}, false);
+  });
+
   it("keeps recording when the detector reports the same apps in another order", async () => {
     const t = makeMode();
     t.micUsers = ZOOM + TEAMS;

@@ -412,6 +412,19 @@ function createCaptureMode({
       dispatch({ type: "call", apps });
       if (apps.length) refreshHealth(); // the banner shows whether recording can start
     },
+    // A poll with nobody on the mic ends the consented call, even if the same app
+    // is back before the grace runs out: that is a new call, and it is asked about.
+    onPoll: ({ apps }) => {
+      if (!capture || capture.ambient || capture.end) return;
+      if (!apps.length) capture.sawEmpty = true;
+      else if (capture.sawEmpty && sameApps(apps, capture.apps)) {
+        callGen++;
+        log(`call apps: new call on ${apps.join(", ")}`);
+        stopRecording();
+        dispatch({ type: "call", apps: [] }); // the next detection is asked fresh
+        dispatch({ type: "call", apps });
+      }
+    },
   });
 
   function sameApps(a, b) {
@@ -670,6 +683,13 @@ function createCaptureMode({
   async function updateSettings(patch) {
     settings = { ...settings, ...patch };
     saveSettings();
+    // Never for an app on the call being recorded withdraws its consent: stop now.
+    if (
+      capture &&
+      !capture.ambient &&
+      capture.apps.some((a) => settings.neverApps.includes(a))
+    )
+      stopRecording();
     applyDetection();
     dispatch({ type: "settings" });
     await refreshHealth();

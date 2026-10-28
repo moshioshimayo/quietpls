@@ -16,7 +16,7 @@ describe("channel mapping", () => {
     expect(Array.from(you.channels[0])).toEqual(Array.from(left));
     expect(Array.from(them.channels[0])).toEqual(Array.from(right));
     expect(split.you.peak).toBeGreaterThan(0.4);
-    expect(split.them.peak).toBeLessThan(T.SILENT_PEAK);
+    expect(split.them.peak).toBeCloseTo(100 / 32768);
     expect(split.seconds).toBeCloseTo(0.1);
   });
 

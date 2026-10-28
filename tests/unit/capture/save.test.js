@@ -108,6 +108,44 @@ describe("saving a call", () => {
     expect(r.silent).toEqual(["them"]);
     expect(r.lines.map((l) => l.who)).toEqual(["you"]);
   });
+
+  it("transcribes a quiet mic (peak 600/32767) before deleting the audio; skips only a dead one", async () => {
+    const tone = (amp) =>
+      Int16Array.from({ length: 16000 }, (_, i) =>
+        Math.round(Math.sin(i / 5) * amp),
+      );
+    const wav = path.join(audio, "quiet.wav");
+    fs.writeFileSync(wav, W.encode([tone(600), tone(6000)]));
+    const heard = [];
+    const r = await P.finishCall({
+      wavPath: wav,
+      start: new Date(2026, 9, 27, 10, 0, 0),
+      end: new Date(2026, 9, 27, 10, 1, 0),
+      apps: ["Zoom"],
+      settings: { keepAudio: false, keepDays: 7, folder: dir },
+      model: "base.en",
+      transcribeSide: (p) => {
+        const peak = W.peak(W.decode(fs.readFileSync(p)).channels[0]);
+        heard.push(peak);
+        return Promise.resolve({
+          transcription: [
+            {
+              offsets: { from: 1000 },
+              text: peak < 0.05 ? " Quiet me." : " Them.",
+            },
+          ],
+        });
+      },
+    });
+    expect(r.silent).toEqual([]);
+    expect(heard).toHaveLength(2);
+    expect(fs.readFileSync(r.file, "utf8")).toContain("[you] Quiet me.");
+    expect(fs.existsSync(wav)).toBe(false);
+
+    const dead = await call({}, recording(false, true));
+    expect(dead.silent).toEqual(["you"]);
+    expect(dead.lines.map((l) => l.who)).toEqual(["them"]);
+  });
 });
 
 describe("remote refusal", () => {

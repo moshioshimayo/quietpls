@@ -36,7 +36,7 @@ async function finishCall({
   const sides = {};
   const silent = [];
   for (const who of ["you", "them"]) {
-    if (split[who].peak < T.SILENT_PEAK) {
+    if (split[who].peak <= T.SILENT_PEAK) {
       silent.push(who);
       continue;
     }

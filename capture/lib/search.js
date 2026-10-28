@@ -32,13 +32,18 @@ const terms = (q) =>
  * search(dir, { query, from, to, limit, context }) → [{ file, start, title, score, markdown }]
  * Every query word must appear in the transcript; matching lines are returned with
  * `context` lines around them. An empty query returns whole transcripts (newest first).
+ * include(rel) → false leaves a file out (the MCP server hides expired always-on text).
  */
-function search(dir, { query = "", from, to, limit = 5, context = 2 } = {}) {
+function search(
+  dir,
+  { query = "", from, to, limit = 5, context = 2, include = () => true } = {},
+) {
   const words = terms(query);
   const fromT = from ? Date.parse(from) : -Infinity;
   const toT = to ? Date.parse(to) : Infinity;
   const hits = [];
   for (const rel of transcriptFiles(dir)) {
+    if (!include(rel)) continue;
     const text = fs.readFileSync(path.join(dir, rel), "utf8");
     const { meta, lines } = parseMarkdown(text);
     const t = Date.parse(meta.start);
