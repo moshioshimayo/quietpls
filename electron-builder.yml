@@ -8,6 +8,8 @@ afterPack: ./scripts/afterPack.js
 asar: true
 asarUnpack:
   - volume-processor.js
+  # Capture (beta) speaker-label sidecar is run by uv, which can't read app.asar.
+  - capture/diarize/**
 # Runtime-only allowlist: package.json and production node_modules are always
 # included by electron-builder; everything else must be listed here so docs/,
 # tests/, scripts/, __mocks__/ and repo configs never ship inside app.asar.
@@ -20,11 +22,18 @@ files:
   - "*.css"
   - "assets/**/*"
   - "!assets/entitlements.mac.plist"
+  # Capture (beta): opt-in call capture (lib, windows, MCP server, speaker sidecar).
+  - "capture/**/*"
+  - "!capture/e2e-fakes.js"
+  - "!capture/check-speakers.js"
 # Native helper that lists which apps are using the mic (meeting-detector.js).
 # Built by scripts/build-native.sh (predist).
 extraResources:
   - from: bin/mic-users
     to: mic-users
+  # Capture (beta) stereo recorder (native/capture.swift): mic + system-audio tap.
+  - from: bin/capture
+    to: capture
 directories:
   output: dist
 publish:
@@ -40,7 +49,8 @@ mac:
   entitlementsInherit: assets/entitlements.mac.plist
   notarize: false
   extendInfo:
-    NSMicrophoneUsageDescription: quietpls needs access to your microphone to monitor audio levels in real-time. Your audio is never recorded or transmitted.
+    NSMicrophoneUsageDescription: quietpls needs access to your microphone to monitor audio levels in real-time. Monitoring never records or transmits audio. If you turn on Capture (beta), calls you approve are recorded and transcribed on this Mac.
+    NSAudioCaptureUsageDescription: Capture (beta) records the other side of calls you approve, so they can be transcribed on this Mac.
   target:
     - target: dmg
       arch:

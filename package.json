@@ -1,8 +1,11 @@
 {
   "name": "quietpls",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "A floating macOS audio-level monitor for calls and meetings. Local-only, open source.",
   "main": "main.js",
+  "bin": {
+    "quietpls-mcp": "capture/mcp/server.js"
+  },
   "scripts": {
     "build:native": "bash scripts/build-native.sh",
     "prestart": "bash scripts/build-native.sh",
@@ -11,7 +14,12 @@
     "test:e2e": "playwright test",
     "predist": "bash scripts/build-native.sh",
     "dist": "electron-builder --mac",
-    "release": "bash scripts/release.sh"
+    "release": "bash scripts/release.sh",
+    "capture:test": "vitest run tests/unit/capture/",
+    "capture:e2e": "playwright test tests/e2e/capture.spec.js",
+    "capture:verify": "bash scripts/build-native.sh && vitest run tests/unit/capture/ && playwright test tests/e2e/capture.spec.js",
+    "capture:mcp": "node capture/mcp/server.js",
+    "capture:check-speakers": "node capture/check-speakers.js"
   },
   "keywords": [
     "voice",

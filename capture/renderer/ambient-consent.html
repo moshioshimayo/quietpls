@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self'"
+    />
+    <link rel="stylesheet" href="base.css" />
+    <link rel="stylesheet" href="ambient-consent.css" />
+    <title>Always-on capture — consent</title>
+  </head>
+  <body>
+    <h1>Record beyond calls?</h1>
+    <p class="danger-note">
+      Always-on records your microphone and system audio even when you are not
+      in a call.
+    </p>
+    <ul>
+      <li>
+        Anyone near your microphone can be recorded. Tell them first and obtain
+        any consent required where you are.
+      </li>
+      <li>
+        A persistent red <strong>ALWAYS ON</strong> indicator stays visible.
+        Stop there or in the menubar at any time.
+      </li>
+      <li>
+        Speech is transcribed on this Mac in 10-minute chunks. There are gaps
+        while each chunk is transcribed.
+      </li>
+      <li>
+        Transcripts are deleted after 24 hours by default. They live in
+        <code>ambient/</code>, excluded from git history. Call transcripts keep
+        their normal git history.
+      </li>
+      <li>
+        Audio exists temporarily while recording/transcribing and is deleted
+        afterward, including on transcription failure.
+      </li>
+      <li>Always-on does not restart automatically after quitting the app.</li>
+    </ul>
+    <label for="confirmation"
+      >To start now, type <strong>ALWAYS ON</strong></label
+    >
+    <input
+      id="confirmation"
+      autocomplete="off"
+      spellcheck="false"
+      aria-describedby="notice"
+    />
+    <p id="notice" class="muted">
+      This is separate from “Ask when a call starts”.
+    </p>
+    <footer>
+      <button id="cancel">Cancel — keep it off</button
+      ><button id="start" class="danger" disabled>
+        Start always-on recording
+      </button>
+    </footer>
+    <script src="ambient-consent.js"></script>
+  </body>
+</html>

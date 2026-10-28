@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="indicator.css">
+</head>
+<body>
+  <div class="pill" id="pill">
+    <span class="dot" id="dot"></span>
+    <span class="label num" id="label">REC 00:00</span>
+    <div class="meters" id="meters">
+      <div class="meter you"><span>you</span><div class="bar"><i id="you"></i></div></div>
+      <div class="meter them"><span>them</span><div class="bar"><i id="them"></i></div></div>
+    </div>
+    <span class="detail" id="detail" hidden></span>
+    <button class="danger" id="stop">Stop</button>
+    <button id="open" hidden>Open</button>
+  </div>
+<script src="common.js"></script>
+<script src="indicator.js"></script>
+</body>
+</html>

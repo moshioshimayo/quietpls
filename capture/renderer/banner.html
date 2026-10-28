@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self'"
+    />
+    <link rel="stylesheet" href="base.css" />
+    <link rel="stylesheet" href="banner.css" />
+  </head>
+  <body>
+    <div class="card" role="dialog" aria-labelledby="title">
+      <div class="head">
+        <span class="dot asking"></span
+        ><span id="title">A call started in <span id="app">Zoom</span></span>
+      </div>
+      <dl class="facts">
+        <dt>Record</dt>
+        <dd>
+          <span class="you">you</span> (your mic) +
+          <span class="them">them</span> (call audio)
+        </dd>
+        <dt>Saves</dt>
+        <dd id="where">a text transcript to your folder</dd>
+        <dt>Audio</dt>
+        <dd id="audio">deleted once the text is saved</dd>
+      </dl>
+      <p class="warn" id="warn" role="alert" hidden></p>
+      <div class="actions">
+        <button class="primary" id="accept">Record this call</button>
+        <button id="skip">Not now</button>
+        <button class="link" id="never">
+          Never for <span id="app2">Zoom</span>
+        </button>
+      </div>
+    </div>
+    <script src="common.js"></script>
+    <script src="banner.js"></script>
+  </body>
+</html>

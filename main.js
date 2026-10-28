@@ -23,6 +23,8 @@ if (process.env.QUIETPLS_E2E_TEST === "1" && process.env.QUIETPLS_USER_DATA) {
 const { createWidgetStateMachine, STATES } = require("./widget-state-machine");
 const { createMeetingDetector } = require("./meeting-detector");
 const { createInputTransports } = require("./input-transports");
+// Capture (beta): opt-in call capture, off by default (README.md, "Capture (beta)").
+const { createCaptureMode } = require("./capture/mode");
 
 // CoreAudio transport types of the audio inputs (Bluetooth detection).
 // E2E runs (unpackaged only) never read the real Mac's devices: tests set
@@ -121,6 +123,7 @@ let onboardingWindow;
 let settingsWindow;
 let tray = null;
 let meetingDetector = null;
+let captureMode = null;
 let isMonitoring = false;
 let monitoringStartTime = null;
 let currentSettings = { ...defaultSettings };
@@ -481,6 +484,7 @@ function updateTrayMenu() {
         toggleMonitoringFromMain();
       },
     },
+    ...(captureMode ? captureMode.menuItems() : []),
     { type: "separator" },
     {
       label: "Settings",
@@ -534,6 +538,8 @@ function updateTrayMenu() {
  */
 function updateTrayIcon(update) {
   if (!tray || !isMonitoring || !update) return;
+  // While capture is asking/recording/transcribing it draws the tray (red dot + time).
+  if (captureMode && captureMode.ownsTray()) return;
 
   // Throttle updates to max ~10/second, but never drop a zone change
   const zone = ["quiet", "normal", "loud", "danger"].includes(update.visual)
@@ -576,7 +582,7 @@ function updateTrayIcon(update) {
 }
 
 function resetTrayIcon() {
-  if (!tray) return;
+  if (!tray || (captureMode && captureMode.ownsTray())) return;
   currentTrayIconState = "inactive";
   tray.setImage(trayIcons.inactive);
   if (trayIconRenderer) {
@@ -665,7 +671,11 @@ app.whenReady().then(async () => {
     pollIntervalMs: 3000,
     graceMs: 30000,
     timeoutMs: 3000,
-    getOwnPids: () => app.getAppMetrics().map((m) => m.pid),
+    getOwnPids: () => [
+      ...app.getAppMetrics().map((m) => m.pid),
+      // The capture helper is quietpls's own mic user, never a call.
+      ...(captureMode ? captureMode.helperPids() : []),
+    ],
     ...(app.isPackaged && {
       helperPath: path.join(process.resourcesPath, "mic-users"),
     }),
@@ -715,6 +725,23 @@ app.whenReady().then(async () => {
 
   // Create system tray
   createTray();
+
+  // Capture (beta). Does nothing until the user turns it on in Settings.
+  captureMode = createCaptureMode({
+    app,
+    binDir: app.isPackaged
+      ? process.resourcesPath
+      : path.join(__dirname, "bin"),
+    getTray: () => tray,
+    onTrayReleased: resetTrayIcon,
+    onMenuChanged: updateTrayMenu,
+    deps:
+      E2E_FAKES && process.env.QUIETPLS_CAPTURE_FAKES === "1"
+        ? require("./capture/e2e-fakes")
+        : {},
+  });
+  captureMode.start();
+  updateTrayMenu();
 
   // Initialize auto-updater
   setupAutoUpdater();

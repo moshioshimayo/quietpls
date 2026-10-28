@@ -180,6 +180,40 @@
               </div>
             </div>
           </section>
+
+          <!-- Capture (beta): opt-in call recording + local transcripts -->
+          <section class="settings-section" id="captureSection">
+            <h4 class="section-title">Capture (beta)</h4>
+            <div class="glass-panel general-panel">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <span class="toggle-label">Record and transcribe calls</span>
+                  <span class="toggle-description" id="captureDescription"
+                    >Off. Monitoring never records anything.</span
+                  >
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="captureEnabled" />
+                  <span class="toggle-track"></span>
+                </label>
+              </div>
+              <p class="toggle-description capture-note" id="captureNote">
+                When on, quietpls asks at the start of each call. Only calls you
+                approve are recorded: your mic and the call's audio. Speech is
+                turned into text on this Mac, the audio is deleted after
+                transcription by default, and each transcript is committed to a
+                local git folder you choose, which must have no remote.
+              </p>
+              <div class="capture-actions" id="captureActions" hidden>
+                <button class="mic-test-btn" id="captureSettingsBtn">
+                  Capture settings…
+                </button>
+                <button class="mic-test-btn" id="captureTranscriptsBtn">
+                  View transcripts
+                </button>
+              </div>
+            </div>
+          </section>
         </div>
         <!-- /tab-thresholds -->
 
@@ -275,5 +309,6 @@
     <script src="settings-history-logic.js"></script>
     <script src="mic-policy.js"></script>
     <script src="settings-renderer.js"></script>
+    <script src="capture/settings-section.js"></script>
   </body>
 </html>

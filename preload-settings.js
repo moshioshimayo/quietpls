@@ -62,4 +62,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getCalibration: (deviceId) => ipcRenderer.invoke("get-calibration", deviceId),
   clearCalibration: (deviceId) =>
     ipcRenderer.send("clear-calibration", { deviceId }),
+
+  // Capture (beta) section (capture/settings-section.js)
+  captureSummary: () => ipcRenderer.invoke("capture:summary"),
+  setCaptureEnabled: (enabled) =>
+    ipcRenderer.invoke("capture:set-enabled", enabled),
+  openTranscripts: (tab) => ipcRenderer.invoke("capture:open-main", tab),
 });
