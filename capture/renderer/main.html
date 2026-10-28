@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'">
+<title>quietpls — Transcripts</title>
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="main.css">
+</head>
+<body>
+  <header class="top">
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="calls" aria-selected="true">Calls</button>
+      <button role="tab" data-tab="settings">Settings</button>
+    </nav>
+    <div class="status" id="status">
+      <span class="dot" id="status-dot"></span>
+      <span id="status-text" class="num">Off</span>
+      <button id="status-action" hidden></button>
+    </div>
+  </header>
+
+  <div id="alerts"></div>
+
+  <main id="calls" class="calls">
+    <aside class="list">
+      <input id="search" type="search" placeholder="Search calls" aria-label="Search calls">
+      <ol id="rows"></ol>
+    </aside>
+    <section class="reader" id="reader"></section>
+  </main>
+
+  <main id="settings" class="settings" hidden></main>
+
+<script src="common.js"></script>
+<script src="main.js"></script>
+</body>
+</html>

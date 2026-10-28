@@ -1152,3 +1152,20 @@ body {
 /* ============================================================
    Account Tab (US-018)
    ============================================================ */
+
+/* Capture (beta) section */
+.capture-note {
+  display: block;
+  margin: var(--space-2) 0 0;
+  line-height: 1.45;
+}
+
+.capture-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.capture-actions[hidden] {
+  display: none;
+}

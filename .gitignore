@@ -48,6 +48,12 @@ temp/
 test-results/
 playwright-report/
 
+# Capture (beta) test audio and recordings: never committed
+*.wav
+*.aiff
+*.m4a
+capture-audio/
+
 # Local updater feed used for OTA testing
 dev-app-update.yml
 
