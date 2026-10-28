@@ -80,6 +80,20 @@ describe("transcript markdown", () => {
     expect(T.dropEcho(you, them).map((l) => l.at)).toEqual([10, 40]);
   });
 
+  it("keeps a mic line that adds words to what the other side said (not an echo)", () => {
+    const them = [{ at: 0, text: "I approve the payment" }];
+    expect(
+      T.dropEcho([{ at: 2, text: "I do not approve the payment." }], them),
+    ).toHaveLength(1);
+    expect(
+      T.dropEcho([{ at: 2, text: "I don't approve the payment." }], them),
+    ).toHaveLength(1);
+    // A pure echo is still dropped.
+    expect(
+      T.dropEcho([{ at: 1, text: "I approve the payment." }], them),
+    ).toEqual([]);
+  });
+
   it("keeps non-Latin mic lines (Chinese, Japanese, Cyrillic) and still drops their echo", () => {
     const them = [
       { at: 4, text: "好的，谢谢。" },

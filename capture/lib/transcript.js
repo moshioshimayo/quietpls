@@ -51,9 +51,12 @@ const words = (t) =>
   new Set(t.toLowerCase().match(/[\p{L}\p{N}\p{M}']+/gu) || []);
 
 /**
- * On laptop speakers the mic also hears the other side. Drop a "you" line when a
- * "them" line within `window` seconds says mostly the same words: it's echo.
- * A line with nothing to compare is kept.
+ * On laptop speakers the mic also hears the other side. Drop a "you" line only when
+ * a "them" line within `window` seconds says nearly the same thing: every word of it
+ * is in the "them" line (echo can lose words, not add them: "I do not approve" is
+ * not an echo of "I approve") and the two share at least 80% of their words.
+ * Keeping an echo is a duplicate line; dropping real speech loses it, so when in
+ * doubt the line is kept. A line with nothing to compare is kept.
  */
 function dropEcho(you, them, window = 3) {
   return you.filter((y) => {
@@ -62,9 +65,8 @@ function dropEcho(you, them, window = 3) {
     return !them.some((t) => {
       if (Math.abs(t.at - y.at) > window) return false;
       const tw = words(t.text);
-      let shared = 0;
-      for (const w of yw) if (tw.has(w)) shared++;
-      return shared / yw.size >= 0.6;
+      for (const w of yw) if (!tw.has(w)) return false;
+      return yw.size / tw.size >= 0.8; // yw ⊆ tw, so this is their Jaccard index
     });
   });
 }

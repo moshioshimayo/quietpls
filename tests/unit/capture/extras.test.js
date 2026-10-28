@@ -140,4 +140,30 @@ describe("always-on mode", () => {
     expect(A.sweepAmbient(folder, 24, now)).toEqual([result.file]);
     expect(fs.existsSync(result.file)).toBe(false);
   });
+
+  it("expires only its own always-on files; a user's file in ambient/ is never deleted", () => {
+    const folder = mkdtemp(path.join(os.tmpdir(), "qpc-ambient-own-"));
+    const d = path.join(folder, "ambient");
+    fs.mkdirSync(d);
+    const own = [
+      "2026-10-27-1100-always-on.md",
+      "2026-10-27-1100-always-on-2.md",
+    ];
+    const foreign = [
+      "personal.md",
+      "2026-10-27-1100-zoom.md",
+      "always-on.md",
+      "notes.txt",
+    ];
+    const now = Date.now();
+    const aged = new Date(now - 25 * 3600000);
+    for (const n of [...own, ...foreign]) {
+      fs.writeFileSync(path.join(d, n), "synthetic\n");
+      fs.utimesSync(path.join(d, n), aged, aged);
+    }
+    expect(A.sweepAmbient(folder, 24, now).sort()).toEqual(
+      own.map((n) => path.join(d, n)).sort(),
+    );
+    expect(fs.readdirSync(d).sort()).toEqual([...foreign].sort());
+  });
 });

@@ -403,13 +403,20 @@ function createCaptureMode({
           saveSettings();
         }
       }
-      // Stop first: "stopped" marks this call as handled, and the call-ended event
-      // that follows clears that mark so the next call is asked about again.
-      if (!apps.length && capture && !capture.ambient) stopRecording();
+      // Consent covers exactly the apps that were on the call when the user said
+      // yes: when that set changes (an app joins or leaves, or the call ends), stop
+      // and save. Stop first: "stopped" marks this call as handled, so it isn't
+      // asked about again until the call ends; the next call is asked about fresh.
+      if (capture && !capture.ambient && !sameApps(apps, capture.apps))
+        stopRecording();
       dispatch({ type: "call", apps });
       if (apps.length) refreshHealth(); // the banner shows whether recording can start
     },
   });
+
+  function sameApps(a, b) {
+    return a.length === b.length && a.every((x) => b.includes(x));
+  }
 
   function applyDetection() {
     if (ambientActive || !settings.enabled) detector.stop();
@@ -447,15 +454,22 @@ function createCaptureMode({
       log("not recording: consent withdrawn while checking");
       return;
     }
-    const blocker = !health.folder.ok
-      ? health.folder.reason === "has-remote"
-        ? "Your transcript folder's repo has a remote, so nothing was recorded. Pick a folder with no remote."
-        : "Choose a transcript folder first."
-      : !health.whisper
-        ? "Speech-to-text isn't installed (brew install whisper-cpp)."
-        : !health.modelReady
-          ? "Download the speech model first (Settings)."
-          : null;
+    // "Never" for one app on the call outranks a yes to the others: the recorder
+    // takes all system audio, so it would record that app too.
+    const never = isAmbient
+      ? []
+      : state.apps.filter((a) => settings.neverApps.includes(a));
+    const blocker = never.length
+      ? `Not recorded: ${never.join(" and ")} ${never.length === 1 ? "is" : "are"} set to Never record. Change it in Settings to record calls while ${never.length === 1 ? "it's" : "they're"} on.`
+      : !health.folder.ok
+        ? health.folder.reason === "has-remote"
+          ? "Your transcript folder's repo has a remote, so nothing was recorded. Pick a folder with no remote."
+          : "Choose a transcript folder first."
+        : !health.whisper
+          ? "Speech-to-text isn't installed (brew install whisper-cpp)."
+          : !health.modelReady
+            ? "Download the speech model first (Settings)."
+            : null;
     if (blocker) {
       if (isAmbient) {
         ambientActive = false;
@@ -465,7 +479,7 @@ function createCaptureMode({
       log(`not recording: ${blocker}`);
       dispatch({ type: "skip" });
       // A remote already has its own alert on screen until it's fixed; don't repeat it.
-      if (health.folder.reason !== "has-remote")
+      if (never.length || health.folder.reason !== "has-remote")
         dispatch({ type: "failed", error: blocker });
       openMain("settings");
       return;
@@ -724,7 +738,7 @@ function createCaptureMode({
   function hasAmbientText(dir) {
     const d = path.join(dir, "ambient");
     try {
-      return fs.readdirSync(d).some((n) => n.endsWith(".md"));
+      return fs.readdirSync(d).some((n) => ambient.OWN_FILE.test(n));
     } catch {
       return false;
     }

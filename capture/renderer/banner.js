@@ -1,7 +1,12 @@
 "use strict";
 
 // Why recording can't start right now, in plain words (null = it can).
-function blocker({ health }) {
+function blocker({ state, settings, health }) {
+  const never = state.apps.filter((a) =>
+    (settings.neverApps || []).includes(a),
+  );
+  if (never.length)
+    return `Can't record: ${never.join(" and ")} ${never.length === 1 ? "is" : "are"} set to Never record, and recording would capture ${never.length === 1 ? "it" : "them"} too.`;
   if (health.folder.reason === "has-remote")
     return "Can't record: your transcript folder's git repo has a remote, so calls could be pushed.";
   if (!health.folder.ok)
@@ -19,11 +24,12 @@ let blocked = null;
 
 function show(snap) {
   const { state, settings, home } = snap;
-  const apps = state.apps.filter(
+  // Every app using the mic is named: recording takes all of their audio.
+  $("#app").textContent = appList(state.apps);
+  const askable = state.apps.filter(
     (a) => !(settings.neverApps || []).includes(a),
   );
-  $("#app").textContent = appList(apps);
-  $("#app2").textContent = apps.length === 1 ? apps[0] : "these apps";
+  $("#app2").textContent = askable.length === 1 ? askable[0] : "these apps";
   $("#where").textContent = settings.folder
     ? `text to ${tilde(settings.folder, home)} (git, this Mac only)`
     : "nowhere yet — choose a folder first";

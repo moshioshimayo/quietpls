@@ -3,12 +3,14 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { createRequire } from "module";
+import vm from "vm";
 
 // Loads the real createCaptureMode with Electron mocked (tests/unit/setup.js) and the
 // recorder, mic check, whisper and mic-users helper replaced: no microphone or system
 // audio is ever opened. Synthetic files only, removed afterwards.
 const require = createRequire(import.meta.url);
 const electron = require("electron");
+const Wav = require("../../../capture/lib/wav.js");
 
 const made = [];
 const mkdtemp = (prefix) => {
@@ -20,17 +22,24 @@ afterAll(() =>
   made.forEach((d) => fs.rmSync(d, { recursive: true, force: true })),
 );
 
+const windows = [];
 class FakeWindow {
   constructor() {
     this.visible = false;
+    this.snap = null;
+    windows.push(this);
     this.webContents = {
-      send() {},
+      send: (channel, data) => {
+        if (channel === "snapshot") this.snap = data;
+      },
       on() {},
       once() {},
       isLoading: () => false,
     };
   }
-  loadFile() {}
+  loadFile(file) {
+    this.page = path.basename(file, ".html");
+  }
   on() {}
   once() {}
   isDestroyed() {
@@ -103,6 +112,9 @@ function makeMode({ settings = {}, data = mkdtemp("qpc-mode-data-") } = {}) {
     data,
     folder,
     launches: 0,
+    child: null, // the fake recorder: { opts, kills }
+    micChecks: 0,
+    polls: 0,
     micUsers: "4242\tus.zoom.xos\n",
     gate: null, // when set, the next mic check waits for t.release()
   };
@@ -119,19 +131,25 @@ function makeMode({ settings = {}, data = mkdtemp("qpc-mode-data-") } = {}) {
     binDir: data,
     getTray: () => null,
     deps: {
-      startCapture: () => {
+      startCapture: (opts) => {
         t.launches++;
-        return { pid: undefined, kill() {} };
+        t.child = { opts, kills: [], pid: undefined };
+        t.child.kill = (sig) => t.child.kills.push(sig);
+        return t.child;
       },
       transcribe: async () => ({ transcription: [] }),
       findWhisper: () => "/usr/bin/true",
       checkMic: () => {
+        t.micChecks++;
         if (!t.gate) return Promise.resolve("granted");
         const p = new Promise((r) => (t.release = () => r("granted")));
         t.gate = null;
         return p;
       },
-      detectorExecFile: (_bin, _args, _opts, cb) => cb(null, t.micUsers),
+      detectorExecFile: (_bin, _args, _opts, cb) => {
+        t.polls++;
+        cb(null, t.micUsers);
+      },
     },
   });
   t.mode = mode;
@@ -142,7 +160,13 @@ function makeMode({ settings = {}, data = mkdtemp("qpc-mode-data-") } = {}) {
 async function inCall(t) {
   await t.handlers.settings({}, {}); // starts call detection
   await until(() => t.mode.summary().phase === "asking");
+  // The detection's own health check (the 2nd mic check) has started, so a gate
+  // set after this is met by the Record click's check, not that one.
+  await until(() => t.micChecks >= 2);
 }
+
+/** Clicked Record while the mic check is gated: wait until the click reached it. */
+const atGate = (t) => until(() => !t.gate);
 
 describe("consent race while the mic check is pending", () => {
   it("doesn't start the recorder when capture is turned off after Record was clicked", async () => {
@@ -150,7 +174,7 @@ describe("consent race while the mic check is pending", () => {
     await inCall(t);
     t.gate = true;
     const accepting = t.handlers.accept();
-    await tick();
+    await atGate(t);
     await t.handlers["set-enabled"]({}, false);
     t.release();
     await accepting;
@@ -163,7 +187,7 @@ describe("consent race while the mic check is pending", () => {
     await inCall(t);
     t.gate = true;
     const accepting = t.handlers.accept();
-    await tick();
+    await atGate(t);
     t.handlers.skip();
     t.release();
     await accepting;
@@ -178,13 +202,129 @@ describe("consent race while the mic check is pending", () => {
     t.gate = true;
     const a = t.handlers.accept();
     const b = t.handlers.accept();
-    await tick();
+    await atGate(t);
     t.release();
     await Promise.all([a, b]);
     expect(t.launches).toBe(1);
     expect(t.mode.summary().phase).toBe("recording");
     await t.handlers["set-enabled"]({}, false);
   });
+});
+
+const ZOOM = "4242\tus.zoom.xos\n";
+const TEAMS = "4343\tcom.microsoft.teams2\n";
+
+/** Run the real banner renderer (common.js + banner.js) on a snapshot; returns its text. */
+function renderBanner(snap) {
+  const els = {};
+  let onSnapshot = null;
+  const ctx = {
+    document: {
+      querySelector: (sel) =>
+        (els[sel] ||= { textContent: "", hidden: false, offsetHeight: 100 }),
+    },
+    window: {
+      qpc: {
+        on: (name, fn) => name === "snapshot" && (onSnapshot = fn),
+        snapshot: () => new Promise(() => {}),
+        fit() {},
+      },
+    },
+    requestAnimationFrame() {},
+  };
+  vm.createContext(ctx);
+  for (const f of ["common.js", "banner.js"])
+    vm.runInContext(
+      fs.readFileSync(
+        new URL(`../../../capture/renderer/${f}`, import.meta.url),
+        "utf8",
+      ),
+      ctx,
+    );
+  onSnapshot(snap);
+  return {
+    apps: els["#app"].textContent,
+    warn: els["#warn"].hidden ? "" : els["#warn"].textContent,
+    accept: els["#accept"].textContent,
+  };
+}
+
+describe("an app set to Never is on the call", () => {
+  it("doesn't record when Zoom (Never) is on the mic with Teams (Ask), and the banner names both", async () => {
+    const t = makeMode({ settings: { neverApps: ["Zoom"] } });
+    t.micUsers = TEAMS + ZOOM;
+    await inCall(t);
+    expect(t.mode.summary().phase).toBe("asking");
+    const banner = windows.findLast((w) => w.page === "banner");
+    const shown = renderBanner(banner.snap);
+    expect(shown.apps).toContain("Microsoft Teams");
+    expect(shown.apps).toContain("Zoom");
+    expect(shown.warn).toMatch(/Zoom is set to Never/);
+    expect(shown.accept).toBe("Fix in Settings");
+
+    await t.handlers.accept(); // e.g. "Record this call" from the tray menu
+    expect(t.launches).toBe(0);
+    expect(t.mode.summary().phase).toBe("error");
+    await t.handlers["set-enabled"]({}, false);
+  });
+
+  it("records as before when only Teams (Ask) is on the call", async () => {
+    const t = makeMode({ settings: { neverApps: ["Zoom"] } });
+    t.micUsers = TEAMS;
+    await inCall(t);
+    const banner = windows.findLast((w) => w.page === "banner");
+    const shown = renderBanner(banner.snap);
+    expect(shown.apps).toBe("Microsoft Teams");
+    expect(shown.warn).toBe("");
+    await t.handlers.accept();
+    expect(t.launches).toBe(1);
+    expect(t.mode.summary().phase).toBe("recording");
+    await t.handlers["set-enabled"]({}, false);
+  });
+});
+
+describe("consent covers the apps that were on the call", () => {
+  it("stops and saves the recording when another app joins, and doesn't ask again mid-call", async () => {
+    const t = makeMode();
+    t.micUsers = ZOOM;
+    await inCall(t);
+    await t.handlers.accept();
+    expect(t.mode.summary().phase).toBe("recording");
+
+    t.micUsers = TEAMS + ZOOM; // Teams joins: not what the user said yes to
+    await until(() => t.child.kills.length > 0, 6000);
+    expect(t.child.kills).toEqual(["SIGINT"]);
+    expect(t.mode.summary().phase).toBe("transcribing");
+
+    // The recorder finishes like at a normal call end: the call is saved.
+    fs.writeFileSync(
+      t.child.opts.output,
+      Wav.encode([new Int16Array(1600), new Int16Array(1600)]),
+    );
+    t.child.opts.onMessage({ type: "saved" });
+    t.child.opts.onExit(0);
+    await until(() => t.mode.summary().phase === "saved");
+
+    t.micUsers = TEAMS; // Zoom leaves: no restart, no new question until the call ends
+    const polls = t.polls;
+    await until(() => t.polls > polls + 1, 6000);
+    expect(t.launches).toBe(1);
+    expect(t.mode.summary().phase).not.toMatch(/asking|recording/);
+    await t.handlers["set-enabled"]({}, false);
+  }, 20000);
+
+  it("keeps recording when the detector reports the same apps in another order", async () => {
+    const t = makeMode();
+    t.micUsers = ZOOM + TEAMS;
+    await inCall(t);
+    await t.handlers.accept();
+    t.micUsers = TEAMS + ZOOM;
+    const polls = t.polls;
+    await until(() => t.polls > polls + 1, 6000);
+    expect(t.child.kills).toEqual([]);
+    expect(t.mode.summary().phase).toBe("recording");
+    await t.handlers["set-enabled"]({}, false);
+  }, 20000);
 });
 
 describe("always-on retention after switching transcript folders", () => {
