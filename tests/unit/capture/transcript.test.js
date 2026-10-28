@@ -80,6 +80,20 @@ describe("transcript markdown", () => {
     expect(T.dropEcho(you, them).map((l) => l.at)).toEqual([10, 40]);
   });
 
+  it("keeps non-Latin mic lines (Chinese, Japanese, Cyrillic) and still drops their echo", () => {
+    const them = [
+      { at: 4, text: "好的，谢谢。" },
+      { at: 20, text: "Привет, как дела?" },
+    ];
+    const you = [
+      { at: 0, text: "你好，这是预算。" }, // real, 4 s from them
+      { at: 12, text: "こんにちは、予算です。" }, // real, nothing near
+      { at: 20.5, text: "привет как дела" }, // echo
+      { at: 30, text: "…" }, // nothing to compare: kept
+    ];
+    expect(T.dropEcho(you, them).map((l) => l.at)).toEqual([0, 12, 30]);
+  });
+
   it("has frontmatter (start, end, duration, apps) and [time] [you|them] lines", () => {
     const start = new Date(2026, 9, 27, 22, 15, 3);
     const end = new Date(2026, 9, 27, 22, 27, 34);

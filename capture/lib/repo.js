@@ -124,10 +124,11 @@ async function saveAmbient(dir, name, markdown) {
     );
   const prefix = (await git(dir, ["rev-parse", "--show-prefix"])).trim();
   const ignore = `/${prefix}ambient/`;
-  const exclude = path.join(
-    (await git(dir, ["rev-parse", "--absolute-git-dir"])).trim(),
-    "info",
-    "exclude",
+  // --git-path gives the repo's shared info/exclude, which git reads from every
+  // linked worktree (a worktree's own admin dir has no effect).
+  const exclude = path.resolve(
+    dir,
+    (await git(dir, ["rev-parse", "--git-path", "info/exclude"])).trim(),
   );
   const current = fs.existsSync(exclude)
     ? fs.readFileSync(exclude, "utf8")
@@ -137,6 +138,13 @@ async function saveAmbient(dir, name, markdown) {
     fs.appendFileSync(
       exclude,
       `${current && !current.endsWith("\n") ? "\n" : ""}${ignore}\n`,
+    );
+  }
+  try {
+    await git(dir, ["check-ignore", "-q", "--", `ambient/${name}`]);
+  } catch {
+    throw new Error(
+      "Couldn't keep the ambient folder out of git; nothing was written.",
     );
   }
   fs.mkdirSync(path.join(dir, "ambient"), { recursive: true });

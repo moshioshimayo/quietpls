@@ -129,6 +129,12 @@ by default. Monitoring works the same whether it is on or off.
   transcripts can't be pushed by accident.
 - The audio is deleted after transcription by default. You can choose to keep
   it for a number of days instead; kept audio is never put in the git repo.
+- If transcribing or saving a call fails, its audio is kept for recovery (the
+  error says where) and deleted after a day, or after the days you chose.
+- While transcribing, each side's audio is copied into an app-managed temp
+  folder (`~/Library/Application Support/quietpls/capture-scratch`) that
+  quietpls empties when it finishes and again at launch, so a crash or
+  force-quit doesn't leave recordings behind.
 
 **Turning it on**: Settings → Capture (beta) → Record and transcribe calls.
 Then open _Capture settings…_ to finish setup:
@@ -157,7 +163,8 @@ lasts only for the current session: it never starts at launch, even if it was
 on when you quit. It records in 10-minute chunks with short gaps while each
 chunk is transcribed. Always-on transcripts go to `ambient/` inside the
 transcript folder, are excluded from git (never committed, so they don't stay
-in git history) and are deleted after 24 hours. No always-on audio is kept.
+in git history) and are deleted after 24 hours, including in a folder you
+have since switched away from. No always-on audio is kept.
 
 ### Transcript format
 

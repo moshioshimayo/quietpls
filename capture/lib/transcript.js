@@ -46,16 +46,19 @@ function refineStarts(lines, samples, sampleRate) {
   });
 }
 
-const words = (t) => new Set(t.toLowerCase().match(/[a-z0-9']+/g) || []);
+// Any script's letters and digits (Chinese, Cyrillic, ...), not just ASCII.
+const words = (t) =>
+  new Set(t.toLowerCase().match(/[\p{L}\p{N}\p{M}']+/gu) || []);
 
 /**
  * On laptop speakers the mic also hears the other side. Drop a "you" line when a
  * "them" line within `window` seconds says mostly the same words: it's echo.
+ * A line with nothing to compare is kept.
  */
 function dropEcho(you, them, window = 3) {
   return you.filter((y) => {
     const yw = words(y.text);
-    if (!yw.size) return false;
+    if (!yw.size) return true;
     return !them.some((t) => {
       if (Math.abs(t.at - y.at) > window) return false;
       const tw = words(t.text);

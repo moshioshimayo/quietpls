@@ -25,7 +25,7 @@ const S = require("./lib/state");
 const W = require("./lib/whisper");
 const repo = require("./lib/repo");
 const policy = require("./lib/audio-policy");
-const { finishCall } = require("./lib/pipeline");
+const { finishCall, purgeScratch } = require("./lib/pipeline");
 const { parseMarkdown, clock } = require("./lib/transcript");
 const { dotBitmap } = require("./lib/tray-icon");
 const speakers = require("./lib/speakers");
@@ -43,6 +43,8 @@ const DEFAULTS = {
   seenApps: [],
   speakerLabels: false,
   ambientKeepHours: 24,
+  // Earlier transcript folders that still hold always-on text: swept until empty.
+  ambientFolders: [],
 };
 
 // Phases in which the tray shows the capture dot and title instead of the level icon.
@@ -71,6 +73,7 @@ function createCaptureMode({
 }) {
   const DATA = app.getPath("userData");
   const AUDIO_DIR = path.join(DATA, "capture-audio");
+  const SCRATCH_DIR = path.join(DATA, "capture-scratch");
   const MODEL_DIR = path.join(DATA, "models");
   const SETTINGS_FILE = path.join(DATA, "capture-settings.json");
   const CAPTURE_BIN = path.join(binDir, "capture");
@@ -119,6 +122,8 @@ function createCaptureMode({
   };
   let levels = { you: 0, them: 0 };
   let capture = null; // { child, wavPath, start, apps }
+  let starting = false; // accept() is between the click and launching the recorder
+  let callGen = 0; // bumped on every detection change: a consent answers one call
   let ambientActive = false; // session only: never resumes after a relaunch
   let chunkTimer = null;
   let processing = false;
@@ -388,6 +393,7 @@ function createCaptureMode({
     }),
     ...(deps.detectorExecFile && { execFile: deps.detectorExecFile }),
     onChange: ({ apps }) => {
+      callGen++;
       log(`call apps: ${apps.join(", ") || "(none)"}`);
       if (apps.length) {
         const seen = new Set(settings.seenApps);
@@ -413,9 +419,34 @@ function createCaptureMode({
   // MARK: recording
 
   async function accept(isAmbient = false) {
-    if (capture || processing || (!isAmbient && state.phase !== "asking"))
+    if (
+      capture ||
+      processing ||
+      starting ||
+      (!isAmbient && state.phase !== "asking")
+    )
       return;
+    starting = true;
+    try {
+      await startRecording(isAmbient);
+    } finally {
+      starting = false;
+    }
+  }
+
+  async function startRecording(isAmbient) {
+    // The checks below take seconds; the user may say no, turn capture off or the
+    // call may end meanwhile. Only a consent that still stands starts the recorder.
+    const gen = callGen;
+    const withdrawn = () =>
+      isAmbient
+        ? !ambientActive
+        : !settings.enabled || state.phase !== "asking" || gen !== callGen;
     await refreshHealth();
+    if (withdrawn()) {
+      log("not recording: consent withdrawn while checking");
+      return;
+    }
     const blocker = !health.folder.ok
       ? health.folder.reason === "has-remote"
         ? "Your transcript folder's repo has a remote, so nothing was recorded. Pick a folder with no remote."
@@ -440,6 +471,10 @@ function createCaptureMode({
       return;
     }
     await repo.prepareFolder(settings.folder);
+    if (withdrawn()) {
+      log("not recording: consent withdrawn while checking");
+      return;
+    }
     const start = new Date();
     fs.mkdirSync(AUDIO_DIR, { recursive: true });
     const wavPath = path.join(
@@ -573,6 +608,7 @@ function createCaptureMode({
         settings: callSettings,
         model: callSettings.model,
         ambient: c.ambient,
+        scratchDir: SCRATCH_DIR,
         transcribeSide: (wav) =>
           transcribe(health.whisper || findWhisper(), modelFile, wav),
         diarizeSide:
@@ -593,7 +629,7 @@ function createCaptureMode({
       if (!c.ambient || ambientActive)
         dispatch({ type: "saved", file: result.name });
       policy.sweep(AUDIO_DIR, settings);
-      ambient.sweepAmbient(callSettings.folder, callSettings.ambientKeepHours);
+      sweepAmbientAll(callSettings.folder);
       if (!c.ambient) setTimeout(() => dispatch({ type: "dismiss" }), 8000);
     } catch (e) {
       log(`save failed: ${e.message}`);
@@ -606,6 +642,7 @@ function createCaptureMode({
         error: `Couldn't save the transcript: ${e.message} ${c.ambient ? "Always-on stopped; audio deleted." : `Audio kept at ${c.wavPath}.`}`,
       });
     }
+    purgeScratch(SCRATCH_DIR);
     processing = false;
     await refreshHealth();
     // Capture pauses while each always-on chunk is transcribed, then resumes. The
@@ -659,7 +696,46 @@ function createCaptureMode({
     return path.join(settings.folder || "", safe);
   }
 
+  /** Expire always-on text in the current folder and in earlier ones that still hold some. */
+  function sweepAmbientAll(extra) {
+    const hours = settings.ambientKeepHours;
+    const pending = [];
+    for (const dir of new Set([
+      settings.folder,
+      extra,
+      ...(settings.ambientFolders || []),
+    ])) {
+      if (!dir) continue;
+      try {
+        ambient.sweepAmbient(dir, hours);
+      } catch (e) {
+        log(`ambient sweep ${dir}: ${e.message}`);
+      }
+      if (dir !== settings.folder && hasAmbientText(dir)) pending.push(dir);
+    }
+    if (
+      JSON.stringify(pending) !== JSON.stringify(settings.ambientFolders || [])
+    ) {
+      settings.ambientFolders = pending;
+      saveSettings();
+    }
+  }
+
+  function hasAmbientText(dir) {
+    const d = path.join(dir, "ambient");
+    try {
+      return fs.readdirSync(d).some((n) => n.endsWith(".md"));
+    } catch {
+      return false;
+    }
+  }
+
   async function setFolder(folder) {
+    const previous = settings.folder;
+    if (previous && previous !== folder && hasAmbientText(previous))
+      settings.ambientFolders = [
+        ...new Set([...(settings.ambientFolders || []), previous]),
+      ];
     settings.folder = folder;
     const check = await repo
       .prepareFolder(folder)
@@ -867,11 +943,10 @@ function createCaptureMode({
         if (n.startsWith("ambient-") && n.endsWith(".wav"))
           fs.rmSync(path.join(AUDIO_DIR, n), { force: true });
       }
-    ambient.sweepAmbient(settings.folder, settings.ambientKeepHours);
-    setInterval(
-      () => ambient.sweepAmbient(settings.folder, settings.ambientKeepHours),
-      60 * 1000,
-    );
+    // Per-side audio and whisper output left by a crash mid-transcription.
+    purgeScratch(SCRATCH_DIR);
+    sweepAmbientAll();
+    setInterval(() => sweepAmbientAll(), 60 * 1000);
     setInterval(() => {
       if (capture || ambientActive) render();
     }, 1000);

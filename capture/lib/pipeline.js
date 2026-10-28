@@ -16,6 +16,8 @@ const { assignSpeakers } = require("./speakers");
  * transcribeSide(wavPath) → whisper JSON
  * diarizeSide(wavPath, segments) → cluster per segment (optional; skipped when absent)
  * ambient: true for an always-on chunk.
+ * scratchDir: where the per-side audio (and whisper's JSON) live while transcribing;
+ * the app passes a private folder it empties on launch (see purgeScratch).
  */
 async function finishCall({
   wavPath,
@@ -27,7 +29,9 @@ async function finishCall({
   transcribeSide,
   diarizeSide,
   ambient = false,
+  scratchDir = os.tmpdir(),
 }) {
+  fs.mkdirSync(scratchDir, { recursive: true });
   const split = wav.splitCall(fs.readFileSync(wavPath));
   const sides = {};
   const silent = [];
@@ -37,8 +41,8 @@ async function finishCall({
       continue;
     }
     const tmp = path.join(
-      os.tmpdir(),
-      `qpc-${process.pid}-${Date.now()}-${who}.wav`,
+      scratchDir,
+      `qpc-${ambient ? "ambient-" : ""}${process.pid}-${Date.now()}-${who}.wav`,
     );
     fs.writeFileSync(tmp, split[who].wav);
     try {
@@ -100,4 +104,19 @@ async function finishCall({
   };
 }
 
-module.exports = { finishCall };
+/**
+ * Delete leftover intermediates (per-side audio, whisper JSON) in the scratch folder.
+ * finishCall removes its own, so anything here outlived a crash or force-quit.
+ * Only call it while nothing is being transcribed.
+ */
+function purgeScratch(scratchDir) {
+  if (!scratchDir || !fs.existsSync(scratchDir)) return [];
+  const doomed = fs
+    .readdirSync(scratchDir)
+    .filter((n) => n.startsWith("qpc-"))
+    .map((n) => path.join(scratchDir, n));
+  for (const p of doomed) fs.rmSync(p, { force: true });
+  return doomed;
+}
+
+module.exports = { finishCall, purgeScratch };
