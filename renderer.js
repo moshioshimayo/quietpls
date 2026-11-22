@@ -144,7 +144,7 @@ if (typeof window !== "undefined") {
     window.electronAPI.onToggleMonitoring(async (status) => {
       if (status && !isMonitoring) {
         try {
-          await window.electronAPI.widgetTransition("expanded");
+          await showDetails();
           await startMonitoring();
         } catch (err) {
           console.error("Failed to start monitoring from main toggle:", err);
@@ -193,7 +193,7 @@ if (typeof window !== "undefined") {
         if (isMonitoring || manualStopDuringMeeting) return;
         autoStartedForMeeting = true;
         try {
-          await window.electronAPI.widgetTransition("expanded");
+          await showDetails();
           await startMonitoring();
         } catch (err) {
           autoStartedForMeeting = false;
@@ -247,7 +247,7 @@ if (typeof window !== "undefined") {
   // Click/Enter/Space on the pill: idle starts; otherwise show details.
   async function openOrStart() {
     if (!isMonitoring) {
-      await window.electronAPI.widgetTransition("expanded");
+      await showDetails();
       try {
         await startMonitoring();
       } catch (err) {
@@ -256,11 +256,24 @@ if (typeof window !== "undefined") {
       return;
     }
     if (_autoCollapseTimer) clearTimeout(_autoCollapseTimer);
-    await window.electronAPI.widgetTransition("expanded");
+    await showDetails();
     userOpened = true;
     // A click while the mic is unavailable also retries it now.
     if (capture && captureStatus && captureStatus.state === "unavailable") {
       capture.retry().catch(() => {});
+    }
+  }
+
+  // Details or calibration, from any widget state. An open summary only
+  // closes to the pill, so it goes through the pill first.
+  async function showDetails() {
+    const api = window.electronAPI;
+    const state = await api.widgetGetState();
+    if (state === "expanded") return;
+    if (state === "sessionComplete") await api.widgetTransition("compact");
+    const result = await api.widgetTransition("expanded");
+    if (!result || !result.success) {
+      console.error("[widget] Could not open details:", result && result.error);
     }
   }
 
@@ -492,7 +505,7 @@ if (typeof window !== "undefined") {
   async function recalibrate() {
     console.log("[calibration] Recalibration requested");
     if (!isMonitoring) {
-      await window.electronAPI.widgetTransition("expanded");
+      await showDetails();
       await startMonitoring({ recalibrate: true }).catch(() => {});
       return;
     }
@@ -517,7 +530,7 @@ if (typeof window !== "undefined") {
     calibrationManager.start();
     setCalib("talk");
     if (_autoCollapseTimer) clearTimeout(_autoCollapseTimer);
-    window.electronAPI.widgetTransition("expanded");
+    showDetails();
     reportCaptureStatus();
   }
 

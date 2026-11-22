@@ -182,6 +182,44 @@ test.describe("Widget State Transitions", () => {
     await expect(sessionCompletePanel).not.toBeVisible();
   });
 
+  // An undismissed summary, then Recalibrate (Settings/context menu) or a
+  // tray/next-call start on a mic with no normal voice yet: the summary
+  // gives way to the calibration panel at 320x240.
+  for (const [how, message, arg] of [
+    ["Recalibrate", "trigger-recalibration"],
+    ["tray Start", "toggle-monitoring", true],
+  ]) {
+    test(`${how} with the session summary open shows calibration`, async () => {
+      const summary = mainWindow.locator("#sessionCompletePanel");
+      // The summary state itself (a real one needs a >=60 s session).
+      await mainWindow.evaluate(() =>
+        window.electronAPI.widgetTransition("sessionComplete"),
+      );
+      await expect(summary).toBeVisible();
+
+      await electronApp.evaluate(
+        ({ BrowserWindow }, [message, arg]) =>
+          BrowserWindow.getAllWindows()
+            .find((b) => b.webContents.getURL().includes("index.html"))
+            .webContents.send(message, arg),
+        [message, arg],
+      );
+
+      await expect(mainWindow.locator("#calibrationView")).toBeVisible();
+      await expect(mainWindow.locator("#expandedPanel")).toBeVisible();
+      await expect(summary).not.toBeVisible();
+      await expect
+        .poll(() => widgetBounds(electronApp))
+        .toMatchObject({ width: 320, height: 240 });
+      expect(
+        await mainWindow.evaluate(() => [innerWidth, innerHeight]),
+      ).toEqual([320, 240]);
+      expect(
+        await mainWindow.evaluate(() => window.electronAPI.widgetGetState()),
+      ).toBe("expanded");
+    });
+  }
+
   test("context menu opens on right-click", async () => {
     const compactPill = mainWindow.locator("#compactPill");
     await expect(compactPill).toBeVisible();
