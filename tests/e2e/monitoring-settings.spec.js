@@ -6,6 +6,9 @@ const {
   getWindow,
   getSettingsStore,
   installFakeMic,
+  finishCalibration,
+  stopFromWidget,
+  widgetBounds,
 } = require("./helpers");
 
 // Real Electron app, throwaway profile, synthetic voice in place of the mic.
@@ -14,12 +17,14 @@ const {
 
 test.describe.configure({ mode: "serial" });
 
-test.describe("Trustworthy loudness flow (2.1)", () => {
+test.describe("Trustworthy loudness flow (2.4)", () => {
   let electronApp;
   let page;
   let settingsPage;
 
-  const label = () => page.locator("#zoneLabel");
+  // The pill's word is always the current state, even while details are open.
+  const word = () => page.locator("#pillWord");
+  const pill = () => page.locator("#compactPill");
   const readout = () => page.locator("#dbReadout");
   const panel = () => page.locator("#expandedPanel");
   const setLevel = (db) =>
@@ -39,38 +44,69 @@ test.describe("Trustworthy loudness flow (2.1)", () => {
   });
 
   test("starts idle with no fake dB readout", async () => {
-    await expect(page.locator("#compactPill")).toBeVisible();
+    await expect(pill()).toBeVisible();
+    await expect(word()).toHaveText("Start monitoring");
     await expect(panel()).not.toBeVisible();
     await expect(readout()).not.toHaveText(/\d+\s*dB/);
   });
 
   test("first start on an uncalibrated mic runs guided calibration", async () => {
-    await page.locator("#compactPill").click();
+    test.setTimeout(90000);
+    await pill().click();
     await expect(panel()).toBeVisible();
-    await expect(label()).toHaveText(/Calibrating/, { timeout: 5000 });
-    await expect(readout()).toHaveText("Talk normally");
-    // ~3 s of detected speech completes it; the panel stays open meanwhile.
-    await expect(label()).toHaveText(/Normal/, { timeout: 12000 });
-    await expect(panel()).toHaveClass(/zone-normal/);
+    await expect(page.locator("#calTitle")).toHaveText(
+      "Talk the way you usually do on a call",
+    );
+    await expect(word()).toHaveText(/^Set normal voice \d+%$/, {
+      timeout: 5000,
+    });
+    // About 10 s of talking completes it; the panel stays open meanwhile.
+    await finishCalibration(page);
+    await expect(word()).toHaveText("Normal", { timeout: 10000 });
+    await expect(pill()).toHaveClass(/zone-normal/);
   });
 
-  test("+11 dB above normal shows Too loud (red)", async () => {
+  test("+11 dB above normal turns the compact pill to Ease your voice", async () => {
     await setLevel(-19);
-    await expect(label()).toHaveText(/Too loud/, { timeout: 5000 });
-    await expect(readout()).toHaveText(/^\+1[01] dB$/);
-    await expect(panel()).toHaveClass(/zone-danger/);
+    await expect(word()).toHaveText("Getting loud", { timeout: 8000 });
+    await expect(word()).toHaveText("Ease your voice", { timeout: 10000 });
+    await expect(pill()).toHaveClass(/zone-danger/);
+    // No alert panel, no resize: the cue is the pill itself.
+    await expect(pill()).toBeVisible();
+    expect(await widgetBounds(electronApp)).toMatchObject({
+      width: 188,
+      height: 32,
+    });
   });
 
-  test("+7 dB above normal shows Getting loud (yellow)", async () => {
+  test("details show how far above normal, with the bar on the relative scale", async () => {
+    await pill().click();
+    await expect(panel()).toBeVisible();
+    await expect(page.locator("#zoneLabel")).toHaveText("Ease your voice");
+    await expect(readout()).toHaveText(/^\+1[012] dB above your normal$/);
+    const fill = await page
+      .locator("#relFill")
+      .evaluate((el) => parseFloat(el.style.width));
+    // relativeLevel(+11) = (11 + 10) / 25 * 100 = 84
+    expect(fill).toBeGreaterThan(75);
+    expect(fill).toBeLessThan(92);
+    await expect(page.locator("#micLabel")).toHaveText("Fake Built-in Mic");
+    await page.locator("#hideBtn").click();
+    await expect(pill()).toBeVisible();
+    await expect(word()).toHaveText("Ease your voice");
+  });
+
+  test("+7 dB above normal clears to Getting loud (yellow)", async () => {
     await setLevel(-23);
-    await expect(label()).toHaveText(/Getting loud/, { timeout: 5000 });
-    await expect(panel()).toHaveClass(/zone-loud/);
+    await expect(word()).toHaveText("Getting loud", { timeout: 12000 });
+    await expect(pill()).toHaveClass(/zone-loud/);
   });
 
-  test("silence is Not speaking, never Speak up", async () => {
+  test("silence is Listening, never Speak up", async () => {
     await setLevel(null);
-    await expect(label()).toHaveText(/Not speaking/, { timeout: 5000 });
-    await expect(readout()).toHaveText("—");
+    await expect(word()).toHaveText("Listening", { timeout: 5000 });
+    await expect(pill()).toHaveClass(/zone-quiet/);
+    await expect(readout()).toHaveText("Listening — say something");
     await expect(page.locator("body")).not.toContainText("Speak up");
   });
 
@@ -86,8 +122,8 @@ test.describe("Trustworthy loudness flow (2.1)", () => {
       /Calibrated .*dBFS/,
     );
     await expect(settingsPage.locator("#liveLevelText")).toHaveText(
-      /dB above your normal · Too loud/,
-      { timeout: 5000 },
+      /dB above your normal · (Getting loud|Ease your voice)/,
+      { timeout: 12000 },
     );
     // No score sliders any more
     await expect(settingsPage.locator("#quietThreshold")).toHaveCount(0);
@@ -108,16 +144,19 @@ test.describe("Trustworthy loudness flow (2.1)", () => {
   });
 
   test("Settings Recalibrate runs calibration live", async () => {
+    test.setTimeout(90000);
     await setLevel(-30);
     await settingsPage.locator("#recalibrateBtn").click();
-    await expect(label()).toHaveText(/Calibrating/, { timeout: 5000 });
-    await expect(label()).toHaveText(/Normal/, { timeout: 12000 });
+    await expect(word()).toHaveText(/Set normal voice/, { timeout: 5000 });
+    await finishCalibration(page);
+    await expect(word()).toHaveText("Normal", { timeout: 10000 });
     await expect(settingsPage.locator("#calibrationStatus")).toHaveText(
       /Calibrated/,
     );
   });
 
   test("choosing another mic in Settings reacquires it (and calibrates it)", async () => {
+    test.setTimeout(90000);
     const before = await page.evaluate(
       () => window.__fakeMic.gumCalls().length,
     );
@@ -138,22 +177,25 @@ test.describe("Trustworthy loudness flow (2.1)", () => {
       "Fake Headset",
     );
     // New mic has no calibration yet → guided calibration, then Normal.
-    await expect(label()).toHaveText(/Calibrating|Normal/, { timeout: 5000 });
-    await expect(label()).toHaveText(/Normal/, { timeout: 12000 });
+    await expect(word()).toHaveText(/Set normal voice/, { timeout: 5000 });
+    await finishCalibration(page);
+    await expect(word()).toHaveText("Normal", { timeout: 10000 });
   });
 
   test("a lost mic shows Reconnecting, then recovers", async () => {
     await settingsPage.close();
     await page.evaluate(() => window.__fakeMic.endCurrentTrack());
-    await expect(label()).toHaveText(/Reconnecting/, { timeout: 3000 });
-    await expect(panel()).toHaveClass(/capture-lost/);
-    await expect(label()).toHaveText(/Normal|Not speaking/, { timeout: 5000 });
-    await expect(panel()).not.toHaveClass(/capture-lost/);
+    await expect(word()).toHaveText(/Reconnecting mic/, { timeout: 3000 });
+    // No verdict while the mic is gone: dashed, grey, no window resize.
+    await expect(pill()).toHaveClass(/is-uncertain/);
+    await expect(pill()).not.toHaveClass(/zone-(normal|loud|danger)/);
+    await expect(word()).toHaveText(/Normal|Listening/, { timeout: 8000 });
+    await expect(pill()).not.toHaveClass(/is-uncertain/);
   });
 
   test("stopping returns to the idle pill", async () => {
-    await page.locator("#stopBtn").click();
-    await expect(panel()).not.toBeVisible({ timeout: 5000 });
-    await expect(page.locator("#compactPill")).toBeVisible();
+    await stopFromWidget(page);
+    await expect(pill()).toBeVisible();
+    await expect(word()).toHaveText("Start monitoring");
   });
 });

@@ -14,14 +14,17 @@ monitoring.
 
 ## Features
 
-- 💊 **Compact pill widget** — always-on-top, tiny footprint, canvas waveform
-- 🎚️ **Level relative to your normal** — "+7 dB above your normal", plus an
-  FFT spectrum in the expanded panel
-- 🎨 **Zones** — Normal, Getting loud (yellow, +6 dB) and Too loud (red,
-  +10 dB) above your calibrated normal voice; a sensitivity slider shifts both.
-  Silence is "Not speaking", never "too quiet"
-- 🧠 **Guided calibration, once per mic** — talk normally for about 5 seconds;
-  only speech counts. Recalibrate any time from Settings or the right-click menu
+- 💊 **Steady pill widget** — always-on-top, with a readable status:
+  Listening, Normal, Getting loud, or Ease your voice
+- 🎚️ **Level relative to your normal** — click the pill to see "+7 dB above
+  your normal", a relative level bar, and which mic is listening
+- 🎨 **Stable voice cues** — Getting loud at +6 dB; Ease your voice builds
+  after sustained speech at +10 dB, including normal pauses. A sensitivity
+  slider shifts both thresholds. Silence shows Listening
+- 🧠 **Guided calibration, once per mic** — about 10 seconds of talking,
+  followed by a louder/normal practice step. Set your normal voice again from
+  details, Settings or the right-click menu. Updating to 2.4.0 asks you to
+  calibrate once; each session adjusts within limits to how you start
 - 🔌 **Mic health** — follows the mic you pick, notices unplug/fallback and
   shows "Mic unavailable / Reconnecting" instead of stale levels
 - 🗣️ **Starts with your calls** — when another app (Zoom, Teams, Meet,
@@ -29,7 +32,9 @@ monitoring.
   call releases the mic. On by default (macOS 14+); toggle in Settings
 - 📊 **Session scorecard** — after each ≥60s session: duration, insights, and
   how much of your speaking time was too loud (kept locally in History)
-- 🚨 **Too-loud alert** with dismissible danger panel
+- 🚨 **Ease your voice** appears in the compact pill and clears when you
+  return to normal. Hide or Escape closes details and keeps monitoring;
+  only Stop ends it
 - 🍡 **System tray** — start/stop monitoring, settings, check for updates
 - ✨ **Auto-update** — checks GitHub Releases hourly; "Check for Updates…" and
   "Restart to Update" in the tray menu

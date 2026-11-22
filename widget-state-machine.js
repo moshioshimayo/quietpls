@@ -10,15 +10,13 @@
 const STATES = Object.freeze({
   COMPACT: 'compact',
   EXPANDED: 'expanded',
-  ALERT: 'alert',
   SESSION_COMPLETE: 'sessionComplete',
 });
 
 // Map of state → Set of valid target states
 const TRANSITIONS = Object.freeze({
   [STATES.COMPACT]: new Set([STATES.EXPANDED, STATES.SESSION_COMPLETE]),
-  [STATES.EXPANDED]: new Set([STATES.ALERT, STATES.SESSION_COMPLETE, STATES.COMPACT]),
-  [STATES.ALERT]: new Set([STATES.EXPANDED, STATES.SESSION_COMPLETE]),
+  [STATES.EXPANDED]: new Set([STATES.SESSION_COMPLETE, STATES.COMPACT]),
   [STATES.SESSION_COMPLETE]: new Set([STATES.COMPACT]),
 });
 

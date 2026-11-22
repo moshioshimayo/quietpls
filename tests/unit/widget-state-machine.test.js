@@ -32,7 +32,6 @@ describe('widget-state-machine', () => {
       expect(STATES).toEqual({
         COMPACT: 'compact',
         EXPANDED: 'expanded',
-        ALERT: 'alert',
         SESSION_COMPLETE: 'sessionComplete',
       });
     });
@@ -83,12 +82,9 @@ describe('widget-state-machine', () => {
     const validPaths = [
       ['compact', 'expanded'],
       ['compact', 'sessionComplete'],
-      ['expanded', 'alert'],
-      ['alert', 'expanded'],
       ['expanded', 'sessionComplete'],
       ['expanded', 'compact'],
       ['sessionComplete', 'compact'],
-      ['alert', 'sessionComplete'],
     ];
 
     for (const [from, to] of validPaths) {
@@ -104,13 +100,9 @@ describe('widget-state-machine', () => {
 
   describe('invalid transitions throw', () => {
     const invalidPaths = [
-      ['compact', 'alert'],
       ['compact', 'compact'],
       ['expanded', 'expanded'],
-      ['alert', 'compact'],
-      ['alert', 'alert'],
       ['sessionComplete', 'expanded'],
-      ['sessionComplete', 'alert'],
       ['sessionComplete', 'sessionComplete'],
     ];
 
@@ -126,6 +118,12 @@ describe('widget-state-machine', () => {
     it('throws on unknown target state', () => {
       const sm = createWidgetStateMachine();
       expect(() => sm.transition('unknown')).toThrow(/Unknown target state/);
+    });
+
+    it('has no alert state: the loud cue is the pill itself (2.4.0)', () => {
+      const sm = createWidgetStateMachine('expanded');
+      expect(() => sm.transition('alert')).toThrow(/Unknown target state/);
+      expect(() => createWidgetStateMachine('alert')).toThrow(/Invalid initial state/);
     });
   });
 
@@ -162,7 +160,7 @@ describe('widget-state-machine', () => {
       const events = [];
       sm.onTransition((e) => events.push(e));
 
-      expect(() => sm.transition('alert')).toThrow();
+      expect(() => sm.transition('compact')).toThrow();
       expect(events).toHaveLength(0);
     });
 
@@ -221,22 +219,21 @@ describe('widget-state-machine', () => {
   // ---- Rapid transition sequences ----
 
   describe('rapid transition sequences', () => {
-    it('handles compact→expanded→alert→expanded→compact sequence', () => {
+    it('handles compact→expanded→compact→expanded→compact (open/Hide) sequence', () => {
       const sm = createWidgetStateMachine('compact');
       const events = [];
       sm.onTransition((e) => events.push(e));
 
       sm.transition('expanded');
-      sm.transition('alert');
+      sm.transition('compact');
       sm.transition('expanded');
       sm.transition('compact');
 
       expect(sm.getState()).toBe('compact');
-      expect(events).toHaveLength(4);
       expect(events.map((e) => `${e.from}→${e.to}`)).toEqual([
         'compact→expanded',
-        'expanded→alert',
-        'alert→expanded',
+        'expanded→compact',
+        'compact→expanded',
         'expanded→compact',
       ]);
     });
@@ -245,14 +242,6 @@ describe('widget-state-machine', () => {
       const sm = createWidgetStateMachine('compact');
 
       sm.transition('expanded');
-      sm.transition('sessionComplete');
-      sm.transition('compact');
-      expect(sm.getState()).toBe('compact');
-    });
-
-    it('handles alert→sessionComplete→compact path', () => {
-      const sm = createWidgetStateMachine('alert');
-
       sm.transition('sessionComplete');
       sm.transition('compact');
       expect(sm.getState()).toBe('compact');
@@ -275,14 +264,12 @@ describe('widget-state-machine', () => {
       sm.onTransition((e) => events.push(e));
 
       sm.transition('expanded', { step: 1 });
-      sm.transition('alert', { step: 2 });
-      sm.transition('sessionComplete', { step: 3 });
-      sm.transition('compact', { step: 4 });
+      sm.transition('sessionComplete', { step: 2 });
+      sm.transition('compact', { step: 3 });
 
       expect(events[0].context).toEqual({ step: 1 });
       expect(events[1].context).toEqual({ step: 2 });
       expect(events[2].context).toEqual({ step: 3 });
-      expect(events[3].context).toEqual({ step: 4 });
     });
   });
 

@@ -27,20 +27,24 @@ function generateInsights(sessionData) {
   const insights = [];
   const s = sessionData || {};
   const zoneTime = s.zoneTime || {};
-  const speaking =
-    (zoneTime.normal || 0) + (zoneTime.warning || 0) + (zoneTime.danger || 0);
+  // Stored speakingTime also covers speech heard before a verdict (warm-up):
+  // the same denominator as the stored ratios and the history view.
+  const speaking = Math.max(
+    (zoneTime.normal || 0) + (zoneTime.warning || 0) + (zoneTime.danger || 0),
+    Number(s.speakingTime) || 0,
+  );
 
   if (speaking <= 0) {
     return ["No speech detected this session"];
   }
 
-  // 1. Too loud (red) share of speaking time
+  // 1. Ease your voice (red) share of speaking time
   const redPct = Math.round(((zoneTime.danger || 0) / speaking) * 100);
   const yellowPct = Math.round(((zoneTime.warning || 0) / speaking) * 100);
   if (redPct > 0) {
-    insights.push(`Too loud for ${redPct}% of your speaking time`);
+    insights.push(`Ease your voice for ${redPct}% of your speaking time`);
   } else {
-    insights.push("You never hit the too-loud zone");
+    insights.push("You never needed to ease your voice");
   }
 
   // 2. Getting loud (yellow) share, if any

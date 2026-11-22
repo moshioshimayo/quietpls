@@ -97,21 +97,19 @@
       <!-- Step 3: Interactive Voice Demo -->
       <div class="step-content" id="step3">
         <div class="step-inner step-inner-demo">
-          <h1 class="step-heading demo-heading">Try it out!</h1>
+          <h1 class="step-heading demo-heading">Try it out</h1>
 
-          <!-- Live FFT visualization canvas -->
+          <!-- Live level shimmer: confirms the mic hears you, never rates the voice -->
           <div class="demo-canvas-wrapper">
             <canvas id="demoFftCanvas" class="demo-fft-canvas"></canvas>
           </div>
 
-          <!-- Volume level indicator with zone label -->
-          <div class="demo-zone-indicator" id="demoZoneIndicator">
-            <div class="demo-zone-dot" id="demoZoneDot"></div>
-            <span class="demo-zone-label" id="demoZoneLabel">Waiting...</span>
+          <div class="demo-hearing" id="demoHearing" role="status">
+            <span class="demo-hearing-mark" id="demoHearingMark" aria-hidden="true">·</span>
+            <span id="demoHearingLabel">Waiting for your voice…</span>
           </div>
 
-          <!-- Coaching prompt -->
-          <p class="demo-coaching-text" id="demoCoachingText">Speak naturally...</p>
+          <p class="demo-coaching-text" id="demoCoachingText">Next time you start, quietpls learns your normal voice from about 10 seconds of talking. After that it tells you when you get louder than that.</p>
 
           <button class="btn-primary" id="startMonitoringBtn">Start Monitoring</button>
         </div>

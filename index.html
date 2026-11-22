@@ -9,71 +9,78 @@
 </head>
 <body>
   <div class="container">
-    <!-- Draggable wrapper with padding -->
-    <div class="pill-wrapper">
-      <!-- Glassmorphic compact pill (US-006) — visible in compact/idle state -->
-      <div class="compact-pill" id="compactPill">
-        <canvas class="compact-pill__waveform" id="pillWaveformCanvas"></canvas>
+    <!-- Compact pill: one status word and mark; click or Enter opens details -->
+    <button type="button" class="qp-pill zone-off is-off" id="compactPill" aria-label="quietpls: Start monitoring. Show details">
+      <span class="qp-mark" id="pillMark" aria-hidden="true">○</span>
+      <span id="pillWord">Start monitoring</span>
+    </button>
+    <div class="sr-only" id="liveRegion" aria-live="polite"></div>
+
+    <!-- Details and "set your normal voice": fixed 320x240 -->
+    <section class="qp-panel zone-off" id="expandedPanel" aria-label="quietpls details" style="display:none;">
+      <div class="qp-view" id="detailsView">
+        <div class="qp-row">
+          <span class="qp-mark" id="detailsMark" aria-hidden="true">○</span>
+          <span class="qp-status" id="zoneLabel">Start monitoring</span>
+          <button type="button" class="qp-btn" id="hideBtn" aria-keyshortcuts="Escape">Hide</button>
+        </div>
+        <div class="qp-amount" id="dbReadout"></div>
+        <div id="relBar">
+          <div class="qp-bar" id="relBarTrack" role="img" aria-label="No level">
+            <div class="qp-bar-fill" id="relFill"></div>
+            <div class="qp-tick warn" id="tickWarn"></div>
+            <div class="qp-tick danger" id="tickDanger"></div>
+          </div>
+          <div class="qp-scale" aria-hidden="true">
+            <span id="scaleNormal">normal</span><span id="scaleWarn">+6</span><span id="scaleDanger">+10</span>
+          </div>
+        </div>
+        <div class="qp-mic" id="micLine">Mic: <b id="micLabel">—</b></div>
+        <div class="qp-sub" id="micNote" hidden></div>
+        <div class="qp-sub" id="reanchorLine" hidden></div>
+        <div class="qp-actions">
+          <button type="button" class="qp-link" id="recalibrateBtn">Set normal voice again</button>
+          <button type="button" class="qp-btn primary" id="retryBtn" hidden>Retry</button>
+          <span class="qp-spacer"></span>
+          <button type="button" class="qp-btn" id="stopBtn">Stop</button>
+        </div>
       </div>
 
-      <!-- Expanded monitoring panel (US-009) — visible in expanded state -->
-      <div class="expanded-panel glass-panel zone-quiet" id="expandedPanel" style="display:none;">
-        <!-- FFT Spectrum Visualization (US-008/US-009) -->
-        <div class="expanded-panel__fft">
-          <canvas id="fftCanvas"></canvas>
+      <div class="qp-view" id="calibrationView" hidden>
+        <div class="qp-step" id="calStep"></div>
+        <div class="qp-row">
+          <span class="qp-mark cal-mark" id="calMark" aria-hidden="true" hidden>✓</span>
+          <span class="qp-status" id="calTitle"></span>
         </div>
-        <!-- Volume readout -->
-        <div class="expanded-panel__info">
-          <span class="expanded-panel__db" id="dbReadout">—</span>
-          <span class="expanded-panel__zone" id="zoneLabel">Ready</span>
+        <div class="qp-progress" id="calProgress" role="progressbar" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><div id="calProgressFill"></div></div>
+        <div class="qp-amount" id="calText"></div>
+        <div class="qp-row" id="calLive" hidden>
+          <span class="qp-amount">quietpls shows:</span>
+          <span class="qp-pill zone-off is-off" id="calLivePill"><span class="qp-mark" id="calLiveMark" aria-hidden="true"></span><span id="calLiveWord"></span></span>
         </div>
-        <!-- Stop / minimize button -->
-        <button class="expanded-panel__stop" id="stopBtn" title="Stop monitoring">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <rect x="2" y="2" width="10" height="10" rx="2" fill="currentColor"/>
-          </svg>
-        </button>
+        <div class="qp-actions">
+          <span class="qp-sub" id="calNote"></span>
+          <button type="button" class="qp-btn primary" id="calPrimaryBtn" hidden></button>
+          <span class="qp-spacer"></span>
+          <button type="button" class="qp-btn" id="calSecondaryBtn"></button>
+        </div>
       </div>
+    </section>
 
-      <!-- Alert panel (US-010) — visible in alert state -->
-      <div class="alert-panel glass-panel zone-danger animate-danger-shake" id="alertPanel" style="display:none;">
-        <!-- FFT Spectrum Visualization (shared canvas ref for alert) -->
-        <div class="alert-panel__fft">
-          <canvas id="alertFftCanvas"></canvas>
-        </div>
-        <!-- Warning content -->
-        <div class="alert-panel__content">
-          <span class="alert-panel__warning">TOO LOUD</span>
-          <span class="alert-panel__db" id="alertDbReadout"></span>
-        </div>
-        <!-- Dismiss button -->
-        <button class="alert-panel__dismiss" id="alertDismissBtn" title="Dismiss alert">
+    <!-- Session summary, shown only after Stop -->
+    <div class="session-complete-panel glass-panel" id="sessionCompletePanel" style="display:none;">
+      <div class="session-complete__header">
+        <span class="session-complete__duration" id="sessionDuration">0m</span>
+        <button class="session-complete__btn session-complete__btn--close" id="sessionCloseBtn" title="Done">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
         </button>
       </div>
-
-      <!-- Session complete panel — visible in sessionComplete state -->
-      <div class="session-complete-panel glass-panel" id="sessionCompletePanel" style="display:none;">
-        <div class="session-complete__header">
-          <span class="session-complete__duration" id="sessionDuration">0m</span>
-          <button class="session-complete__btn session-complete__btn--close" id="sessionCloseBtn" title="Done">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-          </button>
-        </div>
-        <ul class="session-complete__insight-list" id="insightList">
-        </ul>
-      </div>
-
+      <ul class="session-complete__insight-list" id="insightList">
+      </ul>
     </div>
-
   </div>
-  <script src="pill-waveform.js"></script>
-  <script src="fft-visualizer.js"></script>
-  <script src="micro-animations.js"></script>
   <script src="session-animations.js"></script>
   <script src="session-tracker.js"></script>
   <script src="session-insights.js"></script>

@@ -50,10 +50,10 @@ const calibrationStore = new Store({
   name: "quietpls-calibrations",
   defaults: { calibrations: {} },
 });
-const CALIBRATION_VERSION = 2;
+const { CALIBRATION_VERSION } = require("./calibration-manager");
 
-// 2.0 calibrations were score-based and keyed by configured id ("default");
-// they cannot be converted, so drop them. Each mic is calibrated once again.
+// Older baselines do not meet the current calibration rules; each mic is
+// calibrated once again. Keep current records across subsequent launches.
 function discardLegacyCalibrations() {
   const all = calibrationStore.get("calibrations") || {};
   const kept = {};
@@ -71,7 +71,7 @@ function clampSensitivity(value) {
   if (!Number.isFinite(n)) return 0;
   return Math.min(4, Math.max(-4, n));
 }
-const { createWidgetAnimator } = require("./widget-animator");
+const { createWidgetAnimator, STATE_BOUNDS } = require("./widget-animator");
 const { registerSessionIpc } = require("./session-ipc");
 const PermissionManager = require("./permission-manager");
 let trayIconRenderer;
@@ -149,9 +149,9 @@ function createWindow() {
   // Get the primary display's work area
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
-  // Create minimal floating pill window — sized to match compact state bounds
-  const windowWidth = 72;
-  const windowHeight = 28;
+  // Floating pill window — sized to match compact state bounds
+  const { width: windowWidth, height: windowHeight } =
+    STATE_BOUNDS[STATES.COMPACT];
 
   mainWindow = new BrowserWindow({
     width: windowWidth,
@@ -937,7 +937,7 @@ app.whenReady().then(async () => {
 
   ipcMain.handle("get-window-bounds", () => {
     if (!mainWindow || mainWindow.isDestroyed())
-      return { x: 0, y: 0, width: 72, height: 28 };
+      return { x: 0, y: 0, ...STATE_BOUNDS[STATES.COMPACT] };
     return mainWindow.getBounds();
   });
 

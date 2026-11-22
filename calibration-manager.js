@@ -19,24 +19,18 @@
  *     { status: "no-speech", speechMs }   (not enough speech before timeout)
  *     { status: "clipping", speechMs }    (input distorts; move back / lower gain)
  *
- * The baseline is the median dBFS of the accepted speech frames.
+ * The baseline is the duration-weighted mean power of voiced frames.
  *
  * Dual export: CommonJS + window.CalibrationManager.
  */
 
-const CALIBRATION_VERSION = 2;
+const CALIBRATION_VERSION = 3;
 const DEFAULTS = Object.freeze({
-  minSpeechMs: 2000, // of voiced speech (~5 s of normal talking, per the prompt)
-  timeoutMs: 10000, // audio time to wait for that much speech
+  minSpeechMs: 10000, // accepted voiced audio time
+  timeoutMs: 40000, // valid input audio time
   maxClipRatio: 0.1,
   minModulationDb: 3, // speech: 5-18 dB measured; stationary tone: ~0.5 dB
 });
-
-function median(values) {
-  const s = values.slice().sort((a, b) => a - b);
-  const mid = Math.floor(s.length / 2);
-  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
-}
 
 function stdDev(values) {
   const mean = values.reduce((s, v) => s + v, 0) / values.length;
@@ -48,7 +42,8 @@ function stdDev(values) {
 function createCalibrationManager(options) {
   const opts = { ...DEFAULTS, ...(options || {}) };
   let status = "idle"; // idle | calibrating | ok | no-speech | clipping
-  let levels = [];
+  let voicedFrames = 0;
+  let voicedEnergy = 0;
   let bandLevels = []; // speech-band level of every gated frame, for modulation
   let speechMs = 0;
   let listenedMs = 0;
@@ -57,7 +52,8 @@ function createCalibrationManager(options) {
 
   function start() {
     status = "calibrating";
-    levels = [];
+    voicedFrames = 0;
+    voicedEnergy = 0;
     bandLevels = [];
     speechMs = 0;
     listenedMs = 0;
@@ -73,23 +69,21 @@ function createCalibrationManager(options) {
 
   function addFrame(frame) {
     if (status !== "calibrating" || !frame || frame.noInput) return null;
-    const ms = typeof frame.frameMs === "number" ? frame.frameMs : 20;
+    const ms = frame.frameMs;
+    if (!Number.isFinite(ms) || ms <= 0 || !Number.isFinite(frame.dbfs)) return null;
     listenedMs += ms;
-    const voiced = frame.voiced === undefined ? frame.speech : frame.voiced;
-    if (frame.speech && typeof frame.bandDb === "number")
+    const voiced = frame.voiced === true;
+    if (frame.speech && Number.isFinite(frame.bandDb))
       bandLevels.push(frame.bandDb);
-    if (
-      voiced &&
-      typeof frame.dbfs === "number" &&
-      Number.isFinite(frame.dbfs)
-    ) {
-      levels.push(frame.dbfs);
+    if (voiced) {
+      voicedFrames++;
+      voicedEnergy += Math.pow(10, frame.dbfs / 10) * ms;
       speechMs += ms;
       if (frame.clip) clipFrames++;
     }
 
     if (speechMs >= opts.minSpeechMs) {
-      if (clipFrames / levels.length > opts.maxClipRatio) {
+      if (clipFrames / voicedFrames > opts.maxClipRatio) {
         return finish({ status: "clipping", speechMs });
       }
       if (bandLevels.length > 0 && stdDev(bandLevels) < opts.minModulationDb) {
@@ -97,9 +91,9 @@ function createCalibrationManager(options) {
       }
       return finish({
         status: "ok",
-        baselineDb: Math.round(median(levels) * 10) / 10,
+        baselineDb: Math.round(10 * Math.log10(voicedEnergy / speechMs) * 10) / 10,
         speechMs,
-        frames: levels.length,
+        frames: voicedFrames,
       });
     }
     if (listenedMs >= opts.timeoutMs) {

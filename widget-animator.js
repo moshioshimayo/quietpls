@@ -14,9 +14,8 @@ const { STATES } = require('./widget-state-machine');
 
 // Target dimensions for each widget state
 const STATE_BOUNDS = Object.freeze({
-  [STATES.COMPACT]:          { width: 72, height: 28 },
-  [STATES.EXPANDED]:         { width: 352, height: 96 },
-  [STATES.ALERT]:            { width: 392, height: 106 },
+  [STATES.COMPACT]:          { width: 188, height: 32 },
+  [STATES.EXPANDED]:         { width: 320, height: 240 },
   [STATES.SESSION_COMPLETE]: { width: 300, height: 120 },
 });
 
