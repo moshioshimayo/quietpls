@@ -71,7 +71,7 @@ function clampSensitivity(value) {
   if (!Number.isFinite(n)) return 0;
   return Math.min(4, Math.max(-4, n));
 }
-const { createWidgetAnimator } = require("./widget-animator");
+const { createWidgetAnimator, STATE_BOUNDS } = require("./widget-animator");
 const { registerSessionIpc } = require("./session-ipc");
 const PermissionManager = require("./permission-manager");
 let trayIconRenderer;
@@ -149,9 +149,9 @@ function createWindow() {
   // Get the primary display's work area
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
-  // Create minimal floating pill window — sized to match compact state bounds
-  const windowWidth = 72;
-  const windowHeight = 28;
+  // Floating pill window — sized to match compact state bounds
+  const { width: windowWidth, height: windowHeight } =
+    STATE_BOUNDS[STATES.COMPACT];
 
   mainWindow = new BrowserWindow({
     width: windowWidth,
@@ -937,7 +937,7 @@ app.whenReady().then(async () => {
 
   ipcMain.handle("get-window-bounds", () => {
     if (!mainWindow || mainWindow.isDestroyed())
-      return { x: 0, y: 0, width: 72, height: 28 };
+      return { x: 0, y: 0, ...STATE_BOUNDS[STATES.COMPACT] };
     return mainWindow.getBounds();
   });
 

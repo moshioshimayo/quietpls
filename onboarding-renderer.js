@@ -13,12 +13,9 @@ let demoStream = null;
 let demoAnalyser = null;
 let demoAnimFrameId = null;
 
-// Default zone thresholds (matching config.js defaults)
-const DEMO_THRESHOLDS = {
-  quietThreshold: 30,
-  normalThreshold: 50,
-  warningThreshold: 78,
-};
+// The demo only confirms the mic hears you; it never rates the voice.
+const HEARING_MIN_VOLUME = 20; // computeRmsVolume scale, ~1% RMS
+const HEARING_HOLD_MS = 800; // keep "Hearing you" through short gaps
 
 // ---- Pure helpers (exported for testing via globalThis) ----
 
@@ -121,56 +118,19 @@ function computeRmsVolume(timeDomainData) {
 }
 
 /**
- * Determine the volume zone from a normalized volume (0-100) and thresholds.
- * @param {number} volume - Normalized volume 0-100
- * @param {{ quietThreshold: number, normalThreshold: number, warningThreshold: number }} thresholds
- * @returns {'quiet'|'normal'|'loud'|'danger'}
+ * Whether the demo should say "Hearing you": a voice-level signal now, or
+ * one within the last HEARING_HOLD_MS.
+ * @param {number} volume - computeRmsVolume output 0-100
+ * @param {number} now - ms timestamp
+ * @param {number|null} lastHeardAt - ms timestamp of the last loud enough frame
+ * @returns {{ hearing: boolean, lastHeardAt: number|null }}
  */
-function getVolumeZone(volume, thresholds) {
-  if (volume < thresholds.quietThreshold) return "quiet";
-  if (volume < thresholds.normalThreshold) return "normal";
-  if (volume < thresholds.warningThreshold) return "loud";
-  return "danger";
-}
-
-/**
- * Get the coaching message for a given volume zone.
- * @param {'quiet'|'normal'|'loud'|'danger'} zone
- * @returns {string}
- */
-function getCoachingMessage(zone) {
-  switch (zone) {
-    case "quiet":
-      return "Good, nice and calm";
-    case "normal":
-      return "Perfect! This is your sweet spot";
-    case "loud":
-      return "Whoa, that's getting loud!";
-    case "danger":
-      return "Way too loud! \u{1F534}";
-    default:
-      return "Speak naturally...";
-  }
-}
-
-/**
- * Get a human-readable label for a volume zone.
- * @param {'quiet'|'normal'|'loud'|'danger'} zone
- * @returns {string}
- */
-function getZoneLabel(zone) {
-  switch (zone) {
-    case "quiet":
-      return "Quiet";
-    case "normal":
-      return "Normal";
-    case "loud":
-      return "Loud";
-    case "danger":
-      return "Danger";
-    default:
-      return "Waiting...";
-  }
+function updateHearing(volume, now, lastHeardAt) {
+  const heardAt = volume >= HEARING_MIN_VOLUME ? now : lastHeardAt;
+  return {
+    hearing: heardAt !== null && now - heardAt <= HEARING_HOLD_MS,
+    lastHeardAt: heardAt,
+  };
 }
 
 // Expose pure helpers for unit testing
@@ -179,11 +139,8 @@ if (typeof globalThis !== "undefined") {
     resolveInitialStep,
     resolveStepButtons,
     permissionStateToUI,
-    getCoachingMessage,
-    getVolumeZone,
-    getZoneLabel,
     computeRmsVolume,
-    DEMO_THRESHOLDS,
+    updateHearing,
   };
 }
 
@@ -492,59 +449,43 @@ if (typeof document === "undefined") {
         window.FFTVisualizer.startVisualization(analyser, canvas);
       }
 
-      // Start RMS volume polling for zone detection
+      // Poll the level only to say whether the mic hears you.
       const timeDomainData = new Uint8Array(analyser.fftSize);
+      let lastHeardAt = null;
+      let shown = null;
       function pollVolume() {
         if (!demoAnalyser) return; // cleaned up
         analyser.getByteTimeDomainData(timeDomainData);
-        const volume = computeRmsVolume(timeDomainData);
-        const zone = getVolumeZone(volume, DEMO_THRESHOLDS);
-
-        updateDemoUI(zone);
-
-        // Sync zone to FFT visualizer for color changes
-        if (window.FFTVisualizer) {
-          window.FFTVisualizer.setVolumeZone(zone);
+        const h = updateHearing(
+          computeRmsVolume(timeDomainData),
+          performance.now(),
+          lastHeardAt,
+        );
+        lastHeardAt = h.lastHeardAt;
+        if (h.hearing !== shown) {
+          shown = h.hearing;
+          updateDemoUI(h.hearing);
         }
-
         demoAnimFrameId = requestAnimationFrame(pollVolume);
       }
       pollVolume();
     } catch (_err) {
-      // If audio fails, show a fallback message
-      const coachingText = document.getElementById("demoCoachingText");
-      if (coachingText) {
-        coachingText.textContent = "Could not access microphone for demo.";
-      }
+      const label = document.getElementById("demoHearingLabel");
+      if (label) label.textContent = "Could not access the microphone";
     }
   }
 
-  /**
-   * Update the demo UI elements based on the current volume zone.
-   */
-  function updateDemoUI(zone) {
-    const zoneDot = document.getElementById("demoZoneDot");
-    const zoneLabel = document.getElementById("demoZoneLabel");
-    const coachingText = document.getElementById("demoCoachingText");
-    const zoneIndicator = document.getElementById("demoZoneIndicator");
-
-    if (zoneLabel) {
-      zoneLabel.textContent = getZoneLabel(zone);
+  function updateDemoUI(hearing) {
+    const box = document.getElementById("demoHearing");
+    const mark = document.getElementById("demoHearingMark");
+    const label = document.getElementById("demoHearingLabel");
+    if (box) box.classList.toggle("is-hearing", hearing);
+    if (mark) mark.textContent = hearing ? "\u2713" : "\u00b7";
+    if (label) {
+      label.textContent = hearing ? "Hearing you" : "Waiting for your voice\u2026";
     }
-
-    if (coachingText) {
-      coachingText.textContent = getCoachingMessage(zone);
-      // Remove all zone classes and add current
-      coachingText.className = "demo-coaching-text demo-coaching-" + zone;
-    }
-
-    if (zoneDot) {
-      zoneDot.className = "demo-zone-dot demo-zone-dot-" + zone;
-    }
-
-    if (zoneIndicator) {
-      // Remove old zone classes and add current
-      zoneIndicator.className = "demo-zone-indicator zone-" + zone;
+    if (window.FFTVisualizer) {
+      window.FFTVisualizer.setVolumeZone(hearing ? "normal" : "quiet");
     }
   }
 

@@ -62,11 +62,8 @@ describe('widget-animator', () => {
       expect(typeof mod.createWidgetAnimator).toBe('function');
     });
 
-    it('exports STATE_BOUNDS with all four states', () => {
-      expect(mod.STATE_BOUNDS).toHaveProperty('compact');
-      expect(mod.STATE_BOUNDS).toHaveProperty('expanded');
-      expect(mod.STATE_BOUNDS).toHaveProperty('alert');
-      expect(mod.STATE_BOUNDS).toHaveProperty('sessionComplete');
+    it('exports STATE_BOUNDS for the three states (no alert state)', () => {
+      expect(Object.keys(mod.STATE_BOUNDS).sort()).toEqual(['compact', 'expanded', 'sessionComplete']);
     });
 
     it('exports animation constants', () => {
@@ -86,15 +83,12 @@ describe('widget-animator', () => {
 
   describe('STATE_BOUNDS', () => {
     it('compact has correct dimensions', () => {
-      expect(mod.STATE_BOUNDS.compact).toEqual({ width: 72, height: 28 });
+      expect(mod.STATE_BOUNDS.compact).toEqual({ width: 188, height: 32 });
     });
 
     it('expanded has correct dimensions', () => {
-      expect(mod.STATE_BOUNDS.expanded).toEqual({ width: 352, height: 96 });
-    });
-
-    it('alert has correct dimensions', () => {
-      expect(mod.STATE_BOUNDS.alert).toEqual({ width: 392, height: 106 });
+      // Details/calibration: fixed 320x240 content, including padding/border.
+      expect(mod.STATE_BOUNDS.expanded).toEqual({ width: 320, height: 240 });
     });
 
     it('sessionComplete has correct dimensions', () => {
@@ -134,28 +128,19 @@ describe('widget-animator', () => {
   describe('calculateTargetBounds', () => {
     it('centers the compact state on the given centerX', () => {
       const bounds = mod.calculateTargetBounds('compact', 500, 60);
-      expect(bounds.width).toBe(72);
-      expect(bounds.height).toBe(28);
-      // x = 500 - 72/2 = 464
-      expect(bounds.x).toBe(464);
+      expect(bounds.width).toBe(188);
+      expect(bounds.height).toBe(32);
+      // x = 500 - 188/2 = 406
+      expect(bounds.x).toBe(406);
       expect(bounds.y).toBe(60);
     });
 
     it('centers the expanded state on the given centerX', () => {
       const bounds = mod.calculateTargetBounds('expanded', 500, 60);
-      expect(bounds.width).toBe(352);
-      expect(bounds.height).toBe(96);
-      // x = 500 - 352/2 = 324
-      expect(bounds.x).toBe(324);
-      expect(bounds.y).toBe(60);
-    });
-
-    it('centers the alert state on the given centerX', () => {
-      const bounds = mod.calculateTargetBounds('alert', 500, 60);
-      expect(bounds.width).toBe(392);
-      expect(bounds.height).toBe(106);
-      // x = 500 - 392/2 = 304
-      expect(bounds.x).toBe(304);
+      expect(bounds.width).toBe(320);
+      expect(bounds.height).toBe(240);
+      // x = 500 - 320/2 = 340
+      expect(bounds.x).toBe(340);
       expect(bounds.y).toBe(60);
     });
 
@@ -169,9 +154,9 @@ describe('widget-animator', () => {
     });
 
     it('rounds x to nearest integer for odd-width centering', () => {
-      // centerX=101, compact width=72 → 101 - 36 = 65 (exact)
-      const bounds = mod.calculateTargetBounds('compact', 101, 10);
-      expect(bounds.x).toBe(65); // 101 - 36 = 65
+      // centerX=101, expanded width=320 → 101 - 160 = -59 (exact)
+      const bounds = mod.calculateTargetBounds('expanded', 101, 10);
+      expect(bounds.x).toBe(-59);
       expect(Number.isInteger(bounds.x)).toBe(true);
     });
 
@@ -183,8 +168,8 @@ describe('widget-animator', () => {
   // ---- interpolateBounds ----
 
   describe('interpolateBounds', () => {
-    const start = { x: 464, y: 60, width: 72, height: 28 };
-    const end = { x: 324, y: 60, width: 352, height: 96 };
+    const start = { x: 406, y: 60, width: 188, height: 32 };
+    const end = { x: 340, y: 60, width: 320, height: 240 };
 
     it('returns start bounds at progress 0', () => {
       expect(mod.interpolateBounds(start, end, 0)).toEqual(start);
@@ -196,10 +181,10 @@ describe('widget-animator', () => {
 
     it('returns midpoint at progress 0.5', () => {
       const mid = mod.interpolateBounds(start, end, 0.5);
-      expect(mid.x).toBe(394);          // 464 + (324-464)*0.5
+      expect(mid.x).toBe(373);          // 406 + (340-406)*0.5
       expect(mid.y).toBe(60);
-      expect(mid.width).toBe(212);       // 72 + (352-72)*0.5
-      expect(mid.height).toBe(62);       // 28 + (96-28)*0.5
+      expect(mid.width).toBe(254);       // 188 + (320-188)*0.5
+      expect(mid.height).toBe(136);      // 32 + (240-32)*0.5
     });
 
     it('always returns integer values', () => {
@@ -220,7 +205,7 @@ describe('widget-animator', () => {
     });
 
     it('returns an object with transitionTo, connectStateMachine, destroy', () => {
-      const win = createMockWindow({ x: 464, y: 60, width: 72, height: 28 });
+      const win = createMockWindow({ x: 406, y: 60, width: 188, height: 32 });
       const animator = mod.createWidgetAnimator(win);
       expect(typeof animator.transitionTo).toBe('function');
       expect(typeof animator.connectStateMachine).toBe('function');
@@ -232,7 +217,7 @@ describe('widget-animator', () => {
 
   describe('transitionTo', () => {
     it('animates window from compact to expanded over multiple frames', () => {
-      const win = createMockWindow({ x: 464, y: 60, width: 72, height: 28 });
+      const win = createMockWindow({ x: 406, y: 60, width: 188, height: 32 });
       const animator = mod.createWidgetAnimator(win);
       const setBoundsSpy = vi.spyOn(win, 'setBounds');
 
@@ -247,14 +232,14 @@ describe('widget-animator', () => {
 
       // Final bounds should match expanded state centered at x=500
       const finalBounds = win.getBounds();
-      expect(finalBounds.width).toBe(352);
-      expect(finalBounds.height).toBe(96);
-      // centerX was 464 + 72/2 = 500, so x = 500 - 352/2 = 324
-      expect(finalBounds.x).toBe(324);
+      expect(finalBounds.width).toBe(320);
+      expect(finalBounds.height).toBe(240);
+      // centerX was 406 + 188/2 = 500, so x = 500 - 320/2 = 340
+      expect(finalBounds.x).toBe(340);
     });
 
     it('resolves the returned promise when animation completes', async () => {
-      const win = createMockWindow({ x: 464, y: 60, width: 72, height: 28 });
+      const win = createMockWindow({ x: 406, y: 60, width: 188, height: 32 });
       const animator = mod.createWidgetAnimator(win);
       let resolved = false;
 
@@ -272,7 +257,7 @@ describe('widget-animator', () => {
     });
 
     it('resolves immediately if already at target bounds', async () => {
-      const win = createMockWindow({ x: 464, y: 60, width: 72, height: 28 });
+      const win = createMockWindow({ x: 406, y: 60, width: 188, height: 32 });
       const animator = mod.createWidgetAnimator(win);
 
       const promise = animator.transitionTo('compact');
@@ -282,24 +267,24 @@ describe('widget-animator', () => {
     });
 
     it('cancels previous animation when a new one starts', () => {
-      const win = createMockWindow({ x: 464, y: 60, width: 72, height: 28 });
+      const win = createMockWindow({ x: 406, y: 60, width: 188, height: 32 });
       const animator = mod.createWidgetAnimator(win);
 
       animator.transitionTo('expanded');
       vi.advanceTimersByTime(33 * 2); // partial animation
 
       // Start a new animation before the first finishes
-      animator.transitionTo('alert');
+      animator.transitionTo('sessionComplete');
       vi.advanceTimersByTime(33 * (mod.TOTAL_FRAMES + 1));
 
-      // Should end at alert dimensions, not expanded
+      // Should end at sessionComplete dimensions, not expanded
       const finalBounds = win.getBounds();
-      expect(finalBounds.width).toBe(392);
-      expect(finalBounds.height).toBe(106);
+      expect(finalBounds.width).toBe(300);
+      expect(finalBounds.height).toBe(120);
     });
 
     it('resolves immediately if window is destroyed', async () => {
-      const win = createMockWindow({ x: 464, y: 60, width: 72, height: 28 });
+      const win = createMockWindow({ x: 406, y: 60, width: 188, height: 32 });
       const animator = mod.createWidgetAnimator(win);
       win._destroy();
 
@@ -309,7 +294,7 @@ describe('widget-animator', () => {
     });
 
     it('stops animation if window is destroyed mid-animation', async () => {
-      const win = createMockWindow({ x: 464, y: 60, width: 72, height: 28 });
+      const win = createMockWindow({ x: 406, y: 60, width: 188, height: 32 });
       const animator = mod.createWidgetAnimator(win);
 
       const promise = animator.transitionTo('expanded');
@@ -323,8 +308,8 @@ describe('widget-animator', () => {
     });
 
     it('maintains horizontal center during expansion', () => {
-      // Window centered at x=500 (464 + 72/2)
-      const win = createMockWindow({ x: 464, y: 60, width: 72, height: 28 });
+      // Window centered at x=500 (406 + 188/2)
+      const win = createMockWindow({ x: 406, y: 60, width: 188, height: 32 });
       const animator = mod.createWidgetAnimator(win);
 
       animator.transitionTo('expanded');
@@ -347,7 +332,7 @@ describe('widget-animator', () => {
       const { createWidgetStateMachine, STATES } = loadStateMachine();
       const sm = createWidgetStateMachine(STATES.COMPACT);
 
-      const win = createMockWindow({ x: 464, y: 60, width: 72, height: 28 });
+      const win = createMockWindow({ x: 406, y: 60, width: 188, height: 32 });
       const animator = mod.createWidgetAnimator(win);
       animator.connectStateMachine(sm);
 
@@ -358,15 +343,15 @@ describe('widget-animator', () => {
       vi.advanceTimersByTime(33 * (mod.TOTAL_FRAMES + 1));
 
       const bounds = win.getBounds();
-      expect(bounds.width).toBe(352);
-      expect(bounds.height).toBe(96);
+      expect(bounds.width).toBe(320);
+      expect(bounds.height).toBe(240);
     });
 
     it('returns an unsubscribe function', () => {
       const { createWidgetStateMachine, STATES } = loadStateMachine();
       const sm = createWidgetStateMachine(STATES.COMPACT);
 
-      const win = createMockWindow({ x: 464, y: 60, width: 72, height: 28 });
+      const win = createMockWindow({ x: 406, y: 60, width: 188, height: 32 });
       const animator = mod.createWidgetAnimator(win);
       const unsub = animator.connectStateMachine(sm);
 
@@ -378,7 +363,7 @@ describe('widget-animator', () => {
 
       // Window should not have changed
       const bounds = win.getBounds();
-      expect(bounds.width).toBe(72);
+      expect(bounds.width).toBe(188);
     });
 
     it('disconnects previous state machine when connecting a new one', () => {
@@ -386,7 +371,7 @@ describe('widget-animator', () => {
       const sm1 = createWidgetStateMachine(STATES.COMPACT);
       const sm2 = createWidgetStateMachine(STATES.COMPACT);
 
-      const win = createMockWindow({ x: 464, y: 60, width: 72, height: 28 });
+      const win = createMockWindow({ x: 406, y: 60, width: 188, height: 32 });
       const animator = mod.createWidgetAnimator(win);
 
       animator.connectStateMachine(sm1);
@@ -395,12 +380,12 @@ describe('widget-animator', () => {
       // sm1 transition should not animate
       sm1.transition(STATES.EXPANDED);
       vi.advanceTimersByTime(33 * (mod.TOTAL_FRAMES + 1));
-      expect(win.getBounds().width).toBe(72);
+      expect(win.getBounds().width).toBe(188);
 
       // sm2 transition should animate
       sm2.transition(STATES.EXPANDED);
       vi.advanceTimersByTime(33 * (mod.TOTAL_FRAMES + 1));
-      expect(win.getBounds().width).toBe(352);
+      expect(win.getBounds().width).toBe(320);
     });
   });
 
@@ -408,7 +393,7 @@ describe('widget-animator', () => {
 
   describe('destroy', () => {
     it('cancels in-progress animation', () => {
-      const win = createMockWindow({ x: 464, y: 60, width: 72, height: 28 });
+      const win = createMockWindow({ x: 406, y: 60, width: 188, height: 32 });
       const animator = mod.createWidgetAnimator(win);
       const setBoundsSpy = vi.spyOn(win, 'setBounds');
 
@@ -427,7 +412,7 @@ describe('widget-animator', () => {
       const { createWidgetStateMachine, STATES } = loadStateMachine();
       const sm = createWidgetStateMachine(STATES.COMPACT);
 
-      const win = createMockWindow({ x: 464, y: 60, width: 72, height: 28 });
+      const win = createMockWindow({ x: 406, y: 60, width: 188, height: 32 });
       const animator = mod.createWidgetAnimator(win);
       animator.connectStateMachine(sm);
 
@@ -436,7 +421,7 @@ describe('widget-animator', () => {
       sm.transition(STATES.EXPANDED);
       vi.advanceTimersByTime(33 * (mod.TOTAL_FRAMES + 1));
 
-      expect(win.getBounds().width).toBe(72);
+      expect(win.getBounds().width).toBe(188);
     });
   });
 });
