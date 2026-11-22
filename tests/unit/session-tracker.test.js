@@ -10,7 +10,7 @@ const {
 function makeTracker(extra) {
   let clock = Date.UTC(2026, 9, 25, 12, 0, 0);
   const tracker = createSessionTracker({
-    algorithmVersion: 2,
+    algorithmVersion: 3,
     now: () => clock,
     ...extra,
   });
@@ -20,7 +20,7 @@ function makeTracker(extra) {
     speak(zone, seconds, relDb = 0) {
       for (let i = 0; i < seconds * 50; i++) {
         tracker.recordFrame(
-          { zone, relDb: zone === "silent" ? null : relDb },
+          { zone, relDb: zone === "silent" ? null : relDb, speaking: zone !== "silent" },
           20,
         );
         clock += 20;
@@ -92,7 +92,7 @@ describe("session tracker — speech-only, gap-free accounting (F5/F7)", () => {
       margins: { warningDb: 4, dangerDb: 8 },
     });
     const r = s.tracker.finalize();
-    expect(r.algorithmVersion).toBe(2);
+    expect(r.algorithmVersion).toBe(3);
     expect(r.thresholds).toEqual({
       baselineDb: -31.5,
       sensitivity: 2,
@@ -155,5 +155,33 @@ describe("pruneSessions", () => {
     const kept = pruneSessions(list, 50);
     expect(kept).toHaveLength(50);
     expect(kept[0].id).toBe(10);
+  });
+});
+
+
+describe("accepted speech and session provenance", () => {
+  it("accounts for warm-up, hangover, held cues and rejected distant speech", () => {
+    const t = createSessionTracker();
+    t.recordFrame({ zone: "silent", speaking: true, relDb: null }, 1000); // warm-up
+    t.recordFrame({ zone: "danger", speaking: true, relDb: 12 }, 1000);
+    t.recordFrame({ zone: "danger", speaking: false, relDb: 12 }, 300); // hangover
+    t.recordFrame({ zone: "danger", speaking: false, relDb: 12 }, 500); // short pause
+    t.recordFrame({ zone: "silent", speaking: false, relDb: null }, 5000); // long pause / far talker
+    for (const ms of [0, -20, NaN, Infinity]) t.recordFrame({ zone: "normal", speaking: true }, ms);
+    const r = t.finalize();
+    expect(r.speakingTime).toBe(2);
+    expect(r.coveredTime).toBe(7.8);
+    expect(r.zoneTime).toEqual({ normal: 0, warning: 0, danger: 1, silent: 5.8 });
+    expect(r.tooLoudRatio).toBe(0.5); // includes warm-up in denominator
+    expect(r.volumeSamples).toEqual([12]);
+  });
+
+  it("persists one mic and stored baseline, plus the final session snapshot", () => {
+    const meta = { mic: { label: "Built-in", policy: "avoid-bluetooth" }, storedBaselineDb: -30 };
+    const t = createSessionTracker({ baselineDb: -30, meta });
+    meta.mic.label = "Other mic";
+    t.recordFrame({ zone: "normal", speaking: true, relDb: 0 }, 20);
+    expect(t.finalize()).toMatchObject({ algorithmVersion: 3, mic: { label: "Built-in", policy: "avoid-bluetooth" }, storedBaselineDb: -30, sessionBaselineDb: -30, reanchorDb: 0 });
+    expect(t.finalize({ sessionBaselineDb: -35, reanchorDb: -5 })).toMatchObject({ storedBaselineDb: -30, sessionBaselineDb: -35, reanchorDb: -5 });
   });
 });
