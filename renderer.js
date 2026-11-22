@@ -247,8 +247,8 @@ if (typeof window !== "undefined") {
   // Click/Enter/Space on the pill: idle starts; otherwise show details.
   async function openOrStart() {
     if (!isMonitoring) {
-      await showDetails();
       try {
+        await showDetails();
         await startMonitoring();
       } catch (err) {
         await window.electronAPI.widgetTransition("compact");
@@ -256,7 +256,7 @@ if (typeof window !== "undefined") {
       return;
     }
     if (_autoCollapseTimer) clearTimeout(_autoCollapseTimer);
-    await showDetails();
+    await showDetails().catch(() => {});
     userOpened = true;
     // A click while the mic is unavailable also retries it now.
     if (capture && captureStatus && captureStatus.state === "unavailable") {
@@ -265,7 +265,8 @@ if (typeof window !== "undefined") {
   }
 
   // Details or calibration, from any widget state. An open summary only
-  // closes to the pill, so it goes through the pill first.
+  // closes to the pill, so it goes through the pill first. Throws when the
+  // panel cannot be shown: nothing may start where the user can't see it.
   async function showDetails() {
     const api = window.electronAPI;
     const state = await api.widgetGetState();
@@ -274,6 +275,7 @@ if (typeof window !== "undefined") {
     const result = await api.widgetTransition("expanded");
     if (!result || !result.success) {
       console.error("[widget] Could not open details:", result && result.error);
+      throw new Error("details not shown");
     }
   }
 
@@ -505,8 +507,12 @@ if (typeof window !== "undefined") {
   async function recalibrate() {
     console.log("[calibration] Recalibration requested");
     if (!isMonitoring) {
-      await showDetails();
-      await startMonitoring({ recalibrate: true }).catch(() => {});
+      try {
+        await showDetails();
+        await startMonitoring({ recalibrate: true });
+      } catch (err) {
+        await window.electronAPI.widgetTransition("compact");
+      }
       return;
     }
     saveSegment();
@@ -526,12 +532,18 @@ if (typeof window !== "undefined") {
     calibration = null;
     sessionTracker = null;
     tracker = newTracker(null, false);
-    calibrationManager = window.CalibrationManager.createCalibrationManager();
-    calibrationManager.start();
+    const manager = window.CalibrationManager.createCalibrationManager();
+    calibrationManager = manager;
+    manager.start();
     setCalib("talk");
     if (_autoCollapseTimer) clearTimeout(_autoCollapseTimer);
-    showDetails();
     reportCaptureStatus();
+    // Never calibrate unseen: a hidden prompt would save call audio as normal.
+    showDetails().catch(() => {
+      if (calibrationManager !== manager) return;
+      stopMonitoring();
+      window.electronAPI.setMonitoring(false);
+    });
   }
 
   // Rehearsal: louder sentence, then back to normal. Never changes the

@@ -33,6 +33,16 @@ test.beforeEach(async () => {
   await mainWindow.waitForTimeout(500);
 });
 
+/** What main sends the widget for tray/shortcut/menu/meeting events. */
+const sendToWidget = (message, arg) =>
+  electronApp.evaluate(
+    ({ BrowserWindow }, [message, arg]) =>
+      BrowserWindow.getAllWindows()
+        .find((b) => b.webContents.getURL().includes("index.html"))
+        .webContents.send(message, arg),
+    [message, arg],
+  );
+
 test.afterEach(async () => {
   if (electronApp) {
     await electronApp.close();
@@ -183,11 +193,12 @@ test.describe("Widget State Transitions", () => {
   });
 
   // An undismissed summary, then Recalibrate (Settings/context menu) or a
-  // tray/next-call start on a mic with no normal voice yet: the summary
-  // gives way to the calibration panel at 320x240.
+  // tray/Cmd+Shift+M/next-call start on a mic with no normal voice yet: the
+  // summary gives way to the calibration panel at 320x240.
   for (const [how, message, arg] of [
     ["Recalibrate", "trigger-recalibration"],
     ["tray Start", "toggle-monitoring", true],
+    ["a call starting", "meeting-detection-changed", { detected: true }],
   ]) {
     test(`${how} with the session summary open shows calibration`, async () => {
       const summary = mainWindow.locator("#sessionCompletePanel");
@@ -197,13 +208,7 @@ test.describe("Widget State Transitions", () => {
       );
       await expect(summary).toBeVisible();
 
-      await electronApp.evaluate(
-        ({ BrowserWindow }, [message, arg]) =>
-          BrowserWindow.getAllWindows()
-            .find((b) => b.webContents.getURL().includes("index.html"))
-            .webContents.send(message, arg),
-        [message, arg],
-      );
+      await sendToWidget(message, arg);
 
       await expect(mainWindow.locator("#calibrationView")).toBeVisible();
       await expect(mainWindow.locator("#expandedPanel")).toBeVisible();
@@ -219,6 +224,51 @@ test.describe("Widget State Transitions", () => {
       ).toBe("expanded");
     });
   }
+
+  // If the panel can't be shown, nothing starts and no normal voice is
+  // taken from audio the user was never prompted for.
+  const savedNormal = () =>
+    mainWindow.evaluate(() => window.electronAPI.getCalibration("fake-builtin"));
+  const failTransitions = () =>
+    electronApp.evaluate(({ ipcMain }) => {
+      ipcMain.removeHandler("widget-transition");
+      ipcMain.handle("widget-transition", () => ({
+        success: false,
+        error: "test: refused",
+      }));
+    });
+
+  test("a start the widget can't show starts nothing and saves no normal", async () => {
+    test.setTimeout(60000);
+    await mainWindow.evaluate(() =>
+      window.electronAPI.widgetTransition("sessionComplete"),
+    );
+    await failTransitions();
+    await sendToWidget("toggle-monitoring", true);
+    await mainWindow.waitForTimeout(20000); // longer than a calibration
+    expect(await savedNormal()).toBeFalsy();
+    await expect(mainWindow.locator("#sessionCompletePanel")).toBeVisible();
+    await expect(mainWindow.locator("#compactPill")).not.toHaveClass(
+      /\bmonitoring\b/,
+    );
+  });
+
+  test("a recalibration the widget can't show stops and keeps the old normal", async () => {
+    test.setTimeout(120000);
+    const pill = mainWindow.locator("#compactPill");
+    await pill.click();
+    await finishCalibration(mainWindow);
+    const before = await savedNormal();
+    expect(before).toBeTruthy();
+    await expect(pill).toHaveClass(/\bmonitoring\b/);
+
+    await failTransitions();
+    await sendToWidget("trigger-recalibration");
+    await mainWindow.waitForTimeout(20000); // longer than a calibration
+    expect(await savedNormal()).toEqual(before);
+    await expect(pill).not.toHaveClass(/\bmonitoring\b/);
+    await expect(pill).toBeVisible();
+  });
 
   test("context menu opens on right-click", async () => {
     const compactPill = mainWindow.locator("#compactPill");
