@@ -127,6 +127,23 @@ test.describe("Widget State Transitions", () => {
     await expect(mainWindow.locator("#expandedPanel")).toBeVisible();
   });
 
+  test("a quick click never leaves the window following the mouse", async () => {
+    const before = await widgetBounds(electronApp);
+    // A press and release faster than the window-position lookup.
+    await mainWindow.evaluate(() => {
+      const pill = document.getElementById("compactPill");
+      const at = { bubbles: true, button: 0, screenX: 0, screenY: 0 };
+      pill.dispatchEvent(new MouseEvent("mousedown", at));
+      pill.dispatchEvent(new MouseEvent("mouseup", at));
+    });
+    await mainWindow.waitForTimeout(300);
+    // Moving with no button held must not drag the window.
+    await mainWindow.mouse.move(150, 20, { steps: 5 });
+    await mainWindow.mouse.move(20, 10, { steps: 5 });
+    await mainWindow.waitForTimeout(300);
+    expect(await widgetBounds(electronApp)).toEqual(before);
+  });
+
   test("long session shows sessionComplete summary after stop", async () => {
     test.slow(); // needs a real >=60s monitoring session for the summary
     const compactPill = mainWindow.locator("#compactPill");

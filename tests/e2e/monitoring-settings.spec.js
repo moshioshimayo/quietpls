@@ -62,8 +62,6 @@ test.describe("Trustworthy loudness flow (2.4)", () => {
     });
     // About 10 s of talking completes it; the panel stays open meanwhile.
     await finishCalibration(page);
-    // Success collapses on its own after about 3 s.
-    await expect(pill()).toBeVisible({ timeout: 6000 });
     await expect(word()).toHaveText("Normal", { timeout: 10000 });
     await expect(pill()).toHaveClass(/zone-normal/);
   });

@@ -86,6 +86,7 @@ if (typeof window !== "undefined") {
   let sessionCompletePanel = null;
   let lastAnnounced = "";
   let suppressNextClick = false;
+  let userOpened = false; // details opened by the user stay until Hide/Stop
 
   document.addEventListener("DOMContentLoaded", () => {
     compactPill = $("compactPill");
@@ -234,6 +235,7 @@ if (typeof window !== "undefined") {
     compactPill.style.display = expanded || complete ? "none" : "";
     expandedPanel.style.display = expanded ? "" : "none";
     sessionCompletePanel.style.display = complete ? "" : "none";
+    if (!expanded) userOpened = false;
     // The success panel is shown once; the next open shows details.
     if (!expanded && calib === "done") setCalib(null);
     if (expanded) {
@@ -255,6 +257,7 @@ if (typeof window !== "undefined") {
     }
     if (_autoCollapseTimer) clearTimeout(_autoCollapseTimer);
     await window.electronAPI.widgetTransition("expanded");
+    userOpened = true;
     // A click while the mic is unavailable also retries it now.
     if (capture && captureStatus && captureStatus.state === "unavailable") {
       capture.retry().catch(() => {});
@@ -392,8 +395,10 @@ if (typeof window !== "undefined") {
     if (_autoCollapseTimer) clearTimeout(_autoCollapseTimer);
     _autoCollapseTimer = setTimeout(async () => {
       _autoCollapseTimer = null;
-      // Stay open while calibrating or while the mic is not working.
+      // Stay open while calibrating, while the mic is not working, or when
+      // the user opened the details (the success panel always closes).
       if (!isMonitoring || needsAttention()) return;
+      if (userOpened && calib !== "done") return;
       await window.electronAPI.widgetTransition("compact");
     }, ms);
   }
@@ -903,26 +908,37 @@ if (typeof window !== "undefined") {
   let _dragState = null; // { startScreenX, startScreenY, winStartX, winStartY, didDrag }
   const DRAG_THRESHOLD_PX = 4; // minimum mouse movement to count as a drag
 
-  document.addEventListener("mousedown", async (e) => {
+  document.addEventListener("mousedown", (e) => {
     if (e.button !== 0) return;
     const control = e.target.closest("button, input, select, canvas");
     if (control && control !== compactPill) return;
-    try {
-      const pos = await window.electronAPI.getWindowPosition();
-      _dragState = {
-        startScreenX: e.screenX,
-        startScreenY: e.screenY,
-        winStartX: pos.x,
-        winStartY: pos.y,
-        didDrag: false,
-      };
-    } catch (err) {
-      _dragState = null;
-    }
+    // Set synchronously: a quick click's mouseup must always end it.
+    const drag = {
+      startScreenX: e.screenX,
+      startScreenY: e.screenY,
+      winStartX: null,
+      winStartY: null,
+      didDrag: false,
+    };
+    _dragState = drag;
+    window.electronAPI
+      .getWindowPosition()
+      .then((pos) => {
+        drag.winStartX = pos.x;
+        drag.winStartY = pos.y;
+      })
+      .catch(() => {
+        if (_dragState === drag) _dragState = null;
+      });
   });
 
   document.addEventListener("mousemove", (e) => {
     if (!_dragState) return;
+    // Only while the primary button is held.
+    if (!(e.buttons & 1)) {
+      _dragState = null;
+      return;
+    }
     const dx = e.screenX - _dragState.startScreenX;
     const dy = e.screenY - _dragState.startScreenY;
     if (
@@ -931,7 +947,7 @@ if (typeof window !== "undefined") {
     ) {
       _dragState.didDrag = true;
     }
-    if (_dragState.didDrag) {
+    if (_dragState.didDrag && _dragState.winStartX !== null) {
       window.electronAPI.setWindowPosition(
         _dragState.winStartX + dx,
         _dragState.winStartY + dy,

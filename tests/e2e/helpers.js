@@ -346,8 +346,9 @@ async function observations(app, page) {
 }
 
 /**
- * Wait until guided calibration has heard about 10 s of talking, then Skip
- * the louder/normal rehearsal (the saved normal is already stored).
+ * Wait until guided calibration has heard about 10 s of talking, Skip the
+ * louder/normal rehearsal (the saved normal is already stored), then press
+ * Done on "This is your normal" so the widget is compact again.
  */
 async function finishCalibration(page, timeout = 45000) {
   await expect(page.locator("#calTitle")).toHaveText(/a bit louder/, {
@@ -355,6 +356,8 @@ async function finishCalibration(page, timeout = 45000) {
   });
   await page.locator("#calSecondaryBtn").click(); // Skip
   await expect(page.locator("#calTitle")).toHaveText("This is your normal");
+  await page.locator("#calSecondaryBtn").click(); // Done
+  await expect(page.locator("#compactPill")).toBeVisible();
 }
 
 /** Stop from the widget: open details if compact, then press its Stop. */

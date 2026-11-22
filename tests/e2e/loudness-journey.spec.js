@@ -322,6 +322,12 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
     await expect(word()).toHaveText(/Listening|Normal/, { timeout: 10000 });
     // Same-device reconnect keeps the session's adjusted normal.
     await expect(page.locator("#reanchorLine")).toHaveText(/Normal adjusted/);
+    // Details the user opens right after a reconnect stay open.
+    await pill().click();
+    await page.waitForTimeout(3500);
+    await expect(page.locator("#detailsView")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(pill()).toBeVisible();
   });
 
   test("Stop is the only stop: it ends monitoring and shows the summary", async () => {
