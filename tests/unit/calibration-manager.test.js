@@ -18,23 +18,22 @@ function run(cal, frames) {
   return null;
 }
 
-/** Median dBFS the worklet reports for steady speech at `levelDb`. */
+/** Mean-power dBFS the worklet reports for steady speech at `levelDb`. */
 function speechLevel(levelDb) {
   const w = h.createWorklet(48000);
   w.feed(h.noise(1000, -65));
   const s = h
-    .speechFrames(w.feed(h.speechLike(6000, levelDb)))
-    .map((m) => m.dbfs)
-    .sort((a, b) => a - b);
-  return s[Math.floor(s.length / 2)];
+    .speechFrames(w.feed(h.speechLike(20000, levelDb)))
+    .filter(m => m.voiced);
+  return 10 * Math.log10(s.reduce((sum, m) => sum + Math.pow(10, m.dbfs / 10), 0) / s.length);
 }
 
 describe("guided calibration (F2/F3)", () => {
   it("silence-heavy input does not drag the baseline down", () => {
-    // 4 s of room silence (40% of the window) before 6 s of speech.
+    // Room silence before speech must not influence the voiced power mean.
     const w = h.createWorklet(48000);
     const frames = w.feed(
-      h.concat(h.noise(4000, -65), h.speechLike(6000, -30)),
+      h.concat(h.noise(4000, -65), h.speechLike(20000, -30)),
     );
     const cal = createCalibrationManager();
     cal.start();
@@ -44,9 +43,9 @@ describe("guided calibration (F2/F3)", () => {
     expect(r.baselineDb).toBeGreaterThan(-35);
   });
 
-  it("needs ~2 s of voiced speech, counted in audio time", () => {
+  it("needs ~10 s of voiced speech, counted in audio time", () => {
     const w = h.createWorklet(48000);
-    const frames = w.feed(h.concat(h.noise(500, -65), h.speechLike(2000, -30)));
+    const frames = w.feed(h.concat(h.noise(500, -65), h.speechLike(10000, -30)));
     const cal = createCalibrationManager();
     cal.start();
     expect(run(cal, frames)).toBeNull();
@@ -58,7 +57,7 @@ describe("guided calibration (F2/F3)", () => {
   it("a silent attempt fails as no-speech, and a retry starts clean", () => {
     const cal = createCalibrationManager();
     cal.start();
-    const silent = h.createWorklet(48000).feed(h.noise(11000, -65));
+    const silent = h.createWorklet(48000).feed(h.noise(41000, -65));
     expect(run(cal, silent).status).toBe("no-speech");
     expect(cal.isCalibrating()).toBe(false);
 
@@ -67,7 +66,7 @@ describe("guided calibration (F2/F3)", () => {
     const w = h.createWorklet(48000);
     const r = run(
       cal,
-      w.feed(h.concat(h.noise(500, -65), h.speechLike(6000, -24))),
+      w.feed(h.concat(h.noise(500, -65), h.speechLike(20000, -24))),
     );
     expect(r.status).toBe("ok");
     expect(r.baselineDb).toBeCloseTo(speechLevel(-24), 0);
@@ -77,13 +76,13 @@ describe("guided calibration (F2/F3)", () => {
     const cal = createCalibrationManager();
     cal.start();
     const frames = [
-      ...h.createWorklet(48000).feed(h.clicks(4000, 200, -10)),
+      ...h.createWorklet(48000).feed(h.clicks(16000, 200, -10)),
       ...h
         .createWorklet(48000)
-        .feed(h.concat(h.noise(500, -65), h.tone(4000, 40, -20))),
+        .feed(h.concat(h.noise(500, -65), h.tone(16000, 40, -20))),
       ...h
         .createWorklet(48000)
-        .feed(h.concat(h.noise(500, -65), h.noise(3000, -40, 48000, 9))),
+        .feed(h.concat(h.noise(500, -65), h.noise(16000, -40, 48000, 9))),
     ];
     expect(run(cal, frames).status).toBe("no-speech");
   });
@@ -102,7 +101,7 @@ describe("guided calibration (F2/F3)", () => {
   });
 
   it("hangover padding does not count as speech time", () => {
-    const frames = Array.from({ length: 600 }, (_, i) => ({
+    const frames = Array.from({ length: 2100 }, (_, i) => ({
       dbfs: -30,
       bandDb: i % 2 ? -30 : -45,
       speech: true,
@@ -120,16 +119,17 @@ describe("guided calibration (F2/F3)", () => {
     w.feed(h.roomTone(3000, -65));
     const cal = createCalibrationManager();
     cal.start();
-    const r = run(cal, w.feed(h.speechLike(10000, -55)));
+    const r = run(cal, w.feed(h.speechLike(20000, -55)));
     expect(r.status).toBe("ok");
     expect(r.baselineDb).toBeGreaterThan(-58);
     expect(r.baselineDb).toBeLessThan(-52);
   });
 
   it("rejects a clipping (overloaded) calibration", () => {
-    const frames = Array.from({ length: 200 }, () => ({
+    const frames = Array.from({ length: 500 }, () => ({
       dbfs: -3,
       speech: true,
+      voiced: true,
       clip: true,
       frameMs: 20,
     }));
@@ -151,12 +151,12 @@ describe("guided calibration (F2/F3)", () => {
 describe("calibration records", () => {
   it("records the real device and a version", () => {
     const rec = makeCalibrationRecord(
-      { status: "ok", baselineDb: -31.6, speechMs: 3000 },
+      { status: "ok", baselineDb: -31.6, speechMs: 10000 },
       { deviceId: "abc123", label: "MacBook Pro Microphone" },
       Date.UTC(2026, 9, 25),
     );
     expect(rec).toMatchObject({
-      version: 2,
+      version: 3,
       baselineDb: -31.6,
       deviceId: "abc123",
       deviceLabel: "MacBook Pro Microphone",
@@ -172,5 +172,32 @@ describe("calibration records", () => {
     };
     expect(isValidCalibrationRecord(legacy)).toBe(false);
     expect(isValidCalibrationRecord(null)).toBe(false);
+    expect(isValidCalibrationRecord({ version: 2, baselineDb: -30 })).toBe(false);
+  });
+});
+
+
+describe("calibration clocks and power weighting", () => {
+  it("requires explicit voiced frames and ignores invalid input durations/levels", () => {
+    const cal = createCalibrationManager();
+    cal.start();
+    for (const frame of [
+      { dbfs: -30, frameMs: 1000, speech: true },
+      { dbfs: -30, frameMs: 1000, voiced: 1 },
+      ...[NaN, Infinity, 0, -20].map(frameMs => ({ dbfs: -30, frameMs, voiced: true })),
+      { dbfs: NaN, frameMs: 1000, voiced: true },
+    ]) expect(cal.addFrame(frame)).toBeNull();
+    expect(cal.getProgress()).toBe(0);
+  });
+
+  it("weights baseline by frame duration rather than dB or frame count", () => {
+    const cal = createCalibrationManager();
+    cal.start();
+    expect(cal.addFrame({ dbfs: -30, voiced: true, frameMs: 9000 })).toBeNull();
+    const r = cal.addFrame({ dbfs: -20, voiced: true, frameMs: 1000 });
+    expect(r.status).toBe("ok");
+    expect(r.baselineDb).toBe(-27.2);
+    expect(r.speechMs).toBe(10000);
+    expect(cal.getProgress()).toBe(1);
   });
 });

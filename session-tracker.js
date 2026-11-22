@@ -22,8 +22,8 @@ function _generateUUID() {
  * frame. Time is counted from each frame's audio duration, so capture gaps
  * (mic lost, reconnecting, calibrating) are never charged to any zone.
  *
- *   const tracker = createSessionTracker({ algorithmVersion: 2, sensitivity: 0, margins });
- *   tracker.recordFrame({ zone, relDb }, frameMs);   // zone: silent|normal|warning|danger
+ *   const tracker = createSessionTracker({ algorithmVersion: 3, sensitivity: 0, margins });
+ *   tracker.recordFrame({ zone, relDb, speaking }, frameMs);   // zone: silent|normal|warning|danger
  *   const session = tracker.finalize();
  *
  * "Too loud" = red (danger) time over speaking time; yellow (warning) is
@@ -37,9 +37,15 @@ const TRACKED_ZONES = ["silent", "normal", "warning", "danger"];
 
 function createSessionTracker(options) {
   const opts = options || {};
-  const algorithmVersion = opts.algorithmVersion || 2;
+  const algorithmVersion = opts.algorithmVersion || 3;
 
   let sessionStartTime = null; // Date
+  let speakingMs = 0;
+  let coveredMs = 0;
+  const meta = opts.meta || {};
+  const storedBaselineDb = Number.isFinite(meta.storedBaselineDb) ? meta.storedBaselineDb
+    : Number.isFinite(opts.baselineDb) ? opts.baselineDb : null;
+  const mic = { label: meta.mic?.label || "", policy: meta.mic?.policy || "" };
   let zoneMs = { silent: 0, normal: 0, warning: 0, danger: 0 };
   let volumeSamples = []; // relDb while speaking
   let peakMoments = []; // { timestamp, value: relDb }, descending
@@ -74,15 +80,19 @@ function createSessionTracker(options) {
    */
   function recordFrame(decision, frameMs) {
     if (!decision || TRACKED_ZONES.indexOf(decision.zone) === -1) return;
-    const ms = typeof frameMs === "number" && frameMs > 0 ? frameMs : 0;
+    const ms = Number.isFinite(frameMs) && frameMs > 0 ? frameMs : 0;
+    if (!ms) return;
     if (sessionStartTime === null) sessionStartTime = new Date(now());
-    zoneMs[decision.zone] += ms;
-
-    const speaking = decision.zone !== "silent";
+    coveredMs += ms;
+    const speaking = decision.speaking === true;
+    if (speaking) {
+      speakingMs += ms;
+      if (decision.zone !== "silent") zoneMs[decision.zone] += ms;
+    } else zoneMs.silent += ms;
     if (speaking && !wasSpeaking) transitionCount++;
     wasSpeaking = speaking;
 
-    if (speaking && typeof decision.relDb === "number") {
+    if (speaking && Number.isFinite(decision.relDb)) {
       sinceSampleMs += ms;
       if (sinceSampleMs >= SAMPLE_INTERVAL_MS) {
         sinceSampleMs = 0;
@@ -113,7 +123,7 @@ function createSessionTracker(options) {
 
   const round2 = (x) => Math.round(x * 100) / 100;
 
-  function finalize() {
+  function finalize(snapshot = {}) {
     if (!sessionStartTime) return null;
 
     const endTime = new Date(now());
@@ -124,13 +134,15 @@ function createSessionTracker(options) {
       warning: round2(zoneMs.warning / 1000),
       danger: round2(zoneMs.danger / 1000),
     };
-    const speakingMs = zoneMs.normal + zoneMs.warning + zoneMs.danger;
-    const coveredMs = speakingMs + zoneMs.silent;
     const minutes = coveredMs / 60000;
 
     return {
       id: _generateUUID(),
       algorithmVersion,
+      mic: { ...mic },
+      storedBaselineDb,
+      sessionBaselineDb: Number.isFinite(snapshot.sessionBaselineDb) ? snapshot.sessionBaselineDb : storedBaselineDb,
+      reanchorDb: Number.isFinite(snapshot.reanchorDb) ? snapshot.reanchorDb : 0,
       startTime: sessionStartTime.toISOString(),
       endTime: endTime.toISOString(),
       duration: round2(duration),
@@ -166,6 +178,7 @@ function createSessionTracker(options) {
 
   function reset() {
     sessionStartTime = null;
+    speakingMs = coveredMs = 0;
     zoneMs = { silent: 0, normal: 0, warning: 0, danger: 0 };
     volumeSamples = [];
     peakMoments = [];
