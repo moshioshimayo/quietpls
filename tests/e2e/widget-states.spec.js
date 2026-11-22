@@ -4,22 +4,18 @@ const {
   getWidgetWindow,
   dismissOnboardingIfNeeded,
   installFakeMic,
+  finishCalibration,
+  widgetBounds,
 } = require("./helpers");
 
 /**
- * E2E test: Widget State Transitions (US-026) for the quietpls Electron app.
+ * E2E test: Widget States for the quietpls Electron app (2.4.0).
  *
- * Tests the widget state machine transitions between:
- *   compact -> expanded -> sessionComplete -> compact
+ *   - compact:         a <button> pill with one status word and mark (188x32)
+ *   - expanded:        details or "set your normal voice", fixed 320x240
+ *   - sessionComplete: summary shown after Stop (sessions >= 60 s)
  *
- * The floating widget has four visual states governed by widget-state-machine.js:
- *   - compact:         glassmorphic pill showing "quietpls" label
- *   - expanded:        monitoring panel with FFT canvas, dB readout, stop button
- *   - alert:           danger panel (triggered by volume threshold, not user-clickable)
- *   - sessionComplete: grade summary panel (shown after stopping a session)
- *
- * Note: Widget state transitions are auth-independent. The compact pill click
- * handler calls widgetTransition('expanded') via IPC without checking auth.
+ * There is no alert state: "Ease your voice" is the compact pill itself.
  */
 
 let electronApp;
@@ -28,20 +24,12 @@ let mainWindow;
 test.beforeEach(async () => {
   const { app } = await launchApp();
   electronApp = app;
-
-  // Dismiss first-launch onboarding through the UI so the widget is testable
   await dismissOnboardingIfNeeded(electronApp);
-
-  // The first window may be either the onboarding screen ("Welcome to quietpls")
-  // or the main widget ("quietpls"). Both titles contain "quietpls", so we
-  // identify the main widget window by its URL (index.html) instead.
+  // The main widget is identified by URL (index.html), not title.
   mainWindow = await getWidgetWindow(electronApp, 10000);
   await mainWindow.waitForLoadState("domcontentloaded");
-
   // Deterministic synthetic voice instead of whatever the real mic hears
   await installFakeMic(mainWindow);
-
-  // Wait for initial widget state sync to complete
   await mainWindow.waitForTimeout(500);
 });
 
@@ -54,164 +42,125 @@ test.afterEach(async () => {
 });
 
 test.describe("Widget State Transitions", () => {
-  test("app launches in compact state with canvas pill", async () => {
+  test("app launches compact: a readable status button, no alert panel", async () => {
     const compactPill = mainWindow.locator("#compactPill");
     await expect(compactPill).toBeVisible();
-
-    // v2: the pill label is drawn on the waveform canvas (no DOM label element)
-    const waveformCanvas = mainWindow.locator("#pillWaveformCanvas");
-    await expect(waveformCanvas).toBeAttached();
-
-    // Verify compact pill dimensions (v2 window is 72px wide; CSS 100% of it)
+    expect(await compactPill.evaluate((el) => el.tagName)).toBe("BUTTON");
+    await expect(compactPill).toHaveText(/^\s*○\s*Start monitoring\s*$/);
+    await expect(compactPill).toHaveAttribute(
+      "aria-label",
+      "quietpls: Start monitoring. Show details",
+    );
+    expect(await widgetBounds(electronApp)).toMatchObject({
+      width: 188,
+      height: 32,
+    });
     const box = await compactPill.boundingBox();
-    expect(box).toBeTruthy();
-    expect(box.width).toBeGreaterThanOrEqual(60);
-    expect(box.width).toBeLessThanOrEqual(100);
-    expect(box.height).toBeGreaterThanOrEqual(28);
-    expect(box.height).toBeLessThanOrEqual(50);
+    expect(box).toMatchObject({ width: 188, height: 32 });
 
-    // Expanded panel should be hidden
-    const expandedPanel = mainWindow.locator("#expandedPanel");
-    await expect(expandedPanel).not.toBeVisible();
-
-    // Alert and session complete panels should also be hidden
-    const alertPanel = mainWindow.locator("#alertPanel");
-    await expect(alertPanel).not.toBeVisible();
-    const sessionCompletePanel = mainWindow.locator("#sessionCompletePanel");
-    await expect(sessionCompletePanel).not.toBeVisible();
+    await expect(mainWindow.locator("#expandedPanel")).not.toBeVisible();
+    await expect(mainWindow.locator("#sessionCompletePanel")).not.toBeVisible();
+    // 2.4.0 deletes the alert panel and its Dismiss button.
+    await expect(mainWindow.locator("#alertPanel")).toHaveCount(0);
+    await expect(mainWindow.locator("#alertDismissBtn")).toHaveCount(0);
   });
 
-  test("compact -> expanded on click", async () => {
+  test("compact -> expanded on click opens 'set your normal voice' at 320x240", async () => {
     const compactPill = mainWindow.locator("#compactPill");
     const expandedPanel = mainWindow.locator("#expandedPanel");
 
-    // Start in compact state
-    await expect(compactPill).toBeVisible();
-    await expect(expandedPanel).not.toBeVisible();
-
-    // Click the compact pill to transition to expanded (starts monitoring)
     await compactPill.click();
-
-    // Wait for state transition animation (250-500ms) + monitoring init
-    await mainWindow.waitForTimeout(1500);
-
-    // Verify expanded panel is now visible
-    await expect(expandedPanel).toBeVisible();
-
-    // Verify compact pill is hidden
-    await expect(compactPill).not.toBeVisible();
-
-    // Verify FFT canvas element exists in expanded panel
-    const fftCanvas = mainWindow.locator("#fftCanvas");
-    await expect(fftCanvas).toBeAttached();
-
-    // Verify dB readout element exists
-    const dbReadout = mainWindow.locator("#dbReadout");
-    await expect(dbReadout).toBeAttached();
-
-    // Verify stop button is visible
-    const stopBtn = mainWindow.locator("#stopBtn");
-    await expect(stopBtn).toBeVisible();
-  });
-
-  test("expanded -> compact on stop for short sessions", async () => {
-    const compactPill = mainWindow.locator("#compactPill");
-    const expandedPanel = mainWindow.locator("#expandedPanel");
-    const sessionCompletePanel = mainWindow.locator("#sessionCompletePanel");
-
-    // Transition to expanded by clicking compact pill
-    await compactPill.click();
-    await mainWindow.waitForTimeout(1500);
-    await expect(expandedPanel).toBeVisible();
-
-    // Click stop button — v2: short sessions (<60s) skip the scorecard
-    // and return straight to compact (commit aa6a393 gates scorecard at 60s)
-    const stopBtn = mainWindow.locator("#stopBtn");
-    await stopBtn.click();
-    await mainWindow.waitForTimeout(1500);
-
-    // Back to compact directly, scorecard never shown for a short session
-    await expect(compactPill).toBeVisible();
-    await expect(expandedPanel).not.toBeVisible();
-    await expect(sessionCompletePanel).not.toBeVisible();
-  });
-
-  test("widget state persistence across interaction cycle", async () => {
-    const compactPill = mainWindow.locator("#compactPill");
-    const expandedPanel = mainWindow.locator("#expandedPanel");
-    const sessionCompletePanel = mainWindow.locator("#sessionCompletePanel");
-
-    // --- Cycle 1: compact -> expanded -> sessionComplete -> compact ---
-
-    // Verify initial compact state
-    await expect(compactPill).toBeVisible();
-    await expect(expandedPanel).not.toBeVisible();
-
-    // compact -> expanded
-    await compactPill.click();
-    await mainWindow.waitForTimeout(1500);
     await expect(expandedPanel).toBeVisible();
     await expect(compactPill).not.toBeVisible();
 
-    // expanded -> compact (via stop; short session skips scorecard)
-    await mainWindow.locator("#stopBtn").click();
-    await mainWindow.waitForTimeout(1500);
-    await expect(compactPill).toBeVisible();
-
-    // --- Cycle 2: compact -> expanded again to verify clean re-entry ---
-
-    await compactPill.click();
-    await mainWindow.waitForTimeout(1500);
-    await expect(expandedPanel).toBeVisible();
-    await expect(compactPill).not.toBeVisible();
-
-    // Verify monitoring elements render correctly on second cycle
-    const dbReadout = mainWindow.locator("#dbReadout");
-    await expect(dbReadout).toBeAttached();
-
-    const stopBtn = mainWindow.locator("#stopBtn");
-    await expect(stopBtn).toBeVisible();
+    // A fresh profile has no normal voice for this mic yet.
+    await expect(mainWindow.locator("#calibrationView")).toBeVisible();
+    await expect(mainWindow.locator("#calStep")).toHaveText(
+      /Step 1 of 2 · Set your normal voice/i,
+    );
+    await expect(mainWindow.locator("#calText")).toHaveText(
+      /of 10 seconds of talking heard · Mic: Fake Built-in Mic/,
+    );
+    await expect(mainWindow.locator("#calSecondaryBtn")).toHaveText("Stop");
+    await expect
+      .poll(() => widgetBounds(electronApp))
+      .toMatchObject({ width: 320, height: 240 });
+    expect(await expandedPanel.boundingBox()).toMatchObject({
+      x: 0,
+      y: 0,
+      width: 320,
+      height: 240,
+    });
   });
 
-  test("long session shows sessionComplete scorecard after stop", async () => {
-    test.slow(); // needs a real >=60s monitoring session for the scorecard
+  test("Stop during calibration returns to the idle pill (nothing recorded)", async () => {
+    const compactPill = mainWindow.locator("#compactPill");
+    await compactPill.click();
+    await expect(mainWindow.locator("#calibrationView")).toBeVisible();
+
+    await mainWindow.locator("#calSecondaryBtn").click(); // Stop
+    await expect(compactPill).toBeVisible();
+    await expect(compactPill).toHaveText(/Start monitoring/);
+    await expect(mainWindow.locator("#expandedPanel")).not.toBeVisible();
+    await expect(mainWindow.locator("#sessionCompletePanel")).not.toBeVisible();
+    await expect
+      .poll(() => widgetBounds(electronApp))
+      .toMatchObject({ width: 188, height: 32 });
+  });
+
+  test("Escape and Hide return to the compact pill without stopping", async () => {
+    const compactPill = mainWindow.locator("#compactPill");
+    await compactPill.click();
+    await expect(mainWindow.locator("#calibrationView")).toBeVisible();
+
+    await mainWindow.keyboard.press("Escape");
+    await expect(compactPill).toBeVisible();
+    // Still calibrating: the pill shows its progress, monitoring continues.
+    await expect(mainWindow.locator("#pillWord")).toHaveText(
+      /Set normal voice \d+%/,
+    );
+    await expect(compactPill).toHaveClass(/monitoring/);
+
+    // Enter on the focused pill opens it again.
+    await compactPill.focus();
+    await mainWindow.keyboard.press("Enter");
+    await expect(mainWindow.locator("#expandedPanel")).toBeVisible();
+  });
+
+  test("long session shows sessionComplete summary after stop", async () => {
+    test.slow(); // needs a real >=60s monitoring session for the summary
     const compactPill = mainWindow.locator("#compactPill");
     const expandedPanel = mainWindow.locator("#expandedPanel");
     const sessionCompletePanel = mainWindow.locator("#sessionCompletePanel");
 
     await compactPill.click();
-    await mainWindow.waitForTimeout(1500);
-    await expect(expandedPanel).toBeVisible();
-
-    // Calibration (first run on this mic) is not session time, so wait for it
-    // to finish, then monitor 62 s so the session crosses the 60 s gate.
-    // The widget auto-collapses while monitoring, so re-expand before stopping.
-    await expect(mainWindow.locator("#zoneLabel")).toHaveText(/Normal/, {
-      timeout: 15000,
+    // Calibration and its rehearsal are not session time.
+    await finishCalibration(mainWindow);
+    await expect(compactPill).toBeVisible({ timeout: 6000 }); // auto-collapse
+    await expect(mainWindow.locator("#pillWord")).toHaveText("Normal", {
+      timeout: 10000,
     });
     await mainWindow.waitForTimeout(62_000);
-    await expect(compactPill).toBeVisible();
-    await compactPill.click();
-    await mainWindow.waitForTimeout(1000);
-    await expect(expandedPanel).toBeVisible();
 
+    // Open details (Enter on the pill) and Stop.
+    await compactPill.click();
+    await expect(expandedPanel).toBeVisible();
+    await expect(mainWindow.locator("#detailsView")).toBeVisible();
     await mainWindow.locator("#stopBtn").click();
-    await mainWindow.waitForTimeout(1500);
 
     await expect(sessionCompletePanel).toBeVisible();
-    // Scorecard speaks in speaking-time terms, never acoustic dB
+    // Summary speaks in speaking-time terms, never acoustic dB
     await expect(mainWindow.locator("#insightList")).toContainText(
-      /too-loud zone|speaking time/,
+      /ease your voice|speaking time/i,
     );
     await expect(mainWindow.locator("#insightList")).not.toContainText(
-      /lawn|80 dB/,
+      /Too loud|lawn|80 dB/,
     );
     await expect(expandedPanel).not.toBeVisible();
     await expect(compactPill).not.toBeVisible();
 
     // sessionComplete -> compact (via close)
     await mainWindow.locator("#sessionCloseBtn").click();
-    await mainWindow.waitForTimeout(500);
     await expect(compactPill).toBeVisible();
     await expect(sessionCompletePanel).not.toBeVisible();
   });

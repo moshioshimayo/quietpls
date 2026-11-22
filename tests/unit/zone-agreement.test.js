@@ -5,8 +5,6 @@ const require = createRequire(import.meta.url);
 const LL = require("../../level-logic");
 const { createCalibrationManager } = require("../../calibration-manager");
 const { createSessionTracker } = require("../../session-tracker");
-const { getZoneColor } = require("../../pill-waveform");
-const { getColorForZone } = require("../../tray-icon-canvas");
 const h = require("./helpers/worklet-harness");
 
 // F5: the pill, tray and session must all come from ONE decision, including
@@ -55,9 +53,6 @@ describe("one zone decision feeds pill, tray and session (F5)", () => {
         baselineDb,
         sensitivity: 0,
       });
-      // pill + tray consume the same visual; session consumes the same zone
-      const visual = LL.zoneToVisual(decision.zone);
-      expect(getColorForZone(visual)).toBe(getZoneColor(visual));
       tracker.recordFrame(decision, f.frameMs);
       if (["silent", "normal", "warning", "danger"].includes(decision.zone)) {
         shownMs[decision.zone] = (shownMs[decision.zone] || 0) + f.frameMs;

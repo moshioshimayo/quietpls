@@ -388,107 +388,42 @@ body {
   border-radius: var(--radius-lg);
 }
 
-/* Zone indicator (dot + label) */
-.demo-zone-indicator {
-  display: flex;
+/* "Hearing you" / "Waiting for your voice…" — never rates the voice */
+.demo-hearing {
+  display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
+  padding: 6px 12px;
   border-radius: var(--radius-pill);
   background: var(--glass-bg-medium);
   border: 1px solid var(--glass-border-subtle);
-  transition: all var(--duration-normal) var(--ease-default);
-}
-
-.demo-zone-indicator.zone-quiet {
-  border-color: var(--color-quiet-primary);
-  box-shadow: 0 0 10px var(--color-quiet-glow);
-}
-
-.demo-zone-indicator.zone-normal {
-  border-color: var(--color-normal-primary);
-  box-shadow: 0 0 10px var(--color-normal-glow);
-}
-
-.demo-zone-indicator.zone-loud {
-  border-color: var(--color-loud-primary);
-  box-shadow: 0 0 10px var(--color-loud-glow);
-}
-
-.demo-zone-indicator.zone-danger {
-  border-color: var(--color-danger-primary);
-  box-shadow: 0 0 10px var(--color-danger-glow);
-  animation: danger-shake 0.4s var(--ease-default);
-}
-
-/* Animated zone dot */
-.demo-zone-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: var(--radius-round);
-  background: var(--color-text-tertiary);
-  transition: background var(--duration-normal) var(--ease-default),
-              box-shadow var(--duration-normal) var(--ease-default);
-  flex-shrink: 0;
-}
-
-.demo-zone-dot-quiet {
-  background: var(--color-quiet-primary);
-  box-shadow: 0 0 6px var(--color-quiet-glow);
-  animation: ds-pulse 2s var(--ease-default) infinite;
-}
-
-.demo-zone-dot-normal {
-  background: var(--color-normal-primary);
-  box-shadow: 0 0 6px var(--color-normal-glow);
-  animation: ds-pulse 1.5s var(--ease-default) infinite;
-}
-
-.demo-zone-dot-loud {
-  background: var(--color-loud-primary);
-  box-shadow: 0 0 8px var(--color-loud-glow);
-  animation: ds-pulse 1s var(--ease-default) infinite;
-}
-
-.demo-zone-dot-danger {
-  background: var(--color-danger-primary);
-  box-shadow: 0 0 10px var(--color-danger-glow);
-  animation: ds-pulse 0.6s var(--ease-default) infinite;
-}
-
-.demo-zone-label {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
-  transition: color var(--duration-normal) var(--ease-default);
 }
 
-/* Coaching text with zone-colored styling */
-.demo-coaching-text {
-  font-size: var(--font-size-md);
-  color: var(--color-text-secondary);
-  line-height: var(--line-height-relaxed);
-  min-height: 28px;
-  transition: color var(--duration-normal) var(--ease-default);
-}
-
-.demo-coaching-quiet {
+.demo-hearing-mark {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font: 700 12px/1 var(--font-family);
+  border: 1.5px solid var(--color-quiet-primary);
   color: var(--color-quiet-primary);
 }
 
-.demo-coaching-normal {
-  color: var(--color-normal-primary);
+.demo-hearing.is-hearing .demo-hearing-mark {
+  background: var(--color-normal-primary);
+  border-color: var(--color-normal-primary);
+  color: #0a0a0a;
 }
 
-.demo-coaching-loud {
-  color: var(--color-loud-primary);
-  font-weight: var(--font-weight-medium);
-}
-
-.demo-coaching-danger {
-  color: var(--color-danger-primary);
-  font-weight: var(--font-weight-bold);
-  animation: danger-shake 0.4s var(--ease-default);
+.demo-coaching-text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+  max-width: 300px;
 }
 
 /* ---- Buttons ---- */

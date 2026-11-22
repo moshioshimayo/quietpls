@@ -736,7 +736,7 @@ function showSessionDetail(session) {
       <div class="zone-legend">
         <span class="zone-legend-item"><span class="zone-dot-sm zone-normal"></span>Normal ${zonePct.normal}%</span>
         <span class="zone-legend-item"><span class="zone-dot-sm zone-loud"></span>Getting loud ${zonePct.loud}%</span>
-        <span class="zone-legend-item"><span class="zone-dot-sm zone-danger"></span>Too loud ${zonePct.danger}%</span>
+        <span class="zone-legend-item"><span class="zone-dot-sm zone-danger"></span>Ease your voice ${zonePct.danger}%</span>
       </div>`;
 
   body.innerHTML = `

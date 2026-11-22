@@ -8,8 +8,7 @@ require('../../onboarding-renderer.js');
 
 const {
   resolveInitialStep, resolveStepButtons, permissionStateToUI,
-  getCoachingMessage, getVolumeZone, getZoneLabel, computeRmsVolume,
-  DEMO_THRESHOLDS,
+  computeRmsVolume, updateHearing,
 } = globalThis.__onboardingHelpers;
 
 // ---------------------------------------------------------------------------
@@ -131,75 +130,26 @@ describe('permissionStateToUI', () => {
 });
 
 // ---------------------------------------------------------------------------
-// US-020: getCoachingMessage
+// updateHearing — the demo only says whether the mic hears you (2.4.0)
 // ---------------------------------------------------------------------------
-describe('getCoachingMessage', () => {
-  it('returns calm message for quiet zone', () => {
-    expect(getCoachingMessage('quiet')).toBe('Good, nice and calm');
+describe('updateHearing', () => {
+  it('waits until a voice-level signal arrives', () => {
+    expect(updateHearing(0, 1000, null)).toEqual({ hearing: false, lastHeardAt: null });
   });
 
-  it('returns sweet spot message for normal zone', () => {
-    expect(getCoachingMessage('normal')).toBe('Perfect! This is your sweet spot');
+  it('hears a voice-level signal', () => {
+    expect(updateHearing(40, 1000, null)).toEqual({ hearing: true, lastHeardAt: 1000 });
   });
 
-  it('returns warning message for loud zone', () => {
-    expect(getCoachingMessage('loud')).toContain('getting loud');
+  it('keeps hearing through a short gap, then waits again', () => {
+    expect(updateHearing(0, 1500, 1000).hearing).toBe(true);
+    expect(updateHearing(0, 2000, 1000).hearing).toBe(false);
   });
 
-  it('returns danger message for danger zone', () => {
-    const msg = getCoachingMessage('danger');
-    expect(msg).toContain('Way too loud');
-  });
-
-  it('returns default message for unknown zone', () => {
-    expect(getCoachingMessage('unknown')).toBe('Speak naturally...');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// US-020: getVolumeZone
-// ---------------------------------------------------------------------------
-describe('getVolumeZone', () => {
-  const thresholds = DEMO_THRESHOLDS;
-
-  it('returns quiet for volume below quietThreshold', () => {
-    expect(getVolumeZone(0, thresholds)).toBe('quiet');
-    expect(getVolumeZone(15, thresholds)).toBe('quiet');
-    expect(getVolumeZone(29.9, thresholds)).toBe('quiet');
-  });
-
-  it('returns normal for volume between quiet and normal thresholds', () => {
-    expect(getVolumeZone(30, thresholds)).toBe('normal');
-    expect(getVolumeZone(40, thresholds)).toBe('normal');
-    expect(getVolumeZone(49, thresholds)).toBe('normal');
-  });
-
-  it('returns loud for volume between normal and warning thresholds', () => {
-    expect(getVolumeZone(50, thresholds)).toBe('loud');
-    expect(getVolumeZone(65, thresholds)).toBe('loud');
-    expect(getVolumeZone(77, thresholds)).toBe('loud');
-  });
-
-  it('returns danger for volume at or above warningThreshold', () => {
-    expect(getVolumeZone(78, thresholds)).toBe('danger');
-    expect(getVolumeZone(90, thresholds)).toBe('danger');
-    expect(getVolumeZone(100, thresholds)).toBe('danger');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// US-020: getZoneLabel
-// ---------------------------------------------------------------------------
-describe('getZoneLabel', () => {
-  it('returns correct labels for each zone', () => {
-    expect(getZoneLabel('quiet')).toBe('Quiet');
-    expect(getZoneLabel('normal')).toBe('Normal');
-    expect(getZoneLabel('loud')).toBe('Loud');
-    expect(getZoneLabel('danger')).toBe('Danger');
-  });
-
-  it('returns waiting for unknown zone', () => {
-    expect(getZoneLabel('unknown')).toBe('Waiting...');
+  it('no longer rates the voice (zones and coaching are gone)', () => {
+    const h = globalThis.__onboardingHelpers;
+    expect(h.getVolumeZone).toBeUndefined();
+    expect(h.getCoachingMessage).toBeUndefined();
   });
 });
 

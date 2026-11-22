@@ -34,13 +34,13 @@ function generateInsights(sessionData) {
     return ["No speech detected this session"];
   }
 
-  // 1. Too loud (red) share of speaking time
+  // 1. Ease your voice (red) share of speaking time
   const redPct = Math.round(((zoneTime.danger || 0) / speaking) * 100);
   const yellowPct = Math.round(((zoneTime.warning || 0) / speaking) * 100);
   if (redPct > 0) {
-    insights.push(`Too loud for ${redPct}% of your speaking time`);
+    insights.push(`Ease your voice for ${redPct}% of your speaking time`);
   } else {
-    insights.push("You never hit the too-loud zone");
+    insights.push("You never needed to ease your voice");
   }
 
   // 2. Getting loud (yellow) share, if any

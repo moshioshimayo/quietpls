@@ -15,7 +15,7 @@ const base = {
 describe("session insights (speaking-time denominators)", () => {
   it("reports too-loud share of speaking time, not of all time", () => {
     const out = generateInsights(base);
-    expect(out[0]).toBe("Too loud for 10% of your speaking time");
+    expect(out[0]).toBe("Ease your voice for 10% of your speaking time");
     expect(out[1]).toBe("Getting loud for 10% of your speaking time");
   });
 
@@ -24,7 +24,7 @@ describe("session insights (speaking-time denominators)", () => {
       ...base,
       zoneTime: { ...base.zoneTime, silent: 100000 },
     });
-    expect(quiet[0]).toBe("Too loud for 10% of your speaking time");
+    expect(quiet[0]).toBe("Ease your voice for 10% of your speaking time");
   });
 
   it("says so when red was never reached", () => {
@@ -32,7 +32,7 @@ describe("session insights (speaking-time denominators)", () => {
       ...base,
       zoneTime: { silent: 10, normal: 100, warning: 0, danger: 0 },
     });
-    expect(out[0]).toBe("You never hit the too-loud zone");
+    expect(out[0]).toBe("You never needed to ease your voice");
   });
 
   it("handles a session with no speech", () => {

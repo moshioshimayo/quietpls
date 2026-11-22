@@ -1,4 +1,4 @@
-const { _electron: electron } = require("@playwright/test");
+const { _electron: electron, expect } = require("@playwright/test");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -153,15 +153,25 @@ async function getSettingsStore(app) {
   return { sensitivity: data.sensitivity, audioDeviceId: data.audioDeviceId };
 }
 
+// Recorded speech fixture (S1 commits it; 16 kHz mono 16-bit).
+const SPEECH_WAV = path.join(APP_ROOT, "tests", "fixtures", "speech-tts.wav");
+
 /**
- * Replace the microphone in `page` with a scripted synthetic voice: a 400 Hz
- * sawtooth in 150 ms syllables (speech-like for the gate), at a level the
- * test controls. Also fakes the input devices (two by default; pass
- * options.devices / options.defaultId to choose). Exposes window.__fakeMic,
- * whose setDevices(devices, defaultId) simulates a mic (dis)connecting.
+ * Replace the microphone in `page` with a scripted voice at a level the test
+ * controls. By default a synthetic voice: a 400 Hz sawtooth in 150 ms
+ * syllables (speech-like for the gate). With options.wav (a file path) the
+ * recorded PCM loops instead: AudioBufferSourceNode -> gain ->
+ * MediaStreamDestination, and setLevelDb(0) is the file's own level. Only the
+ * physical microphone is replaced; the app's real capture, worklet,
+ * calibration and decisions run unchanged.
+ * Also fakes the input devices (two by default; pass options.devices /
+ * options.defaultId to choose). Exposes window.__fakeMic, whose
+ * setDevices(devices, defaultId) simulates a mic (dis)connecting.
  */
 async function installFakeMic(page, options = {}) {
-  await page.evaluate((opts) => {
+  const opts = { ...options };
+  if (opts.wav) opts.wav = fs.readFileSync(opts.wav).toString("base64");
+  await page.evaluate(async (opts) => {
     if (window.__fakeMic) return;
     const ctx = new AudioContext();
     ctx.resume();
@@ -194,9 +204,18 @@ async function installFakeMic(page, options = {}) {
     lfoDepth.gain.value = 0.5;
     lfo.connect(lfoDepth).connect(syllables.gain);
     const level = ctx.createGain();
-    osc.connect(syllables).connect(level);
-    osc.start();
-    lfo.start();
+    if (opts.wav) {
+      const bytes = Uint8Array.from(atob(opts.wav), (c) => c.charCodeAt(0));
+      const source = ctx.createBufferSource();
+      source.buffer = await ctx.decodeAudioData(bytes.buffer);
+      source.loop = true;
+      source.connect(level);
+      source.start();
+    } else {
+      osc.connect(syllables).connect(level);
+      osc.start();
+      lfo.start();
+    }
 
     const state = { gumCalls: [], tracks: [] };
     const setLevelDb = (db) => {
@@ -205,7 +224,7 @@ async function installFakeMic(page, options = {}) {
         ctx.currentTime,
       );
     };
-    setLevelDb(-30);
+    setLevelDb(opts.wav ? 0 : -30);
 
     navigator.mediaDevices.enumerateDevices = async () => [
       {
@@ -257,7 +276,108 @@ async function installFakeMic(page, options = {}) {
         t.dispatchEvent(new Event("ended"));
       },
     };
-  }, options);
+  }, opts);
+}
+
+/**
+ * Read-only observers for the loudness journey. In the widget page, wrap the
+ * real decision tracker so each update still runs the original and records
+ * frames, audio ms, accepted voiced ms (decision.speaking) and the latest
+ * decision in window.__obs. In the main process, add a second level-update /
+ * set-monitoring listener next to the real handlers. Nothing is replaced.
+ * Call before monitoring starts.
+ */
+async function installObservers(app, page) {
+  await page.evaluate(() => {
+    const LL = window.LevelLogic;
+    const obs = (window.__obs = {
+      trackers: 0,
+      frames: 0,
+      audioMs: 0,
+      acceptedMs: 0,
+      decision: null,
+      opts: null,
+      changes: [], // { zone, audioMs, acceptedMs, wallMs } on each zone change
+    });
+    const create = LL.createDecisionTracker;
+    LL.createDecisionTracker = (o) => {
+      const t = create(o);
+      obs.trackers++;
+      obs.opts = o;
+      return {
+        ...t,
+        update(frame, ctx) {
+          const d = t.update(frame, ctx);
+          if (frame) {
+            obs.frames++;
+            obs.audioMs += frame.frameMs || 0;
+            if (d.speaking) obs.acceptedMs += frame.frameMs || 0;
+          }
+          if (!obs.decision || obs.decision.zone !== d.zone) {
+            obs.changes.push({
+              zone: d.zone,
+              audioMs: obs.audioMs,
+              acceptedMs: obs.acceptedMs,
+              wallMs: Date.now(),
+            });
+            if (obs.changes.length > 500) obs.changes.shift();
+          }
+          obs.decision = d;
+          return d;
+        },
+      };
+    };
+  });
+  await app.evaluate(({ ipcMain }) => {
+    globalThis.__obsMain = { level: null, monitoring: null };
+    ipcMain.on("level-update", (_e, u) => (globalThis.__obsMain.level = u));
+    ipcMain.on(
+      "set-monitoring",
+      (_e, v) => (globalThis.__obsMain.monitoring = v),
+    );
+  });
+}
+
+/** Snapshot of the page and main-process observations. */
+async function observations(app, page) {
+  const obs = await page.evaluate(() => ({ ...window.__obs }));
+  obs.main = await app.evaluate(() => ({ ...globalThis.__obsMain }));
+  return obs;
+}
+
+/**
+ * Wait until guided calibration has heard about 10 s of talking, then Skip
+ * the louder/normal rehearsal (the saved normal is already stored).
+ */
+async function finishCalibration(page, timeout = 45000) {
+  await expect(page.locator("#calTitle")).toHaveText(/a bit louder/, {
+    timeout,
+  });
+  await page.locator("#calSecondaryBtn").click(); // Skip
+  await expect(page.locator("#calTitle")).toHaveText("This is your normal");
+}
+
+/** Stop from the widget: open details if compact, then press its Stop. */
+async function stopFromWidget(page) {
+  const pill = page.locator("#compactPill");
+  if (await pill.isVisible()) await pill.click();
+  await page
+    .locator("#stopBtn:visible, #calSecondaryBtn:visible")
+    .filter({ hasText: /^Stop$/ })
+    .click();
+  await expect(page.locator("#expandedPanel")).not.toBeVisible({
+    timeout: 5000,
+  });
+}
+
+/** The native widget window's content bounds (main process). */
+async function widgetBounds(app) {
+  return app.evaluate(({ BrowserWindow }) => {
+    const w = BrowserWindow.getAllWindows().find((b) =>
+      b.webContents.getURL().includes("index.html"),
+    );
+    return w.getContentBounds();
+  });
 }
 
 /**
@@ -292,7 +412,13 @@ async function getWindow(electronApp, titleSubstring, timeoutMs = 5000) {
 }
 
 module.exports = {
+  SPEECH_WAV,
   installFakeMic,
+  installObservers,
+  observations,
+  finishCalibration,
+  stopFromWidget,
+  widgetBounds,
   setFakeTransports,
   launchApp,
   getWidgetWindow,

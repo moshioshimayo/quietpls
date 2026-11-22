@@ -6,6 +6,8 @@ const {
   getWindow,
   installFakeMic,
   setFakeTransports,
+  finishCalibration,
+  stopFromWidget,
 } = require("./helpers");
 
 // 2.1.1: opening AirPods' mic makes macOS drop them to call-quality audio,
@@ -39,7 +41,7 @@ test.describe("Bluetooth mic policy — widget and Settings", () => {
   let electronApp;
   let page;
   let settingsPage;
-  const label = () => page.locator("#zoneLabel");
+  const label = () => page.locator("#pillWord");
 
   test.beforeAll(async () => {
     const { app } = await launchApp();
@@ -62,10 +64,19 @@ test.describe("Bluetooth mic policy — widget and Settings", () => {
   });
 
   test("AirPods as the default input: monitoring captures the built-in mic and calibrates it", async () => {
+    test.setTimeout(90000);
     await page.locator("#compactPill").click();
-    await expect(label()).toHaveText(/Calibrating/, { timeout: 5000 });
+    await expect(label()).toHaveText(/Set normal voice/, { timeout: 5000 });
     expect(await gumIds(page)).toEqual(["fake-builtin"]);
-    await expect(label()).toHaveText(/Normal/, { timeout: 12000 });
+    // Details name the measured mic and why the headset mic was skipped.
+    await expect(page.locator("#micLabel")).toHaveText(
+      "MacBook Pro Microphone (Built-in)",
+    );
+    await expect(page.locator("#micNote")).toHaveText(
+      "Headset mic skipped — keeps call audio clear",
+    );
+    await finishCalibration(page);
+    await expect(label()).toHaveText(/Normal/, { timeout: 10000 });
   });
 
   test("AirPods reconnecting mid-session don't move capture", async () => {
@@ -79,7 +90,7 @@ test.describe("Bluetooth mic policy — widget and Settings", () => {
     );
     await page.waitForTimeout(1000);
     expect(await gumIds(page)).toEqual(["fake-builtin"]);
-    await expect(label()).toHaveText(/Normal|Not speaking/);
+    await expect(label()).toHaveText(/Normal|Listening/);
   });
 
   test("Settings marks the Bluetooth mic, notes it, and respects an explicit pick", async () => {
@@ -124,8 +135,9 @@ test.describe("Bluetooth mic policy — widget and Settings", () => {
       "AirPods",
     );
     // The AirPods mic gets its own calibration.
-    await expect(label()).toHaveText(/Calibrating/, { timeout: 5000 });
-    await expect(label()).toHaveText(/Normal/, { timeout: 12000 });
+    await expect(label()).toHaveText(/Set normal voice/, { timeout: 5000 });
+    await finishCalibration(page);
+    await expect(label()).toHaveText(/Normal/, { timeout: 10000 });
 
     await select.selectOption("");
     await expect(note).toBeHidden();
@@ -133,15 +145,12 @@ test.describe("Bluetooth mic policy — widget and Settings", () => {
       .poll(() => gumIds(page))
       .toEqual(["fake-builtin", "fake-airpods", "fake-builtin"]);
     // Back on the built-in mic: its saved calibration is reused, no prompt.
-    await expect(label()).toHaveText(/Normal|Not speaking/, { timeout: 5000 });
+    await expect(label()).toHaveText(/Normal|Listening/, { timeout: 5000 });
   });
 
   test("stopping returns to idle", async () => {
     await settingsPage.close();
-    await page.locator("#stopBtn").click();
-    await expect(page.locator("#expandedPanel")).not.toBeVisible({
-      timeout: 5000,
-    });
+    await stopFromWidget(page);
   });
 });
 
@@ -159,7 +168,7 @@ test.describe("Bluetooth mic policy — stale transport snapshot (review P1)", (
         defaultId: "fake-builtin",
       });
       await page.locator("#compactPill").click();
-      await expect(page.locator("#zoneLabel")).toHaveText(/Calibrating/, {
+      await expect(page.locator("#pillWord")).toHaveText(/Set normal voice/, {
         timeout: 5000,
       });
       await page.evaluate(
@@ -190,7 +199,7 @@ test.describe("Bluetooth mic policy — only a Bluetooth mic", () => {
       const notes = () => app.evaluate(() => globalThis.__quietplsNotes || []);
 
       await page.locator("#compactPill").click();
-      await expect(page.locator("#zoneLabel")).toHaveText(/Calibrating/, {
+      await expect(page.locator("#pillWord")).toHaveText(/Set normal voice/, {
         timeout: 5000,
       });
       expect(await gumIds(page)).toEqual(["fake-airpods"]);
@@ -199,13 +208,10 @@ test.describe("Bluetooth mic policy — only a Bluetooth mic", () => {
         .toEqual(["quietpls is using your Bluetooth mic"]);
 
       // Second session: no second note.
-      await page.locator("#stopBtn").click();
-      await expect(page.locator("#expandedPanel")).not.toBeVisible({
-        timeout: 5000,
-      });
+      await stopFromWidget(page);
       await page.locator("#compactPill").click();
-      await expect(page.locator("#zoneLabel")).toHaveText(
-        /Calibrating|Normal|Not speaking/,
+      await expect(page.locator("#pillWord")).toHaveText(
+        /Set normal voice|Normal|Listening/,
         { timeout: 5000 },
       );
       await page.waitForTimeout(500);
