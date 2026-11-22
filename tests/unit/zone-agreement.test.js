@@ -43,3 +43,41 @@ describe("one decision feeds bar, tray and session", () => {
     for (const zone of ["normal", "warning", "danger"]) expect(r.zoneTime[zone]).toBeGreaterThan(2);
   });
 });
+
+describe("stored ratios and displayed percentages share one denominator", () => {
+  it("short loud bursts between long pauses (warm-up each time)", () => {
+    const { generateInsights } = require("../../session-insights");
+    const SHL = require("../../settings-history-logic");
+    let clock = 0;
+    const decisions = LL.createDecisionTracker({ baselineDb: -30 });
+    const session = createSessionTracker({ baselineDb: -30, now: () => clock });
+    const feed = (n, frame) => {
+      for (let i = 0; i < n; i++) {
+        session.recordFrame(decisions.update({ ...frame, frameMs: 20 }), 20);
+        clock += 20;
+      }
+    };
+    for (let i = 0; i < 40; i++) {
+      feed(75, { dbfs: -15, voiced: true }); // 1.5 s at +15 dB
+      feed(300, { dbfs: -90, voiced: false }); // 6 s silence
+    }
+    const r = session.finalize(decisions.snapshot());
+    expect(r.speakingTime).toBeCloseTo(60, 1);
+
+    const pct = (ratio) => Math.round(ratio * 100);
+    const insights = generateInsights(r).join(" | ");
+    if (pct(r.gettingLoudRatio) > 0) {
+      expect(insights).toContain(`Getting loud for ${pct(r.gettingLoudRatio)}%`);
+    } else expect(insights).not.toContain("Getting loud for");
+    if (pct(r.tooLoudRatio) > 0) {
+      expect(insights).toContain(`Ease your voice for ${pct(r.tooLoudRatio)}%`);
+    } else expect(insights).toContain("You never needed to ease your voice");
+
+    const bars = SHL.computeSessionZonePercentages(r);
+    expect(bars.loud).toBe(pct(r.gettingLoudRatio));
+    expect(bars.danger).toBe(pct(r.tooLoudRatio));
+    expect(bars.normal + bars.loud + bars.danger).toBeGreaterThanOrEqual(99);
+    const grade = SHL.computeSessionGrade(r).score;
+    expect(grade).toBeCloseTo(1 - r.tooLoudRatio - 0.4 * r.gettingLoudRatio, 2);
+  });
+});

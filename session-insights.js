@@ -27,8 +27,12 @@ function generateInsights(sessionData) {
   const insights = [];
   const s = sessionData || {};
   const zoneTime = s.zoneTime || {};
-  const speaking =
-    (zoneTime.normal || 0) + (zoneTime.warning || 0) + (zoneTime.danger || 0);
+  // Stored speakingTime also covers speech heard before a verdict (warm-up):
+  // the same denominator as the stored ratios and the history view.
+  const speaking = Math.max(
+    (zoneTime.normal || 0) + (zoneTime.warning || 0) + (zoneTime.danger || 0),
+    Number(s.speakingTime) || 0,
+  );
 
   if (speaking <= 0) {
     return ["No speech detected this session"];

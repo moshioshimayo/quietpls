@@ -175,6 +175,22 @@ function letterFor(score) {
 }
 
 /**
+ * Speaking time and its zones for a 2.1+ session. Speech heard before a
+ * verdict (warm-up) counts as normal, so every share uses the stored
+ * speakingTime, the same denominator as the stored ratios.
+ */
+function speakingZones(session) {
+  const z = session.zoneTime || {};
+  const warning = z.warning || 0;
+  const danger = z.danger || 0;
+  const speaking = Math.max(
+    (z.normal || 0) + warning + danger,
+    Number(session.speakingTime) || 0,
+  );
+  return { speaking, normal: speaking - warning - danger, warning, danger };
+}
+
+/**
  * Grade a session. 2.1+ sessions are graded over speaking time only:
  * score = (normal + 0.6 × getting-loud) / speaking; too-loud scores 0.
  * Pre-2.1 sessions use the legacy zone-time grade.
@@ -184,10 +200,10 @@ function letterFor(score) {
 function computeSessionGrade(session) {
   if (isLegacySession(session))
     return computeGrade(session && session.zoneTime);
-  const z = session.zoneTime || {};
-  const speaking = (z.normal || 0) + (z.warning || 0) + (z.danger || 0);
+  const z = speakingZones(session);
+  const speaking = z.speaking;
   if (speaking <= 0) return { letter: "--", color: "tertiary", score: 0 };
-  const score = ((z.normal || 0) + 0.6 * (z.warning || 0)) / speaking;
+  const score = (z.normal + 0.6 * z.warning) / speaking;
   return { ...letterFor(score), score: Math.round(score * 100) / 100 };
 }
 
@@ -200,14 +216,14 @@ function computeSessionGrade(session) {
 function computeSessionZonePercentages(session) {
   if (isLegacySession(session))
     return computeZonePercentages(session && session.zoneTime);
-  const z = session.zoneTime || {};
-  const speaking = (z.normal || 0) + (z.warning || 0) + (z.danger || 0);
+  const z = speakingZones(session);
+  const speaking = z.speaking;
   if (speaking <= 0) return { quiet: 0, normal: 0, loud: 0, danger: 0 };
   return {
     quiet: 0,
-    normal: Math.round(((z.normal || 0) / speaking) * 100),
-    loud: Math.round(((z.warning || 0) / speaking) * 100),
-    danger: Math.round(((z.danger || 0) / speaking) * 100),
+    normal: Math.round((z.normal / speaking) * 100),
+    loud: Math.round((z.warning / speaking) * 100),
+    danger: Math.round((z.danger / speaking) * 100),
   };
 }
 
