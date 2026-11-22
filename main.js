@@ -50,10 +50,10 @@ const calibrationStore = new Store({
   name: "quietpls-calibrations",
   defaults: { calibrations: {} },
 });
-const CALIBRATION_VERSION = 2;
+const { CALIBRATION_VERSION } = require("./calibration-manager");
 
-// 2.0 calibrations were score-based and keyed by configured id ("default");
-// they cannot be converted, so drop them. Each mic is calibrated once again.
+// Older baselines do not meet the current calibration rules; each mic is
+// calibrated once again. Keep current records across subsequent launches.
 function discardLegacyCalibrations() {
   const all = calibrationStore.get("calibrations") || {};
   const kept = {};
