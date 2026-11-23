@@ -11,7 +11,8 @@
  */
 
 // Bump when the measurement or zone rules change; stored with every session.
-const ALGORITHM_VERSION = 3;
+// 4: talking time includes the speech gate's hangover after accepted speech.
+const ALGORITHM_VERSION = 4;
 
 const ACTIVE_WINDOW_MS = 2000;
 const MIN_ACTIVE_MS = 1000;
@@ -54,7 +55,15 @@ function marginsFor(sensitivity) {
   return { warningDb: WARNING_MARGIN_DB - s, dangerDb: DANGER_MARGIN_DB - s };
 }
 
-/** Audio time only. Pauses hold the accepted-speech power window and cue. */
+/**
+ * Audio time only. Pauses hold the accepted-speech power window and cue.
+ *
+ * Talking time, as calibration counts it: accepted voiced frames plus the
+ * speech gate's hangover that directly follows them (natural speech is only
+ * ~50% voiced frames, ~12% from a far mic). It drives warm-up, the active
+ * window, alert/recovery and Listening. The level is the mean power of the
+ * accepted voiced frames only.
+ */
 function createDecisionTracker({ baselineDb, sensitivity = 0, reanchorEnabled = true } = {}) {
   const storedBaselineDb = Number.isFinite(baselineDb) ? baselineDb : null;
   let sessionBaselineDb;
@@ -64,7 +73,9 @@ function createDecisionTracker({ baselineDb, sensitivity = 0, reanchorEnabled = 
   let startEnergy;
   let window;
   let windowMs;
+  let windowVoicedMs;
   let windowEnergy;
+  let talking;
   let heldZone;
   let latched;
   let loudMs;
@@ -84,7 +95,8 @@ function createDecisionTracker({ baselineDb, sensitivity = 0, reanchorEnabled = 
 
   function clearTransient() {
     window = [];
-    windowMs = windowEnergy = 0;
+    windowMs = windowVoicedMs = windowEnergy = 0;
+    talking = false;
     heldZone = null;
     latched = false;
     loudMs = recoveryMs = noSpeechMs = 0;
@@ -128,7 +140,8 @@ function createDecisionTracker({ baselineDb, sensitivity = 0, reanchorEnabled = 
 
     const ms = frame.frameMs;
     const accepted = frame.voiced === true && frame.dbfs >= sessionBaselineDb - FLOOR_DB;
-    if (!accepted) {
+    talking = accepted || (talking && frame.speech === true && frame.voiced !== true);
+    if (!talking) {
       noSpeechMs += ms;
       if (noSpeechMs >= SILENCE_RESET_MS) {
         clearTransient();
@@ -139,22 +152,24 @@ function createDecisionTracker({ baselineDb, sensitivity = 0, reanchorEnabled = 
       return { ...last, speaking: false };
     }
     noSpeechMs = 0;
-    const power = Math.pow(10, frame.dbfs / 10);
-    window.push({ power, ms });
+    const power = accepted ? Math.pow(10, frame.dbfs / 10) : 0;
+    window.push({ power, ms, accepted });
     windowMs += ms;
+    if (accepted) windowVoicedMs += ms;
     windowEnergy += power * ms;
     while (windowMs > ACTIVE_WINDOW_MS) {
       const head = window[0];
       const trim = Math.min(head.ms, windowMs - ACTIVE_WINDOW_MS);
       windowEnergy -= head.power * trim;
       windowMs -= trim;
+      if (head.accepted) windowVoicedMs -= trim;
       head.ms -= trim;
       if (head.ms <= 0) window.shift();
     }
 
     // Boundary-frame acceptance uses the old baseline; only the first 30 s
     // contribute, including a partial last frame for variable frame durations.
-    if (reanchorEnabled && !reanchored) {
+    if (accepted && reanchorEnabled && !reanchored) {
       const take = Math.min(ms, REANCHOR_SPEECH_MS - startMs);
       startEnergy += power * take;
       startMs += take;
@@ -165,9 +180,10 @@ function createDecisionTracker({ baselineDb, sensitivity = 0, reanchorEnabled = 
         reanchored = true;
       }
     }
-    if (windowMs < MIN_ACTIVE_MS) return (last = decision("silent", null, true));
+    if (windowMs < MIN_ACTIVE_MS || windowVoicedMs < 0.5)
+      return (last = decision("silent", null, true));
 
-    const rel = 10 * Math.log10(windowEnergy / windowMs) - sessionBaselineDb;
+    const rel = 10 * Math.log10(windowEnergy / windowVoicedMs) - sessionBaselineDb;
     heldZone = classify(rel);
     if (heldZone === "danger") {
       loudMs += ms;

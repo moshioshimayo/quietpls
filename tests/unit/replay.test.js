@@ -50,14 +50,16 @@ beforeAll(() => {
 
 function track(frames) {
   const t = LL.createDecisionTracker({ baselineDb });
-  let audioMs = 0, voicedMs = 0;
+  // talkMs: talking time (accepted voiced frames + gate hangover); voicedMs: accepted voiced only.
+  let audioMs = 0, talkMs = 0, voicedMs = 0;
   const rows = frames.map(f => {
     const d = t.update(f);
     audioMs += f.frameMs;
-    if (d.speaking) voicedMs += f.frameMs;
-    return { f, d, audioMs, voicedMs, snapshot: t.snapshot() };
+    if (d.speaking) talkMs += f.frameMs;
+    if (d.speaking && f.voiced) voicedMs += f.frameMs;
+    return { f, d, audioMs, talkMs, voicedMs, snapshot: t.snapshot() };
   });
-  return { rows, t, audioMs, voicedMs };
+  return { rows, t, audioMs, talkMs, voicedMs };
 }
 
 // AC-12: compare the held zone with unrounded thresholds (output tolerance
@@ -99,7 +101,7 @@ function metrics(run) {
     }
   }
   return {
-    audioMs: run.audioMs, voicedMs: run.voicedMs,
+    audioMs: run.audioMs, talkMs: run.talkMs, voicedMs: run.voicedMs,
     stateShare: Object.fromEntries(Object.entries(shares).map(([k,v]) => [k, +(v / run.audioMs * 100).toFixed(1)])),
     changesPerMinute: changes * 60000 / run.audioMs,
     alertMs: run.rows.find(r => r.d.zone === "danger")?.audioMs ?? null,
@@ -156,16 +158,16 @@ describe("recorded PCM → real worklet → calibration → decision replay", ()
     expect(m.alertMs).toBeLessThanOrEqual(9000);
   });
 
-  it.each([10, 12, 15])("AC-7, AC-12: +%s dB recovers within 4000 accepted ms, no re-latch", offset => {
+  it.each([10, 12, 15])("AC-7, AC-12: +%s dB recovers within 4000 talking ms, no re-latch", offset => {
     const run = track(replay([{ ms: 20000, offset }, { ms: 40000, offset: 0 }]));
     assertDecisions(run.rows);
     expect(run.rows.some(r => r.audioMs <= 20000 && r.d.zone === "danger")).toBe(true);
     const switched = run.rows.find(r => r.audioMs === 20000);
     const clear = run.rows.find(r => r.audioMs > 20000 && r.d.zone !== "danger");
-    const acceptedRecoveryMs = clear.voicedMs - switched.voicedMs;
-    console.log("REPLAY RECOVERY", JSON.stringify({ offset, audioMs: clear.audioMs - 20000, acceptedRecoveryMs }));
+    const talkingRecoveryMs = clear.talkMs - switched.talkMs;
+    console.log("REPLAY RECOVERY", JSON.stringify({ offset, audioMs: clear.audioMs - 20000, talkingRecoveryMs }));
     expect(clear.d.speaking).toBe(true); // speech recovery, not Listening/silence reset
-    expect(acceptedRecoveryMs).toBeLessThanOrEqual(4000);
+    expect(talkingRecoveryMs).toBeLessThanOrEqual(4000);
     expect(run.rows.filter(r => r.audioMs >= clear.audioMs).every(r => r.d.zone !== "danger")).toBe(true);
     expect(run.audioMs - clear.audioMs).toBeGreaterThanOrEqual(20000);
   });
@@ -206,7 +208,7 @@ describe("recorded PCM → real worklet → calibration → decision replay", ()
         if (offset === 10) {
           expect(first.d.zone).toBe("danger");
           const cleared = run.rows.find(r => r.audioMs >= first.audioMs && r.d.zone !== "danger");
-          expect(cleared.voicedMs - first.voicedMs + first.f.frameMs).toBeLessThanOrEqual(1000);
+          expect(cleared.talkMs - first.talkMs + first.f.frameMs).toBeLessThanOrEqual(1000);
           expect(cleared.d.relDb).toBeLessThan(8);
         }
       }

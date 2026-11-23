@@ -170,7 +170,7 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
     );
     console.log(
       `[journey] +12 dB latched after ${latch.audioMs - start.audioMs} audio ms / ` +
-        `${latch.acceptedMs - start.acceptedMs} accepted voiced ms`,
+        `${latch.acceptedMs - start.acceptedMs} talking ms`,
     );
     await shot(page, "P1.S1.E-3");
   });
@@ -240,9 +240,9 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
   test("back to the normal voice clears the cue by speech, not by a silence reset", async () => {
     test.setTimeout(60000);
     const o = await obs();
-    // Audio time needed for 4000 accepted voiced ms of this recording.
-    const voicedShare = o.acceptedMs / o.audioMs;
-    const d4 = 4000 / voicedShare;
+    // Audio time needed for 4000 talking ms (voiced + gate hangover) of this recording.
+    const talkShare = o.acceptedMs / o.audioMs;
+    const d4 = 4000 / talkShare;
     const start = await page.evaluate(() => {
       window.__fakeMic.setLevelDb(0);
       return { ...window.__obs, changes: undefined };
@@ -258,9 +258,9 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
       (c) => c.audioMs >= start.audioMs && c.audioMs <= cleared.audioMs,
     );
     console.log(
-      `[journey] recovery: ${cleared.acceptedMs - start.acceptedMs} accepted voiced ms, ` +
+      `[journey] recovery: ${cleared.acceptedMs - start.acceptedMs} talking ms, ` +
         `${cleared.audioMs - start.audioMs} audio ms; ` +
-        `voiced share ${voicedShare.toFixed(2)}, D4 ${Math.round(d4)} ms`,
+        `talking share ${talkShare.toFixed(2)}, D4 ${Math.round(d4)} ms`,
     );
     expect(cleared.acceptedMs - start.acceptedMs).toBeLessThanOrEqual(4000);
     expect(between.map((c) => c.zone)).not.toContain("silent");
