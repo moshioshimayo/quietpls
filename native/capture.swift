@@ -75,6 +75,7 @@ struct Source: Codable {
   var runningOutput: Bool = false
   var vanished: Bool? = nil
   var error: String? = nil
+  var code: Int32? = nil  // errno or OSStatus of a failed read
 }
 struct SourceFixture: Decodable {
   var processes: [Source]
@@ -104,8 +105,15 @@ struct Attribution {
 }
 struct SourceFailure: Error, CustomStringConvertible {
   let description: String
-  init(_ description: String) { self.description = description }
+  var code: Int32? = nil
+  init(_ description: String, code: Int32? = nil) { self.description = description; self.code = code }
 }
+// The process (or its audio object) no longer exists: it plays nothing, so it is skipped, never included.
+// A stale process object answers 'who?' (unknown property) or '!obj'.
+func gone(_ code: Int32?) -> Bool {
+  code == ESRCH || code == Int32(kAudioHardwareUnknownPropertyError) || code == Int32(kAudioHardwareBadObjectError)
+}
+func gone(_ error: Error) -> Bool { gone((error as? SourceFailure)?.code) }
 let sharedCallApps: Set<String> = ["com.apple.FaceTime", "com.apple.MobileSMS", "com.apple.mobilephone"]
 func appRoot(_ path: String) -> String? {
   let parts = path.split(separator: "/")
@@ -115,7 +123,9 @@ func appRoot(_ path: String) -> String? {
 func inside(_ path: String, _ root: String) -> Bool { path.hasPrefix(root + "/") }
 
 func resolve(_ table: [Source], approved: Set<String>, never: Set<String>, excluded: Set<Int32>) throws -> Decision {
-  let live = table.filter { $0.vanished != true }
+  // Fail closed: a source that is gone, or an ancestor that couldn't be read (EPERM on a root-owned
+  // one), proves nothing and is dropped, so nothing is attributed through it.
+  let live = table.filter { $0.vanished != true && !($0.error != nil && ($0.object == 0 || gone($0.code))) }
   for s in live { if let error = s.error { throw SourceFailure(error) } }
   let byPid = Dictionary(live.map { ($0.pid, $0) }, uniquingKeysWith: { a, _ in a })
   let neverRoots = live.filter { s in never.contains(s.bundle) }.compactMap { appRoot($0.path) }
@@ -158,13 +168,13 @@ func identity(_ pid: pid_t) throws -> (Int64, pid_t) {
   var info = proc_bsdinfo()
   let size = Int32(MemoryLayout<proc_bsdinfo>.size)
   guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size else {
-    throw SourceFailure("identity pid \(pid): \(errno)")
+    throw SourceFailure("identity pid \(pid): \(errno)", code: errno)
   }
   return (Int64(info.pbi_start_tvsec) * 1_000_000 + Int64(info.pbi_start_tvusec), pid_t(info.pbi_ppid))
 }
 func executable(_ pid: pid_t) throws -> String {
   var bytes = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
-  guard proc_pidpath(pid, &bytes, UInt32(bytes.count)) > 0 else { throw SourceFailure("path pid \(pid): \(errno)") }
+  guard proc_pidpath(pid, &bytes, UInt32(bytes.count)) > 0 else { throw SourceFailure("path pid \(pid): \(errno)", code: errno) }
   return String(cString: bytes)
 }
 func processList() throws -> [AudioObjectID] {
@@ -181,7 +191,7 @@ func sourceValue<T: BitwiseCopyable>(_ object: AudioObjectID, _ selector: AudioO
   var value = initial
   var size = UInt32(MemoryLayout<T>.size)
   let status = AudioObjectGetPropertyData(object, &addr, 0, nil, &size, &value)
-  guard status == noErr else { throw SourceFailure("property \(selector) object \(object): \(status)") }
+  guard status == noErr else { throw SourceFailure("property \(selector) object \(object): \(status)", code: status) }
   return value
 }
 func readSources() throws -> [Source] {
@@ -206,7 +216,7 @@ func readSources() throws -> [Source] {
       table.append(s)
     } catch {
       // A disappearing process/object is normal; a failed read of a live one isn't.
-      if !(try processList()).contains(object) { continue }
+      if try gone(error) || !(try processList()).contains(object) { continue }
       if let pid = try? sourceValue(object, kAudioProcessPropertyPID, pid_t(0)), kill(pid, 0) != 0 && errno == ESRCH { continue }
       throw error
     }
@@ -228,15 +238,24 @@ func readSources() throws -> [Source] {
         let pid = responsible(s.pid)
         if pid < 0 { throw SourceFailure("responsible pid \(s.pid): \(errno)") }
         if pid > 0 {
-          let id = try identity(pid)
-          table[index].responsible = pid
-          table[index].responsibleStart = id.0
+          do {
+            let id = try identity(pid)
+            table[index].responsible = pid
+            table[index].responsibleStart = id.0
+          } catch where gone(error) {}  // responsible process gone: no attribution through it
         }
       }
       var child = table[index]
       var visited = Set<pid_t>()
       while child.parent > 1 && visited.insert(child.pid).inserted {
-        let value = try identity(child.parent)
+        let value: (Int64, pid_t)
+        do { value = try identity(child.parent) } catch {
+          // Unreadable ancestor: this branch stays unproven (resolve drops the row).
+          if !table.contains(where: { $0.pid == child.parent }) {
+            ancestors[child.parent] = Source(pid: child.parent, error: "\(error)", code: (error as? SourceFailure)?.code)
+          }
+          break
+        }
         let parent = Source(pid: child.parent, start: value.0, parent: value.1)
         if parent.start > child.start { break }
         // Don't replace the full audio-process entry with an ancestry-only entry.
@@ -244,7 +263,7 @@ func readSources() throws -> [Source] {
         child = parent
       }
     } catch {
-      if kill(s.pid, 0) != 0 && errno == ESRCH { table[index].vanished = true; continue }
+      if gone(error) || (kill(s.pid, 0) != 0 && errno == ESRCH) { table[index].vanished = true; continue }
       throw error
     }
   }
@@ -495,8 +514,8 @@ func registerOutputs(_ table: [Source]) throws {
     try checkFault("output-listener")
     let status = AudioObjectAddPropertyListenerBlock(object, &addr, .main, outputListener)
     if status != noErr {
-      if !(try processList()).contains(object) { continue }
-      throw SourceFailure("output listener: \(status)")
+      if try gone(status) || !(try processList()).contains(object) { continue }
+      throw SourceFailure("output listener: \(status)", code: status)
     }
     watched.insert(object)
   }

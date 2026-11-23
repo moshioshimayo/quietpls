@@ -1,0 +1,48 @@
+{
+  "approved": [
+    "approved"
+  ],
+  "never": [
+    "never"
+  ],
+  "processes": [
+    {
+      "object": 1,
+      "pid": 10,
+      "bundle": "approved",
+      "path": "/Applications/Approved.app/Contents/MacOS/main",
+      "start": 100,
+      "parent": 1,
+      "runningOutput": true
+    },
+    {
+      "object": 2,
+      "pid": 20,
+      "bundle": "different.helper",
+      "path": "/Applications/Approved.app/Contents/Helpers/Helper.app/Contents/MacOS/helper",
+      "start": 101,
+      "parent": 10,
+      "runningOutput": true,
+      "error": "path pid 20: 3",
+      "code": 3
+    },
+    {
+      "object": 3,
+      "pid": 30,
+      "bundle": "",
+      "path": "",
+      "start": 102,
+      "parent": 10,
+      "runningOutput": true,
+      "error": "property 1886415204 object 3: 2003332927",
+      "code": 2003332927
+    }
+  ],
+  "expect": {
+    "included": [
+      1
+    ],
+    "micOnly": false,
+    "unattributed": false
+  }
+}
