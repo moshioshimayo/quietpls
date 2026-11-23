@@ -39,6 +39,9 @@ async function launchApp(options = {}) {
     },
   });
 
+  // The shipped runtime: the supported Electron line (spec A5).
+  expect(await app.evaluate(() => process.versions.electron)).toBe("43.8.12");
+
   // Wait for the first window (main pill window)
   const window = await app.firstWindow();
   await window.waitForLoadState("domcontentloaded");
