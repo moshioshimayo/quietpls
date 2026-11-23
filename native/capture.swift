@@ -35,6 +35,7 @@ var approveBundles = Set<String>()
 var neverBundles = Set<String>()
 var sourcesFixture: String?
 var revokeFixture = false
+var buffersFixture: String?
 var sourcesOnly = false
 var voiceProcessing = false  // off: with Apple voice processing on, the system-audio tap goes silent (macOS 26)
 var args = CommandLine.arguments.dropFirst().makeIterator()
@@ -45,6 +46,7 @@ while let arg = args.next() {
   case "--never-bundle": if let id = args.next() { neverBundles.insert(id) }
   case "--sources-fixture": sourcesFixture = args.next()
   case "--revoke-fixture": outPath = args.next() ?? ""; revokeFixture = true
+  case "--buffers-fixture": buffersFixture = args.next()
   case "--sources": sourcesOnly = true
   case "--out": outPath = args.next() ?? ""
   case "--exclude-pid": if let p = args.next().flatMap({ pid_t($0) }) { excludePids.append(p) }
@@ -369,16 +371,30 @@ func processObject(for pid: pid_t) -> AudioObjectID? {
   return status == noErr && object != kAudioObjectUnknown ? object : nil
 }
 
-func defaultOutputUID() -> String? {
-  var addr = address(kAudioHardwarePropertyDefaultSystemOutputDevice)
-  var device = AudioObjectID(kAudioObjectUnknown)
-  var size = UInt32(MemoryLayout<AudioObjectID>.size)
-  guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &device) == noErr else { return nil }
-  var uidAddr = address(kAudioDevicePropertyDeviceUID)
-  var uid: Unmanaged<CFString>?
-  size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
-  guard AudioObjectGetPropertyData(device, &uidAddr, 0, nil, &size, &uid) == noErr, let u = uid else { return nil }
-  return u.takeRetainedValue() as String
+// The tap's stream is the IOProc's last input stream (any sub-device streams come first): one
+// buffer when interleaved, one per channel otherwise. nil when the layout doesn't match the tap.
+func tapBuffer(_ inData: UnsafePointer<AudioBufferList>, _ format: AVAudioFormat) -> AVAudioPCMBuffer? {
+  let all = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: inData))
+  let need = format.isInterleaved ? 1 : Int(format.channelCount)
+  let perBuffer = format.isInterleaved ? format.channelCount : 1
+  guard all.count >= need else { return nil }
+  let picked = all.suffix(need)
+  guard picked.allSatisfy({ $0.mData != nil && $0.mNumberChannels == perBuffer }) else { return nil }
+  let list = AudioBufferList.allocate(maximumBuffers: need)
+  for (i, b) in picked.enumerated() { list[i] = b }
+  return AVAudioPCMBuffer(pcmFormat: format, bufferListNoCopy: list.unsafePointer) { _ in free(list.unsafeMutablePointer) }
+}
+var tapUnreadable = false  // ioQueue only
+func tapIO(_ inData: UnsafePointer<AudioBufferList>, _ format: AVAudioFormat) {
+  guard !tapUnreadable else { return }
+  guard let buf = tapBuffer(inData, format) else {
+    // Never drop system audio silently: fail once through the A2.5 stop path.
+    tapUnreadable = true
+    let n = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: inData)).map { $0.mNumberChannels }
+    DispatchQueue.main.async { sourceFailure(SourceFailure("unreadable tap buffers \(n) for \(format)")) }
+    return
+  }
+  them.append(buf, channel: nil, since: start)
 }
 
 func writeWav() throws -> (frames: Int, youPeak: Float, themPeak: Float) {
@@ -548,25 +564,21 @@ func startSystemAudio() throws {
   var asbd = AudioStreamBasicDescription()
   var size = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
   let formatStatus = AudioObjectGetPropertyData(tapID, &formatAddr, 0, nil, &size, &asbd)
-  guard formatStatus == noErr, let format = AVAudioFormat(streamDescription: &asbd), let outputUID = defaultOutputUID(), let description = tapDesc else { throw SourceFailure("tap format or output device") }
+  guard formatStatus == noErr, let format = AVAudioFormat(streamDescription: &asbd), let description = tapDesc else { throw SourceFailure("tap format") }
   tapFormat = format
+  // Tap only: an output sub-device that also has inputs (headsets, BlackHole, meeting devices)
+  // would add its own input streams to every IOProc call.
   let aggregate: [String: Any] = [
     kAudioAggregateDeviceNameKey: "quietpls-capture tap",
     kAudioAggregateDeviceUIDKey: UUID().uuidString,
-    kAudioAggregateDeviceMainSubDeviceKey: outputUID,
     kAudioAggregateDeviceIsPrivateKey: true,
-    kAudioAggregateDeviceIsStackedKey: false,
     kAudioAggregateDeviceTapAutoStartKey: true,
-    kAudioAggregateDeviceSubDeviceListKey: [[kAudioSubDeviceUIDKey: outputUID]],
     kAudioAggregateDeviceTapListKey: [[kAudioSubTapDriftCompensationKey: true, kAudioSubTapUIDKey: description.uuid.uuidString]],
   ]
   if approvedOnly { try checkFault("aggregate") }
   var status = AudioHardwareCreateAggregateDevice(aggregate as CFDictionary, &aggregateID)
   if status != noErr { throw SourceFailure("create aggregate: \(status)") }
-  status = AudioDeviceCreateIOProcIDWithBlock(&ioProc, aggregateID, ioQueue) { _, inData, _, _, _ in
-    guard let buf = AVAudioPCMBuffer(pcmFormat: format, bufferListNoCopy: inData, deallocator: nil) else { return }
-    them.append(buf, channel: nil, since: start)
-  }
+  status = AudioDeviceCreateIOProcIDWithBlock(&ioProc, aggregateID, ioQueue) { _, inData, _, _, _ in tapIO(inData, format) }
   if status != noErr { throw SourceFailure("tap IO: \(status)") }
   // No first sample until the include-list identity has been checked.
   if approvedOnly { _ = try setApprovedDescription(initial: false) }
@@ -615,6 +627,28 @@ func appendFixture(seconds: Int) {
 if revokeFixture {
   appendFixture(seconds: 2)
   kill(getpid(), SIGUSR1)
+  dispatchMain()
+}
+if let mode = buffersFixture {
+  // 1 s of IOProc calls as an aggregate with an in/out sub-device delivers them: the sub-device's
+  // input stream (1000 Hz, 0.9) ahead of the tap's (440 Hz, 0.3). "bad" gives the tap's stream 1 channel.
+  let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 48000, channels: 2, interleaved: true)!
+  let frames = 480
+  let other = UnsafeMutablePointer<Float>.allocate(capacity: frames * 2)
+  let tap = UnsafeMutablePointer<Float>.allocate(capacity: frames * 2)
+  let list = AudioBufferList.allocate(maximumBuffers: 2)
+  list[0] = AudioBuffer(mNumberChannels: 2, mDataByteSize: UInt32(frames * 8), mData: other)
+  list[1] = AudioBuffer(mNumberChannels: mode == "bad" ? 1 : 2, mDataByteSize: UInt32(frames * 8), mData: tap)
+  for call in 0..<100 {
+    for i in 0..<frames {
+      let t = Double(call * frames + i) / 48000
+      other[2 * i] = Float(0.9 * sin(2 * .pi * 1000 * t)); other[2 * i + 1] = other[2 * i]
+      tap[2 * i] = Float(0.3 * sin(2 * .pi * 440 * t)); tap[2 * i + 1] = tap[2 * i]
+    }
+    ioQueue.sync { tapIO(list.unsafePointer, format) }
+  }
+  started = true
+  DispatchQueue.main.async { stop() }  // after any failure tapIO queued
   dispatchMain()
 }
 

@@ -23,3 +23,21 @@ with wave.open(str(out)) as w:
 assert max(map(abs, samples[::2])) > 1000
 assert all(s == 0 for s in samples[1::2]), 'right channel retained revoked audio'
 print('PASS revoke: left intact, right zero from sample 0, one confirmed saved')
+# Tap buffers behind another input stream (an output device that also has inputs): keep the tap's
+# stream only; an unreadable layout stops once with an error instead of silently saving zeros.
+def buffers(mode):
+    out = scratch / f'buffers-{mode}.wav'
+    proc = subprocess.run([str(root / 'bin/capture'), '--buffers-fixture', mode, '--out', str(out)], capture_output=True, text=True)
+    events = [json.loads(line) for line in proc.stdout.splitlines()]
+    saved = [e for e in events if e['type'] == 'saved']
+    assert proc.returncode == 0 and len(saved) == 1, (mode, proc.stdout, proc.stderr)
+    return events, saved[0]
+events, saved = buffers('good')
+assert 0.25 < saved['themPeak'] < 0.35 and saved['themDiscarded'] is False, saved
+assert not [e for e in events if e['type'] == 'error'], events
+print('PASS buffers: tap stream selected from a 2-buffer list (themPeak %.2f)' % saved['themPeak'])
+events, saved = buffers('bad')
+errors = [e for e in events if e['type'] == 'error']
+assert len(errors) == 1 and errors[0]['code'] == 'source-check-failed', events
+assert events.index(errors[0]) < events.index(saved) and saved['themDiscarded'] is True and saved['themPeak'] == 0, events
+print('PASS buffers: unreadable tap layout -> one source-check-failed, them discarded')
