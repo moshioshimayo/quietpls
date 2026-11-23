@@ -3,9 +3,12 @@
 /**
  * calibration-manager.js — guided "talk normally" calibration (quietpls 2.1).
  *
- * Fed the same worklet frames used for monitoring. Only voiced frames (frames
- * that passed the speech gate themselves, not hangover padding) count toward
- * the required speech time and the baseline. Time is measured in audio frames
+ * Fed the same worklet frames used for monitoring. Talking time is the speech
+ * gate's own time (voiced frames plus its 300 ms hangover over syllable and
+ * breath gaps), the way a person hears themself talking: natural speech has
+ * only ~40-55% voiced frames, ~15% from a far mic (2.4.1 bug: nonstop talking
+ * could fail). Hangover counts only after a voiced frame in this attempt. The
+ * baseline uses voiced frames only. Time is measured in audio frames
  * (frameMs), so gaps in capture never count as listening time.
  *
  * Speech rises and falls syllable by syllable; a fan or tone does not. An
@@ -26,7 +29,7 @@
 
 const CALIBRATION_VERSION = 3;
 const DEFAULTS = Object.freeze({
-  minSpeechMs: 10000, // accepted voiced audio time
+  minSpeechMs: 10000, // talking time (speech gate, including hangover)
   timeoutMs: 40000, // valid input audio time
   maxClipRatio: 0.1,
   minModulationDb: 3, // speech: 5-18 dB measured; stationary tone: ~0.5 dB
@@ -44,6 +47,7 @@ function createCalibrationManager(options) {
   let status = "idle"; // idle | calibrating | ok | no-speech | clipping
   let voicedFrames = 0;
   let voicedEnergy = 0;
+  let voicedMs = 0;
   let bandLevels = []; // speech-band level of every gated frame, for modulation
   let speechMs = 0;
   let listenedMs = 0;
@@ -54,6 +58,7 @@ function createCalibrationManager(options) {
     status = "calibrating";
     voicedFrames = 0;
     voicedEnergy = 0;
+    voicedMs = 0;
     bandLevels = [];
     speechMs = 0;
     listenedMs = 0;
@@ -78,9 +83,10 @@ function createCalibrationManager(options) {
     if (voiced) {
       voicedFrames++;
       voicedEnergy += Math.pow(10, frame.dbfs / 10) * ms;
-      speechMs += ms;
+      voicedMs += ms;
       if (frame.clip) clipFrames++;
     }
+    if (voiced || (frame.speech === true && voicedFrames > 0)) speechMs += ms;
 
     if (speechMs >= opts.minSpeechMs) {
       if (clipFrames / voicedFrames > opts.maxClipRatio) {
@@ -91,7 +97,7 @@ function createCalibrationManager(options) {
       }
       return finish({
         status: "ok",
-        baselineDb: Math.round(10 * Math.log10(voicedEnergy / speechMs) * 10) / 10,
+        baselineDb: Math.round(10 * Math.log10(voicedEnergy / voicedMs) * 10) / 10,
         speechMs,
         frames: voicedFrames,
       });
