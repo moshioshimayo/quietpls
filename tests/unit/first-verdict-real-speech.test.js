@@ -45,7 +45,18 @@ function run(frames, baselineDb) {
   return { firstMs, listeningFlips, maxZone };
 }
 
-describe("first verdict with real speech (2.4.1: far mic waited up to 8 s)", () => {
+/** Audio ms until the tracker first shows `zone`. */
+function firstMs(frames, baselineDb, zone) {
+  const t = LL.createDecisionTracker({ baselineDb });
+  let audioMs = 0;
+  for (const f of frames) {
+    audioMs += f.frameMs;
+    if (t.update(f).zone === zone) return audioMs;
+  }
+  return null;
+}
+
+describe("first verdict with real speech (2.4.1: a far mic waited up to 15 s)", () => {
   it.each([
     // [speech dBFS, room dBFS]: close/normal mic, quieter, far built-in mic
     [-32, -62],
@@ -64,18 +75,23 @@ describe("first verdict with real speech (2.4.1: far mic waited up to 8 s)", () 
 
   it.each([
     [-32, -62],
+    [-42, -55],
     [-47, -55],
-  ])("talking 12 dB above normal at %s dBFS reaches Ease your voice promptly", (level, noiseDb) => {
+  ])("talking 8 dB above normal at %s dBFS (room %s dBFS): Getting loud within 4 s", (level, noiseDb) => {
+    // The source opens softly (~+4 dB for its first second), so the first
+    // verdict can truthfully be Normal before Getting loud.
     const baselineDb = voicedMeanDb(talking(30000, level, noiseDb));
-    const frames = talking(60000, level + 12, noiseDb);
-    const t = LL.createDecisionTracker({ baselineDb });
-    let audioMs = 0, alertMs = null;
-    for (const f of frames) {
-      audioMs += f.frameMs;
-      if (t.update(f).zone === "danger") { alertMs = audioMs; break; }
-    }
-    console.log("FIRST ALERT", JSON.stringify({ level, noiseDb, alertMs }));
+    const warnMs = firstMs(talking(60000, level + 8, noiseDb), baselineDb, "warning");
+    console.log("FIRST WARNING", JSON.stringify({ level, noiseDb, warnMs }));
+    expect(warnMs).not.toBeNull();
+    expect(warnMs).toBeLessThanOrEqual(4000);
+  });
+
+  it("talking 12 dB above normal reaches Ease your voice within 5 s", () => {
+    const baselineDb = voicedMeanDb(talking(30000, -32, -62));
+    const alertMs = firstMs(talking(60000, -20, -62), baselineDb, "danger");
+    console.log("FIRST ALERT", JSON.stringify({ level: -32, noiseDb: -62, alertMs }));
     expect(alertMs).not.toBeNull();
-    expect(alertMs).toBeLessThanOrEqual(7000);
+    expect(alertMs).toBeLessThanOrEqual(5000);
   });
 });

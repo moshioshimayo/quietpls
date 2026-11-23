@@ -76,15 +76,26 @@ describe("speech-time decision tracker", () => {
     expect(t.update(voiced(-30, 20)).zone).toBe("normal");
   });
 
-  it("hangover and far-talker frames advance Listening and the 5000 ms reset", () => {
+  it("counts gate hangover as talking time for warm-up, but not for the level", () => {
     const t = tracker();
+    expect(t.update(voiced(-30, 600))).toMatchObject({ zone: "silent", speaking: true });
+    // 400 ms of hangover completes the 1000 ms warm-up; its -70 dBFS adds no level.
+    expect(t.update({ ...voiced(-70, 400), voiced: false })).toMatchObject({ zone: "normal", relDb: 0, speaking: true });
+  });
+
+  it("hangover counts only right after accepted speech; far-talker frames advance Listening and the 5000 ms reset", () => {
+    const t = tracker();
+    const hang = ms => ({ ...voiced(-18, ms), voiced: false });
     feed(t, -18, 4000);
-    expect(t.update({ ...voiced(-18, 1999), voiced: false })).toMatchObject({ zone: "danger", speaking: false });
-    expectNeutral(t.update(voiced(-46, 1)), "silent");
+    expect(t.update(hang(300))).toMatchObject({ zone: "danger", relDb: 12, speaking: true });
+    // A far-talker frame ends talking; hangover after it is not talking.
+    expect(t.update(voiced(-46, 1000))).toMatchObject({ zone: "danger", speaking: false });
+    expect(t.update(hang(300))).toMatchObject({ zone: "danger", speaking: false });
+    expectNeutral(t.update(voiced(-46, 700)), "silent");
     // Listening hides the internal latch; a short accepted burst reveals it.
     expect(t.update(voiced(-18))).toMatchObject({ zone: "danger", speaking: true });
-    expectNeutral(t.update({ ...voiced(-18, 2500), voiced: false }), "silent");
-    expectNeutral(t.update(voiced(-46, 2500)), "silent");
+    expectNeutral(t.update(pause(2500)), "silent");
+    expectNeutral(t.update(hang(2500)), "silent");
     expect(t.update(voiced(-18, 999))).toMatchObject({ zone: "silent", heldZone: null, speaking: true });
     expect(t.update(voiced(-18, 1))).toMatchObject({ zone: "warning", heldZone: "danger" });
   });
@@ -182,7 +193,7 @@ describe("shared labels, units and margins", () => {
     expect(LL.marginsFor(-99)).toEqual({ warningDb: 10, dangerDb: 14 });
     expect(LL.marginsFor(99)).toEqual({ warningDb: 2, dangerDb: 6 });
     expect(LL.clampSensitivity("nope")).toBe(0);
-    expect(LL.ALGORITHM_VERSION).toBe(3);
+    expect(LL.ALGORITHM_VERSION).toBe(4);
     expect(LL.ACTIVE_WINDOW_MS).toBe(2000);
     expect(LL.ALERT_SPEECH_MS).toBe(2000);
   });
