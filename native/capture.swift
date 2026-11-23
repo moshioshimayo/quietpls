@@ -79,11 +79,26 @@ struct SourceFixture: Decodable {
   var approved: [String]
   var never: [String]
   var excludePids: [Int32]?
+  var timeline: [Step]?
+  struct Step: Decodable { var at: Double; var processes: [Source] }
 }
 struct Decision {
   var included: [Source]
   var micOnly: Bool
   var unattributed: Bool
+  var ownOutput = false
+}
+// A2.4(ii): latch mic-only after 3 s of unattributed sound, but only while no
+// approved process has played yet; approved audio already captured is kept.
+struct Attribution {
+  var heard = false
+  var since: Double?
+  mutating func latch(_ d: Decision, at t: Double) -> Bool {
+    if d.ownOutput { heard = true }
+    guard d.unattributed && !heard else { since = nil; return false }
+    if since == nil { since = t }
+    return t - since! >= 3
+  }
 }
 struct SourceFailure: Error, CustomStringConvertible {
   let description: String
@@ -124,7 +139,7 @@ func resolve(_ table: [Source], approved: Set<String>, never: Set<String>, exclu
   let includedIds = Set(included.map { $0.object })
   let ownOutput = included.contains(where: { $0.runningOutput })
   let otherOutput = live.contains { $0.object != 0 && !includedIds.contains($0.object) && !excluded.contains($0.pid) && $0.runningOutput }
-  return Decision(included: included.sorted { $0.object < $1.object }, micOnly: anchors.isEmpty, unattributed: !ownOutput && otherOutput)
+  return Decision(included: included.sorted { $0.object < $1.object }, micOnly: anchors.isEmpty, unattributed: !ownOutput && otherOutput, ownOutput: ownOutput)
 }
 
 let fault = ProcessInfo.processInfo.environment["QUIETPLS_CAPTURE_FAULT"] ?? ""
@@ -237,8 +252,15 @@ func readSources() throws -> [Source] {
 if let file = sourcesFixture {
   do {
     let fixture = try JSONDecoder().decode(SourceFixture.self, from: Data(contentsOf: URL(fileURLWithPath: file)))
-    let result = try resolve(fixture.processes, approved: Set(fixture.approved), never: Set(fixture.never), excluded: Set(fixture.excludePids ?? []))
-    emit(["type": "sources", "included": result.included.map { $0.object }, "micOnly": result.micOnly, "unattributed": result.unattributed])
+    let resolveFixture = { try resolve($0, approved: Set(fixture.approved), never: Set(fixture.never), excluded: Set(fixture.excludePids ?? [])) }
+    var result = try resolveFixture(fixture.processes)
+    var attribution = Attribution()
+    var latched = false
+    for step in fixture.timeline ?? [] {
+      result = try resolveFixture(step.processes)
+      latched = latched || attribution.latch(result, at: step.at)
+    }
+    emit(["type": "sources", "included": result.included.map { $0.object }, "micOnly": result.micOnly, "unattributed": result.unattributed, "latched": latched])
     exit(0)
   } catch { fail("source-check-failed", "\(error)") }
 }
@@ -403,7 +425,7 @@ var started = false
 var stopping = false
 var micInstalled = false
 var micOnly = false
-var unattributedSince: Date?
+var attribution = Attribution()
 var watched = Set<AudioObjectID>()
 var listWatched = false
 var levelTimer: DispatchSourceTimer?
@@ -466,7 +488,7 @@ func registerOutputs(_ table: [Source]) throws {
 func setApprovedDescription(initial: Bool) throws -> Decision {
   for attempt in 0..<2 {
     let table = try readSources()
-    let decision = try resolve(table, approved: approveBundles, never: neverBundles, excluded: Set(excludePids))
+    let decision = try resolve(table, approved: approveBundles, never: neverBundles, excluded: Set(excludePids + [getpid()]))
     if initial && decision.micOnly { return decision }
     try registerOutputs(table)
     let description = CATapDescription(stereoMixdownOfProcesses: decision.included.map { $0.object })
@@ -496,10 +518,7 @@ func setApprovedDescription(initial: Bool) throws -> Decision {
   throw SourceFailure("source identity")
 }
 func observeAttribution(_ decision: Decision) {
-  if decision.unattributed {
-    if unattributedSince == nil { unattributedSince = Date() }
-    if Date().timeIntervalSince(unattributedSince!) >= 3 { latchMicOnly() }
-  } else { unattributedSince = nil }
+  if attribution.latch(decision, at: Date().timeIntervalSinceReferenceDate) { latchMicOnly() }
 }
 func refreshSources() {
   guard approvedOnly && !micOnly && !stopping else { return }

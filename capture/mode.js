@@ -562,7 +562,7 @@ function createCaptureMode({
         log(`capture: ${JSON.stringify(msg)}`);
         if (msg.type === "started") {
           c.started = true;
-          if (!c.end) dispatch({ type: isAmbient ? "ambient-on" : "accept", at: start.getTime() });
+          if (isAmbient && !c.end) dispatch({ type: "ambient-on", at: start.getTime() });
         }
         if (msg.type === "notice" && msg.code === "mic-only") {
           c.micOnly = true;
@@ -575,6 +575,9 @@ function createCaptureMode({
       onStderr: (d) => log(`capture stderr: ${d.trim()}`),
       onExit: onCaptureExit,
     });
+    // Leave the consent banner at spawn: Stop, Never and Capture-off act on a
+    // recording from here on (c.started only decides the ending text).
+    if (!isAmbient) dispatch({ type: "accept", at: start.getTime() });
     log(`recording → ${wavPath}`);
     if (isAmbient)
       chunkTimer = setTimeout(
@@ -916,14 +919,15 @@ function createCaptureMode({
   handle("accept", () => accept());
   handle("skip", () => dispatch({ type: "skip" }));
   handle("never", () => {
-    settings.neverApps = [
+    const neverApps = [
       ...new Set([
         ...settings.neverApps,
         ...S.askableApps(state.apps, settings),
       ]),
     ];
-    saveSettings();
     dispatch({ type: "never" });
+    // Same path as Settings → Never: revokes a recording already running.
+    return updateSettings({ neverApps });
   });
   handle("stop", () => stopRecording());
   handle("dismiss", () => dispatch({ type: "dismiss" }));

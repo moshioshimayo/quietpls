@@ -1,0 +1,61 @@
+{
+  "approved": [
+    "approved"
+  ],
+  "never": [
+    "never"
+  ],
+  "processes": [],
+  "timeline": [
+    {
+      "at": 0,
+      "processes": [
+        {
+          "object": 1,
+          "pid": 10,
+          "bundle": "approved",
+          "path": "/Applications/Approved.app/Contents/MacOS/main",
+          "start": 100,
+          "parent": 1,
+          "runningOutput": false
+        },
+        {
+          "object": 2,
+          "pid": 20,
+          "bundle": "",
+          "path": "/usr/libexec/unknown",
+          "start": 100,
+          "parent": 1,
+          "runningOutput": true
+        }
+      ]
+    },
+    {
+      "at": 2.9,
+      "processes": [
+        {
+          "object": 1,
+          "pid": 10,
+          "bundle": "approved",
+          "path": "/Applications/Approved.app/Contents/MacOS/main",
+          "start": 100,
+          "parent": 1,
+          "runningOutput": false
+        },
+        {
+          "object": 2,
+          "pid": 20,
+          "bundle": "",
+          "path": "/usr/libexec/unknown",
+          "start": 100,
+          "parent": 1,
+          "runningOutput": true
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "unattributed": true,
+    "latched": false
+  }
+}
