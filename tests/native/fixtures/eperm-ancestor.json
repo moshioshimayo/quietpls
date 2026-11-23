@@ -1,0 +1,46 @@
+{
+  "approved": [
+    "approved"
+  ],
+  "never": [
+    "never"
+  ],
+  "processes": [
+    {
+      "object": 1,
+      "pid": 10,
+      "bundle": "approved",
+      "path": "/Applications/Approved.app/Contents/MacOS/main",
+      "start": 100,
+      "parent": 1,
+      "runningOutput": true
+    },
+    {
+      "object": 0,
+      "pid": 5,
+      "bundle": "",
+      "path": "",
+      "start": 100,
+      "parent": 10,
+      "runningOutput": false,
+      "error": "identity pid 5: 1",
+      "code": 1
+    },
+    {
+      "object": 2,
+      "pid": 20,
+      "bundle": "different.helper",
+      "path": "/Applications/Approved.app/Contents/Helpers/Helper.app/Contents/MacOS/helper",
+      "start": 101,
+      "parent": 5,
+      "runningOutput": false
+    }
+  ],
+  "expect": {
+    "included": [
+      1
+    ],
+    "micOnly": false,
+    "unattributed": false
+  }
+}

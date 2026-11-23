@@ -35,6 +35,7 @@ var approveBundles = Set<String>()
 var neverBundles = Set<String>()
 var sourcesFixture: String?
 var revokeFixture = false
+var buffersFixture: String?
 var sourcesOnly = false
 var voiceProcessing = false  // off: with Apple voice processing on, the system-audio tap goes silent (macOS 26)
 var args = CommandLine.arguments.dropFirst().makeIterator()
@@ -45,6 +46,7 @@ while let arg = args.next() {
   case "--never-bundle": if let id = args.next() { neverBundles.insert(id) }
   case "--sources-fixture": sourcesFixture = args.next()
   case "--revoke-fixture": outPath = args.next() ?? ""; revokeFixture = true
+  case "--buffers-fixture": buffersFixture = args.next()
   case "--sources": sourcesOnly = true
   case "--out": outPath = args.next() ?? ""
   case "--exclude-pid": if let p = args.next().flatMap({ pid_t($0) }) { excludePids.append(p) }
@@ -73,6 +75,7 @@ struct Source: Codable {
   var runningOutput: Bool = false
   var vanished: Bool? = nil
   var error: String? = nil
+  var code: Int32? = nil  // errno or OSStatus of a failed read
 }
 struct SourceFixture: Decodable {
   var processes: [Source]
@@ -102,8 +105,15 @@ struct Attribution {
 }
 struct SourceFailure: Error, CustomStringConvertible {
   let description: String
-  init(_ description: String) { self.description = description }
+  var code: Int32? = nil
+  init(_ description: String, code: Int32? = nil) { self.description = description; self.code = code }
 }
+// The process (or its audio object) no longer exists: it plays nothing, so it is skipped, never included.
+// A stale process object answers 'who?' (unknown property) or '!obj'.
+func gone(_ code: Int32?) -> Bool {
+  code == ESRCH || code == Int32(kAudioHardwareUnknownPropertyError) || code == Int32(kAudioHardwareBadObjectError)
+}
+func gone(_ error: Error) -> Bool { gone((error as? SourceFailure)?.code) }
 let sharedCallApps: Set<String> = ["com.apple.FaceTime", "com.apple.MobileSMS", "com.apple.mobilephone"]
 func appRoot(_ path: String) -> String? {
   let parts = path.split(separator: "/")
@@ -113,7 +123,9 @@ func appRoot(_ path: String) -> String? {
 func inside(_ path: String, _ root: String) -> Bool { path.hasPrefix(root + "/") }
 
 func resolve(_ table: [Source], approved: Set<String>, never: Set<String>, excluded: Set<Int32>) throws -> Decision {
-  let live = table.filter { $0.vanished != true }
+  // Fail closed: a source that is gone, or an ancestor that couldn't be read (EPERM on a root-owned
+  // one), proves nothing and is dropped, so nothing is attributed through it.
+  let live = table.filter { $0.vanished != true && !($0.error != nil && ($0.object == 0 || gone($0.code))) }
   for s in live { if let error = s.error { throw SourceFailure(error) } }
   let byPid = Dictionary(live.map { ($0.pid, $0) }, uniquingKeysWith: { a, _ in a })
   let neverRoots = live.filter { s in never.contains(s.bundle) }.compactMap { appRoot($0.path) }
@@ -156,13 +168,13 @@ func identity(_ pid: pid_t) throws -> (Int64, pid_t) {
   var info = proc_bsdinfo()
   let size = Int32(MemoryLayout<proc_bsdinfo>.size)
   guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size else {
-    throw SourceFailure("identity pid \(pid): \(errno)")
+    throw SourceFailure("identity pid \(pid): \(errno)", code: errno)
   }
   return (Int64(info.pbi_start_tvsec) * 1_000_000 + Int64(info.pbi_start_tvusec), pid_t(info.pbi_ppid))
 }
 func executable(_ pid: pid_t) throws -> String {
   var bytes = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
-  guard proc_pidpath(pid, &bytes, UInt32(bytes.count)) > 0 else { throw SourceFailure("path pid \(pid): \(errno)") }
+  guard proc_pidpath(pid, &bytes, UInt32(bytes.count)) > 0 else { throw SourceFailure("path pid \(pid): \(errno)", code: errno) }
   return String(cString: bytes)
 }
 func processList() throws -> [AudioObjectID] {
@@ -179,7 +191,7 @@ func sourceValue<T: BitwiseCopyable>(_ object: AudioObjectID, _ selector: AudioO
   var value = initial
   var size = UInt32(MemoryLayout<T>.size)
   let status = AudioObjectGetPropertyData(object, &addr, 0, nil, &size, &value)
-  guard status == noErr else { throw SourceFailure("property \(selector) object \(object): \(status)") }
+  guard status == noErr else { throw SourceFailure("property \(selector) object \(object): \(status)", code: status) }
   return value
 }
 func readSources() throws -> [Source] {
@@ -204,7 +216,7 @@ func readSources() throws -> [Source] {
       table.append(s)
     } catch {
       // A disappearing process/object is normal; a failed read of a live one isn't.
-      if !(try processList()).contains(object) { continue }
+      if try gone(error) || !(try processList()).contains(object) { continue }
       if let pid = try? sourceValue(object, kAudioProcessPropertyPID, pid_t(0)), kill(pid, 0) != 0 && errno == ESRCH { continue }
       throw error
     }
@@ -226,15 +238,24 @@ func readSources() throws -> [Source] {
         let pid = responsible(s.pid)
         if pid < 0 { throw SourceFailure("responsible pid \(s.pid): \(errno)") }
         if pid > 0 {
-          let id = try identity(pid)
-          table[index].responsible = pid
-          table[index].responsibleStart = id.0
+          do {
+            let id = try identity(pid)
+            table[index].responsible = pid
+            table[index].responsibleStart = id.0
+          } catch where gone(error) {}  // responsible process gone: no attribution through it
         }
       }
       var child = table[index]
       var visited = Set<pid_t>()
       while child.parent > 1 && visited.insert(child.pid).inserted {
-        let value = try identity(child.parent)
+        let value: (Int64, pid_t)
+        do { value = try identity(child.parent) } catch {
+          // Unreadable ancestor: this branch stays unproven (resolve drops the row).
+          if !table.contains(where: { $0.pid == child.parent }) {
+            ancestors[child.parent] = Source(pid: child.parent, error: "\(error)", code: (error as? SourceFailure)?.code)
+          }
+          break
+        }
         let parent = Source(pid: child.parent, start: value.0, parent: value.1)
         if parent.start > child.start { break }
         // Don't replace the full audio-process entry with an ancestry-only entry.
@@ -242,7 +263,7 @@ func readSources() throws -> [Source] {
         child = parent
       }
     } catch {
-      if kill(s.pid, 0) != 0 && errno == ESRCH { table[index].vanished = true; continue }
+      if gone(error) || (kill(s.pid, 0) != 0 && errno == ESRCH) { table[index].vanished = true; continue }
       throw error
     }
   }
@@ -369,16 +390,30 @@ func processObject(for pid: pid_t) -> AudioObjectID? {
   return status == noErr && object != kAudioObjectUnknown ? object : nil
 }
 
-func defaultOutputUID() -> String? {
-  var addr = address(kAudioHardwarePropertyDefaultSystemOutputDevice)
-  var device = AudioObjectID(kAudioObjectUnknown)
-  var size = UInt32(MemoryLayout<AudioObjectID>.size)
-  guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &device) == noErr else { return nil }
-  var uidAddr = address(kAudioDevicePropertyDeviceUID)
-  var uid: Unmanaged<CFString>?
-  size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
-  guard AudioObjectGetPropertyData(device, &uidAddr, 0, nil, &size, &uid) == noErr, let u = uid else { return nil }
-  return u.takeRetainedValue() as String
+// The tap's stream is the IOProc's last input stream (any sub-device streams come first): one
+// buffer when interleaved, one per channel otherwise. nil when the layout doesn't match the tap.
+func tapBuffer(_ inData: UnsafePointer<AudioBufferList>, _ format: AVAudioFormat) -> AVAudioPCMBuffer? {
+  let all = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: inData))
+  let need = format.isInterleaved ? 1 : Int(format.channelCount)
+  let perBuffer = format.isInterleaved ? format.channelCount : 1
+  guard all.count >= need else { return nil }
+  let picked = all.suffix(need)
+  guard picked.allSatisfy({ $0.mData != nil && $0.mNumberChannels == perBuffer }) else { return nil }
+  let list = AudioBufferList.allocate(maximumBuffers: need)
+  for (i, b) in picked.enumerated() { list[i] = b }
+  return AVAudioPCMBuffer(pcmFormat: format, bufferListNoCopy: list.unsafePointer) { _ in free(list.unsafeMutablePointer) }
+}
+var tapUnreadable = false  // ioQueue only
+func tapIO(_ inData: UnsafePointer<AudioBufferList>, _ format: AVAudioFormat) {
+  guard !tapUnreadable else { return }
+  guard let buf = tapBuffer(inData, format) else {
+    // Never drop system audio silently: fail once through the A2.5 stop path.
+    tapUnreadable = true
+    let n = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: inData)).map { $0.mNumberChannels }
+    DispatchQueue.main.async { sourceFailure(SourceFailure("unreadable tap buffers \(n) for \(format)")) }
+    return
+  }
+  them.append(buf, channel: nil, since: start)
 }
 
 func writeWav() throws -> (frames: Int, youPeak: Float, themPeak: Float) {
@@ -479,8 +514,8 @@ func registerOutputs(_ table: [Source]) throws {
     try checkFault("output-listener")
     let status = AudioObjectAddPropertyListenerBlock(object, &addr, .main, outputListener)
     if status != noErr {
-      if !(try processList()).contains(object) { continue }
-      throw SourceFailure("output listener: \(status)")
+      if try gone(status) || !(try processList()).contains(object) { continue }
+      throw SourceFailure("output listener: \(status)", code: status)
     }
     watched.insert(object)
   }
@@ -548,25 +583,21 @@ func startSystemAudio() throws {
   var asbd = AudioStreamBasicDescription()
   var size = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
   let formatStatus = AudioObjectGetPropertyData(tapID, &formatAddr, 0, nil, &size, &asbd)
-  guard formatStatus == noErr, let format = AVAudioFormat(streamDescription: &asbd), let outputUID = defaultOutputUID(), let description = tapDesc else { throw SourceFailure("tap format or output device") }
+  guard formatStatus == noErr, let format = AVAudioFormat(streamDescription: &asbd), let description = tapDesc else { throw SourceFailure("tap format") }
   tapFormat = format
+  // Tap only: an output sub-device that also has inputs (headsets, BlackHole, meeting devices)
+  // would add its own input streams to every IOProc call.
   let aggregate: [String: Any] = [
     kAudioAggregateDeviceNameKey: "quietpls-capture tap",
     kAudioAggregateDeviceUIDKey: UUID().uuidString,
-    kAudioAggregateDeviceMainSubDeviceKey: outputUID,
     kAudioAggregateDeviceIsPrivateKey: true,
-    kAudioAggregateDeviceIsStackedKey: false,
     kAudioAggregateDeviceTapAutoStartKey: true,
-    kAudioAggregateDeviceSubDeviceListKey: [[kAudioSubDeviceUIDKey: outputUID]],
     kAudioAggregateDeviceTapListKey: [[kAudioSubTapDriftCompensationKey: true, kAudioSubTapUIDKey: description.uuid.uuidString]],
   ]
   if approvedOnly { try checkFault("aggregate") }
   var status = AudioHardwareCreateAggregateDevice(aggregate as CFDictionary, &aggregateID)
   if status != noErr { throw SourceFailure("create aggregate: \(status)") }
-  status = AudioDeviceCreateIOProcIDWithBlock(&ioProc, aggregateID, ioQueue) { _, inData, _, _, _ in
-    guard let buf = AVAudioPCMBuffer(pcmFormat: format, bufferListNoCopy: inData, deallocator: nil) else { return }
-    them.append(buf, channel: nil, since: start)
-  }
+  status = AudioDeviceCreateIOProcIDWithBlock(&ioProc, aggregateID, ioQueue) { _, inData, _, _, _ in tapIO(inData, format) }
   if status != noErr { throw SourceFailure("tap IO: \(status)") }
   // No first sample until the include-list identity has been checked.
   if approvedOnly { _ = try setApprovedDescription(initial: false) }
@@ -615,6 +646,28 @@ func appendFixture(seconds: Int) {
 if revokeFixture {
   appendFixture(seconds: 2)
   kill(getpid(), SIGUSR1)
+  dispatchMain()
+}
+if let mode = buffersFixture {
+  // 1 s of IOProc calls as an aggregate with an in/out sub-device delivers them: the sub-device's
+  // input stream (1000 Hz, 0.9) ahead of the tap's (440 Hz, 0.3). "bad" gives the tap's stream 1 channel.
+  let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 48000, channels: 2, interleaved: true)!
+  let frames = 480
+  let other = UnsafeMutablePointer<Float>.allocate(capacity: frames * 2)
+  let tap = UnsafeMutablePointer<Float>.allocate(capacity: frames * 2)
+  let list = AudioBufferList.allocate(maximumBuffers: 2)
+  list[0] = AudioBuffer(mNumberChannels: 2, mDataByteSize: UInt32(frames * 8), mData: other)
+  list[1] = AudioBuffer(mNumberChannels: mode == "bad" ? 1 : 2, mDataByteSize: UInt32(frames * 8), mData: tap)
+  for call in 0..<100 {
+    for i in 0..<frames {
+      let t = Double(call * frames + i) / 48000
+      other[2 * i] = Float(0.9 * sin(2 * .pi * 1000 * t)); other[2 * i + 1] = other[2 * i]
+      tap[2 * i] = Float(0.3 * sin(2 * .pi * 440 * t)); tap[2 * i + 1] = tap[2 * i]
+    }
+    ioQueue.sync { tapIO(list.unsafePointer, format) }
+  }
+  started = true
+  DispatchQueue.main.async { stop() }  // after any failure tapIO queued
   dispatchMain()
 }
 
