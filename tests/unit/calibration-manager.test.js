@@ -100,7 +100,7 @@ describe("guided calibration (F2/F3)", () => {
     }
   });
 
-  it("hangover padding does not count as speech time", () => {
+  it("hangover padding with no voiced frame never counts as talking time", () => {
     const frames = Array.from({ length: 2100 }, (_, i) => ({
       dbfs: -30,
       bandDb: i % 2 ? -30 : -45,

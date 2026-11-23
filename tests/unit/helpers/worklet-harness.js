@@ -98,6 +98,46 @@ function roomTone(ms, rmsDb, sampleRate = 48000, seed = 13) {
   return out;
 }
 
+/** Pink (1/f) noise at the given RMS dBFS (Paul Kellet's filter on white noise). */
+function pink(ms, rmsDb, sampleRate = 48000, seed = 17) {
+  const w = noise(ms, 0, sampleRate, seed);
+  let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0, sum = 0;
+  for (let i = 0; i < w.length; i++) {
+    const x = w[i];
+    b0 = 0.99886 * b0 + x * 0.0555179;
+    b1 = 0.99332 * b1 + x * 0.0750759;
+    b2 = 0.969 * b2 + x * 0.153852;
+    b3 = 0.8665 * b3 + x * 0.3104856;
+    b4 = 0.55 * b4 + x * 0.5329522;
+    b5 = -0.7616 * b5 - x * 0.016898;
+    w[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + x * 0.5362;
+    b6 = x * 0.115926;
+    sum += w[i] * w[i];
+  }
+  const g = dbToAmp(rmsDb) / Math.sqrt(sum / w.length);
+  for (let i = 0; i < w.length; i++) w[i] *= g;
+  return w;
+}
+
+/** Mono PCM16 WAV → { sampleRate, samples (Float32Array, full scale 1.0) }. */
+function readWav(file) {
+  const wav = fs.readFileSync(file);
+  let sampleRate, samples;
+  for (let p = 12; p + 8 <= wav.length; ) {
+    const tag = wav.toString("ascii", p, p + 4);
+    const bytes = wav.readUInt32LE(p + 4);
+    if (tag === "fmt ") {
+      if (wav.readUInt16LE(p + 8) !== 1 || wav.readUInt16LE(p + 10) !== 1 || wav.readUInt16LE(p + 22) !== 16)
+        throw new Error("Expected mono PCM16 fixture");
+      sampleRate = wav.readUInt32LE(p + 12);
+    }
+    if (tag === "data")
+      samples = Float32Array.from({ length: bytes / 2 }, (_, i) => wav.readInt16LE(p + 8 + i * 2) / 32768);
+    p += 8 + bytes + (bytes % 2);
+  }
+  return { sampleRate, samples };
+}
+
 /** Sine at the given RMS dBFS. */
 function tone(ms, freq, rmsDb, sampleRate = 48000) {
   const n = Math.round((sampleRate * ms) / 1000);
@@ -164,6 +204,8 @@ const speechFrames = (msgs) => msgs.filter((m) => m.speech);
 module.exports = {
   createWorklet,
   noise,
+  pink,
+  readWav,
   roomTone,
   tone,
   speechLike,
