@@ -285,7 +285,7 @@ async function installFakeMic(page, options = {}) {
 /**
  * Read-only observers for the loudness journey. In the widget page, wrap the
  * real decision tracker so each update still runs the original and records
- * frames, audio ms, accepted voiced ms (decision.speaking) and the latest
+ * frames, audio ms, talking ms (decision.speaking) and the latest
  * decision in window.__obs. In the main process, add a second level-update /
  * set-monitoring listener next to the real handlers. Nothing is replaced.
  * Call before monitoring starts.
