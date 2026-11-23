@@ -8,6 +8,7 @@
 import AVFoundation
 import CoreAudio
 import Foundation
+import Darwin
 
 let sampleRate = 16000.0
 setvbuf(stdout, nil, _IOLBF, 0)
@@ -29,10 +30,22 @@ func fail(_ code: String, _ detail: String) -> Never {
 
 var outPath = ""
 var excludePids: [pid_t] = []
+var approvedOnly = false
+var approveBundles = Set<String>()
+var neverBundles = Set<String>()
+var sourcesFixture: String?
+var revokeFixture = false
+var sourcesOnly = false
 var voiceProcessing = false  // off: with Apple voice processing on, the system-audio tap goes silent (macOS 26)
 var args = CommandLine.arguments.dropFirst().makeIterator()
 while let arg = args.next() {
   switch arg {
+  case "--approved-only": approvedOnly = true
+  case "--approve-bundle": if let id = args.next() { approveBundles.insert(id) }
+  case "--never-bundle": if let id = args.next() { neverBundles.insert(id) }
+  case "--sources-fixture": sourcesFixture = args.next()
+  case "--revoke-fixture": outPath = args.next() ?? ""; revokeFixture = true
+  case "--sources": sourcesOnly = true
   case "--out": outPath = args.next() ?? ""
   case "--exclude-pid": if let p = args.next().flatMap({ pid_t($0) }) { excludePids.append(p) }
   case "--echo-cancel": voiceProcessing = true
@@ -44,6 +57,199 @@ while let arg = args.next() {
   default: fail("bad-args", "unknown argument \(arg)")
   }
 }
+
+
+// Identity snapshots are deliberately plain data: the fixture and live path use
+// the same resolver, and only the live reader calls CoreAudio/libproc.
+struct Source: Codable {
+  var object: UInt32 = 0
+  var pid: Int32
+  var bundle: String = ""
+  var path: String = ""
+  var start: Int64 = 0
+  var parent: Int32 = 0
+  var responsible: Int32? = nil
+  var responsibleStart: Int64? = nil
+  var runningOutput: Bool = false
+  var vanished: Bool? = nil
+  var error: String? = nil
+}
+struct SourceFixture: Decodable {
+  var processes: [Source]
+  var approved: [String]
+  var never: [String]
+  var excludePids: [Int32]?
+}
+struct Decision {
+  var included: [Source]
+  var micOnly: Bool
+  var unattributed: Bool
+}
+struct SourceFailure: Error, CustomStringConvertible {
+  let description: String
+  init(_ description: String) { self.description = description }
+}
+let sharedCallApps: Set<String> = ["com.apple.FaceTime", "com.apple.MobileSMS", "com.apple.mobilephone"]
+func appRoot(_ path: String) -> String? {
+  let parts = path.split(separator: "/")
+  guard let index = parts.firstIndex(where: { $0.hasSuffix(".app") }) else { return nil }
+  return "/" + parts[...index].joined(separator: "/")
+}
+func inside(_ path: String, _ root: String) -> Bool { path.hasPrefix(root + "/") }
+
+func resolve(_ table: [Source], approved: Set<String>, never: Set<String>, excluded: Set<Int32>) throws -> Decision {
+  let live = table.filter { $0.vanished != true }
+  for s in live { if let error = s.error { throw SourceFailure(error) } }
+  let byPid = Dictionary(live.map { ($0.pid, $0) }, uniquingKeysWith: { a, _ in a })
+  let neverRoots = live.filter { s in never.contains(s.bundle) }.compactMap { appRoot($0.path) }
+  func veto(_ s: Source) -> Bool {
+    excluded.contains(s.pid) || never.contains(where: { s.bundle == $0 || s.bundle.hasPrefix($0 + ".") }) || neverRoots.contains(where: { inside(s.path, $0) })
+  }
+  let anchors = live.filter { approved.contains($0.bundle) && !sharedCallApps.contains($0.bundle) && appRoot($0.path) != nil && !veto($0) }
+  let roots = anchors.compactMap { appRoot($0.path) }
+  func attributed(_ s: Source) -> Bool {
+    if anchors.contains(where: { $0.pid == s.pid && $0.start == s.start }) { return true }
+    guard roots.contains(where: { inside(s.path, $0) }) else { return false }
+    if let pid = s.responsible, let identity = s.responsibleStart,
+       anchors.contains(where: { $0.pid == pid && $0.start == identity && $0.start <= s.start }) { return true }
+    var child = s
+    var seen = Set<Int32>()
+    while child.parent > 1, seen.insert(child.pid).inserted, let parent = byPid[child.parent], parent.start <= child.start {
+      if anchors.contains(where: { $0.pid == parent.pid && $0.start == parent.start }) { return true }
+      child = parent
+    }
+    return false
+  }
+  let included = live.filter { $0.object != 0 && !veto($0) && attributed($0) }
+  let includedIds = Set(included.map { $0.object })
+  let ownOutput = included.contains(where: { $0.runningOutput })
+  let otherOutput = live.contains { $0.object != 0 && !includedIds.contains($0.object) && !excluded.contains($0.pid) && $0.runningOutput }
+  return Decision(included: included.sorted { $0.object < $1.object }, micOnly: anchors.isEmpty, unattributed: !ownOutput && otherOutput)
+}
+
+let fault = ProcessInfo.processInfo.environment["QUIETPLS_CAPTURE_FAULT"] ?? ""
+var faultArmed = false
+func checkFault(_ step: String) throws {
+  if fault == step || (faultArmed && fault == "after-start:" + step) { throw SourceFailure("injected \(step)") }
+}
+typealias ResponsibleFunction = @convention(c) (pid_t) -> pid_t
+let responsibleFunction: ResponsibleFunction? = {
+  guard let handle = dlopen(nil, RTLD_LAZY), let symbol = dlsym(handle, "responsibility_get_pid_responsible_for_pid") else { return nil }
+  return unsafeBitCast(symbol, to: ResponsibleFunction.self)
+}()
+func identity(_ pid: pid_t) throws -> (Int64, pid_t) {
+  var info = proc_bsdinfo()
+  let size = Int32(MemoryLayout<proc_bsdinfo>.size)
+  guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size else {
+    throw SourceFailure("identity pid \(pid): \(errno)")
+  }
+  return (Int64(info.pbi_start_tvsec) * 1_000_000 + Int64(info.pbi_start_tvusec), pid_t(info.pbi_ppid))
+}
+func executable(_ pid: pid_t) throws -> String {
+  var bytes = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
+  guard proc_pidpath(pid, &bytes, UInt32(bytes.count)) > 0 else { throw SourceFailure("path pid \(pid): \(errno)") }
+  return String(cString: bytes)
+}
+func processList() throws -> [AudioObjectID] {
+  try checkFault("list")
+  var addr = address(kAudioHardwarePropertyProcessObjectList)
+  var size: UInt32 = 0
+  guard AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size) == noErr else { throw SourceFailure("process list size") }
+  var objects = [AudioObjectID](repeating: 0, count: Int(size) / MemoryLayout<AudioObjectID>.size)
+  guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &objects) == noErr else { throw SourceFailure("process list") }
+  return Array(objects.prefix(Int(size) / MemoryLayout<AudioObjectID>.size))
+}
+func sourceValue<T: BitwiseCopyable>(_ object: AudioObjectID, _ selector: AudioObjectPropertySelector, _ initial: T) throws -> T {
+  var addr = address(selector)
+  var value = initial
+  var size = UInt32(MemoryLayout<T>.size)
+  let status = AudioObjectGetPropertyData(object, &addr, 0, nil, &size, &value)
+  guard status == noErr else { throw SourceFailure("property \(selector) object \(object): \(status)") }
+  return value
+}
+func readSources() throws -> [Source] {
+  var table: [Source] = []
+  for object in try processList() {
+    do {
+      try checkFault("pid")
+      let pid = try sourceValue(object, kAudioProcessPropertyPID, pid_t(0))
+      let firstIdentity = try? identity(pid)
+      try checkFault("bundle")
+      let ref = try sourceValue(object, kAudioProcessPropertyBundleID, Unmanaged<CFString>?.none)
+      let bundle = ref.map { $0.takeRetainedValue() as String } ?? ""
+      try checkFault("path")
+      let path = try executable(pid)
+      let output = try sourceValue(object, kAudioProcessPropertyIsRunningOutput, UInt32(0)) == 1
+      var s = Source(object: object, pid: pid, bundle: bundle, path: path, runningOutput: output)
+      // Metadata errors outside approved roots do not widen inclusion.
+      if let first = firstIdentity, let last = try? identity(pid) {
+        guard first.0 == last.0 else { throw SourceFailure("identity changed while reading pid \(pid)") }
+        s.start = first.0; s.parent = first.1
+      }
+      table.append(s)
+    } catch {
+      // A disappearing process/object is normal; a failed read of a live one isn't.
+      if !(try processList()).contains(object) { continue }
+      if let pid = try? sourceValue(object, kAudioProcessPropertyPID, pid_t(0)), kill(pid, 0) != 0 && errno == ESRCH { continue }
+      throw error
+    }
+  }
+  let roots = table.filter { approveBundles.contains($0.bundle) || neverBundles.contains($0.bundle) }.compactMap { appRoot($0.path) }
+  var ancestors: [pid_t: Source] = [:]
+  for index in table.indices {
+    let s = table[index]
+    guard approveBundles.contains(s.bundle) || roots.contains(where: { inside(s.path, $0) }) else { continue }
+    do {
+      try checkFault("start")
+      let value = try identity(s.pid)
+      try checkFault("parent")
+      guard s.start == value.0 else { throw SourceFailure("identity changed before attribution pid \(s.pid)") }
+      table[index].parent = value.1
+      if let responsible = responsibleFunction {
+        try checkFault("responsible")
+        errno = 0
+        let pid = responsible(s.pid)
+        if pid < 0 { throw SourceFailure("responsible pid \(s.pid): \(errno)") }
+        if pid > 0 {
+          let id = try identity(pid)
+          table[index].responsible = pid
+          table[index].responsibleStart = id.0
+        }
+      }
+      var child = table[index]
+      var visited = Set<pid_t>()
+      while child.parent > 1 && visited.insert(child.pid).inserted {
+        let value = try identity(child.parent)
+        let parent = Source(pid: child.parent, start: value.0, parent: value.1)
+        if parent.start > child.start { break }
+        // Don't replace the full audio-process entry with an ancestry-only entry.
+        if !table.contains(where: { $0.pid == parent.pid }) { ancestors[parent.pid] = parent }
+        child = parent
+      }
+    } catch {
+      if kill(s.pid, 0) != 0 && errno == ESRCH { table[index].vanished = true; continue }
+      throw error
+    }
+  }
+  return table + Array(ancestors.values)
+}
+
+if let file = sourcesFixture {
+  do {
+    let fixture = try JSONDecoder().decode(SourceFixture.self, from: Data(contentsOf: URL(fileURLWithPath: file)))
+    let result = try resolve(fixture.processes, approved: Set(fixture.approved), never: Set(fixture.never), excluded: Set(fixture.excludePids ?? []))
+    emit(["type": "sources", "included": result.included.map { $0.object }, "micOnly": result.micOnly, "unattributed": result.unattributed])
+    exit(0)
+  } catch { fail("source-check-failed", "\(error)") }
+}
+if sourcesOnly {
+  do {
+    for s in try readSources() {
+      emit(["type": "source", "object": s.object, "pid": s.pid, "bundle": s.bundle, "path": s.path, "start": s.start, "output": s.runningOutput])
+    }
+    exit(0)
+  } catch { fail("source-check-failed", "\(error)") }
+}
 if outPath.isEmpty { fail("bad-args", "--out is required") }
 
 // MARK: one side of the call, resampled to 16 kHz mono
@@ -51,6 +257,11 @@ if outPath.isEmpty { fail("bad-args", "--out is required") }
 final class Track {
   let lock = NSLock()
   var samples: [Float] = []
+  var discarded = false
+  func discard() {
+    lock.lock(); defer { lock.unlock() }
+    discarded = true; samples.removeAll(); level = 0; startOffset = nil
+  }
   var startOffset: Double? = nil  // seconds after recording start when first audio arrived
   var level: Float = 0
   var converter: AVAudioConverter?
@@ -103,10 +314,11 @@ final class Track {
     }
     let got = Int(out.frameLength)
     lock.lock()
+    defer { lock.unlock() }
+    guard !discarded else { return }
     if startOffset == nil { startOffset = max(0, Date().timeIntervalSince(start) - Double(n) / rate) }
     samples.append(contentsOf: UnsafeBufferPointer(start: out.floatChannelData![0], count: got))
     level = max(level * 0.6, (sumSq / Float(n)).squareRoot())
-    lock.unlock()
   }
 
   func takeLevel() -> Float {
@@ -120,20 +332,6 @@ final class Track {
 let start = Date()
 let you = Track()
 let them = Track()
-
-// MARK: you — microphone
-
-let mic = AVCaptureDevice.authorizationStatus(for: .audio)
-if mic == .notDetermined {
-  let sem = DispatchSemaphore(value: 0)
-  AVCaptureDevice.requestAccess(for: .audio) { _ in sem.signal() }
-  sem.wait()
-}
-if AVCaptureDevice.authorizationStatus(for: .audio) != .authorized {
-  fail("mic-denied", "Microphone access is off for this app")
-}
-
-// MARK: them — system audio process tap
 
 func address(_ selector: AudioObjectPropertySelector) -> AudioObjectPropertyAddress {
   AudioObjectPropertyAddress(mSelector: selector, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
@@ -160,96 +358,6 @@ func defaultOutputUID() -> String? {
   guard AudioObjectGetPropertyData(device, &uidAddr, 0, nil, &size, &uid) == noErr, let u = uid else { return nil }
   return u.takeRetainedValue() as String
 }
-
-let excluded = excludePids.compactMap(processObject(for:))
-let tapDesc = CATapDescription(stereoGlobalTapButExcludeProcesses: excluded)
-tapDesc.uuid = UUID()
-tapDesc.isPrivate = true
-tapDesc.muteBehavior = .unmuted
-var tapID = AudioObjectID(kAudioObjectUnknown)
-var status = AudioHardwareCreateProcessTap(tapDesc, &tapID)
-if status != noErr { fail("system-audio-unavailable", "Could not tap system audio (\(status))") }
-
-var tapFormatAddr = address(kAudioTapPropertyFormat)
-var asbd = AudioStreamBasicDescription()
-var asbdSize = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
-status = AudioObjectGetPropertyData(tapID, &tapFormatAddr, 0, nil, &asbdSize, &asbd)
-guard status == noErr, let tapFormat = AVAudioFormat(streamDescription: &asbd) else {
-  fail("system-audio-unavailable", "Could not read system audio format (\(status))")
-}
-guard let outputUID = defaultOutputUID() else { fail("system-audio-unavailable", "No output device") }
-
-let aggregate: [String: Any] = [
-  kAudioAggregateDeviceNameKey: "quietpls-capture tap",
-  kAudioAggregateDeviceUIDKey: UUID().uuidString,
-  kAudioAggregateDeviceMainSubDeviceKey: outputUID,
-  kAudioAggregateDeviceIsPrivateKey: true,
-  kAudioAggregateDeviceIsStackedKey: false,
-  kAudioAggregateDeviceTapAutoStartKey: true,
-  kAudioAggregateDeviceSubDeviceListKey: [[kAudioSubDeviceUIDKey: outputUID]],
-  kAudioAggregateDeviceTapListKey: [[kAudioSubTapDriftCompensationKey: true, kAudioSubTapUIDKey: tapDesc.uuid.uuidString]],
-]
-var aggregateID = AudioObjectID(kAudioObjectUnknown)
-status = AudioHardwareCreateAggregateDevice(aggregate as CFDictionary, &aggregateID)
-if status != noErr { fail("system-audio-unavailable", "Could not create tap device (\(status))") }
-
-var ioProc: AudioDeviceIOProcID?
-let ioQueue = DispatchQueue(label: "capture.tap")
-status = AudioDeviceCreateIOProcIDWithBlock(&ioProc, aggregateID, ioQueue) { _, inData, _, _, _ in
-  guard let buf = AVAudioPCMBuffer(pcmFormat: tapFormat, bufferListNoCopy: inData, deallocator: nil) else { return }
-  them.append(buf, channel: nil, since: start)
-}
-if status != noErr { fail("system-audio-unavailable", "Could not read tap (\(status))") }
-
-func teardownTap() {
-  if let p = ioProc {
-    AudioDeviceStop(aggregateID, p)
-    AudioDeviceDestroyIOProcID(aggregateID, p)
-    ioProc = nil
-  }
-  AudioHardwareDestroyAggregateDevice(aggregateID)
-  AudioHardwareDestroyProcessTap(tapID)
-}
-
-status = AudioDeviceStart(aggregateID, ioProc)
-if status != noErr {
-  teardownTap()
-  fail("system-audio-unavailable", "Could not start system audio (\(status))")
-}
-
-// Mic starts after the tap: enabling voice processing first leaves the tap silent.
-let engine = AVAudioEngine()
-let input = engine.inputNode
-if voiceProcessing {
-  do {
-    try input.setVoiceProcessingEnabled(true)
-    // Voice processing ducks other audio by default, which would quiet the call itself.
-    input.voiceProcessingOtherAudioDuckingConfiguration = .init(enableAdvancedDucking: false, duckingLevel: .min)
-  } catch {
-    emit(["type": "warning", "code": "no-echo-cancel", "detail": "\(error)"])
-  }
-}
-let micFormat = input.outputFormat(forBus: 0)
-if micFormat.channelCount == 0 { teardownTap(); fail("mic-unavailable", "No microphone input found") }
-input.installTap(onBus: 0, bufferSize: 4096, format: micFormat) { buf, _ in
-  you.append(buf, channel: 0, since: start)
-}
-do { try engine.start() } catch {
-  teardownTap()
-  fail("mic-unavailable", "Could not start the microphone: \(error)")
-}
-emit(["type": "started", "micRate": micFormat.sampleRate, "micChannels": micFormat.channelCount,
-      "tapRate": tapFormat.sampleRate, "tapChannels": tapFormat.channelCount, "echoCancel": input.isVoiceProcessingEnabled])
-
-// MARK: levels + stop
-
-let levelTimer = DispatchSource.makeTimerSource(queue: .main)
-levelTimer.schedule(deadline: .now() + 0.25, repeating: 0.25)
-levelTimer.setEventHandler {
-  emit(["type": "level", "you": Double(you.takeLevel()), "them": Double(them.takeLevel()),
-        "seconds": Date().timeIntervalSince(start)])
-}
-levelTimer.resume()
 
 func writeWav() throws -> (frames: Int, youPeak: Float, themPeak: Float) {
   you.lock.lock(); them.lock.lock()
@@ -283,33 +391,250 @@ func writeWav() throws -> (frames: Int, youPeak: Float, themPeak: Float) {
   return (frames, youPeak, themPeak)
 }
 
+// MARK: lifecycle — all control transitions run on the main queue.
+let engine = AVAudioEngine()
+let ioQueue = DispatchQueue(label: "capture.tap")
+var tapID = AudioObjectID(kAudioObjectUnknown)
+var aggregateID = AudioObjectID(kAudioObjectUnknown)
+var ioProc: AudioDeviceIOProcID?
+var tapDesc: CATapDescription?
+var tapFormat: AVAudioFormat?
+var started = false
 var stopping = false
+var micInstalled = false
+var micOnly = false
+var unattributedSince: Date?
+var watched = Set<AudioObjectID>()
+var listWatched = false
+var levelTimer: DispatchSourceTimer?
+let listListener: AudioObjectPropertyListenerBlock = { _, _ in refreshSources() }
+let outputListener: AudioObjectPropertyListenerBlock = { _, _ in refreshSources() }
+
+func removeSourceListeners() {
+  var addr = address(kAudioProcessPropertyIsRunningOutput)
+  for object in watched { AudioObjectRemovePropertyListenerBlock(object, &addr, .main, outputListener) }
+  watched.removeAll()
+  if listWatched {
+    var list = address(kAudioHardwarePropertyProcessObjectList)
+    AudioObjectRemovePropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &list, .main, listListener)
+    listWatched = false
+  }
+}
+func teardownTap() {
+  if let p = ioProc {
+    AudioDeviceStop(aggregateID, p)
+    AudioDeviceDestroyIOProcID(aggregateID, p)
+    ioProc = nil
+  }
+  if aggregateID != kAudioObjectUnknown { AudioHardwareDestroyAggregateDevice(aggregateID); aggregateID = AudioObjectID(kAudioObjectUnknown) }
+  if tapID != kAudioObjectUnknown { AudioHardwareDestroyProcessTap(tapID); tapID = AudioObjectID(kAudioObjectUnknown) }
+}
+func discardThem() {
+  // Set under the same lock as the final append. An in-flight conversion cannot
+  // append after discard, even if it finishes after device teardown.
+  them.discard()
+  teardownTap()
+  removeSourceListeners()
+}
+func latchMicOnly() {
+  guard !micOnly else { return }
+  micOnly = true
+  discardThem()
+  emit(["type": "notice", "code": "mic-only"])
+}
+func sourceFailure(_ error: Error) {
+  guard !stopping else { return }
+  discardThem()
+  emit(["type": "error", "code": "source-check-failed", "detail": "\(error)"])
+  if started { stop() } else { exit(2) }
+}
+func registerOutputs(_ table: [Source]) throws {
+  let objects = Set(table.filter { $0.object != 0 && $0.vanished != true }.map { $0.object })
+  var addr = address(kAudioProcessPropertyIsRunningOutput)
+  for object in watched.subtracting(objects) { AudioObjectRemovePropertyListenerBlock(object, &addr, .main, outputListener) }
+  watched.formIntersection(objects)
+  for object in objects.subtracting(watched) {
+    try checkFault("output-listener")
+    let status = AudioObjectAddPropertyListenerBlock(object, &addr, .main, outputListener)
+    if status != noErr {
+      if !(try processList()).contains(object) { continue }
+      throw SourceFailure("output listener: \(status)")
+    }
+    watched.insert(object)
+  }
+}
+func setApprovedDescription(initial: Bool) throws -> Decision {
+  for attempt in 0..<2 {
+    let table = try readSources()
+    let decision = try resolve(table, approved: approveBundles, never: neverBundles, excluded: Set(excludePids))
+    if initial && decision.micOnly { return decision }
+    try registerOutputs(table)
+    let description = CATapDescription(stereoMixdownOfProcesses: decision.included.map { $0.object })
+    description.uuid = tapDesc?.uuid ?? UUID()
+    description.isPrivate = true
+    description.muteBehavior = .unmuted
+    if initial && tapID == kAudioObjectUnknown {
+      try checkFault("tap")
+      let status = AudioHardwareCreateProcessTap(description, &tapID)
+      if status != noErr { throw SourceFailure("create tap: \(status)") }
+    }
+    try checkFault("description")
+    var addr = address(kAudioTapPropertyDescription)
+    var ref = Unmanaged.passUnretained(description)
+    let status = AudioObjectSetPropertyData(tapID, &addr, 0, nil, UInt32(MemoryLayout<Unmanaged<CATapDescription>>.size), &ref)
+    if status != noErr { throw SourceFailure("tap description: \(status)") }
+    tapDesc = description
+    try checkFault("identity")
+    let stable = decision.included.allSatisfy { s in
+      guard let pid = try? sourceValue(s.object, kAudioProcessPropertyPID, pid_t(0)), pid == s.pid,
+            let id = try? identity(pid) else { return false }
+      return id.0 == s.start
+    }
+    if stable { return decision }
+    if attempt == 1 { throw SourceFailure("source identity changed twice") }
+  }
+  throw SourceFailure("source identity")
+}
+func observeAttribution(_ decision: Decision) {
+  if decision.unattributed {
+    if unattributedSince == nil { unattributedSince = Date() }
+    if Date().timeIntervalSince(unattributedSince!) >= 3 { latchMicOnly() }
+  } else { unattributedSince = nil }
+}
+func refreshSources() {
+  guard approvedOnly && !micOnly && !stopping else { return }
+  do { observeAttribution(try setApprovedDescription(initial: false)) }
+  catch { sourceFailure(error) }
+}
+func startSystemAudio() throws {
+  if approvedOnly {
+    // No process can qualify for these approvals; avoid touching system audio.
+    if approveBundles.subtracting(sharedCallApps).isEmpty { latchMicOnly(); return }
+    try checkFault("process-list-listener")
+    var addr = address(kAudioHardwarePropertyProcessObjectList)
+    let status = AudioObjectAddPropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &addr, .main, listListener)
+    if status != noErr { throw SourceFailure("process-list listener: \(status)") }
+    listWatched = true
+    let decision = try setApprovedDescription(initial: true)
+    if decision.micOnly { latchMicOnly(); return }
+    observeAttribution(decision)
+  } else {
+    let description = CATapDescription(stereoGlobalTapButExcludeProcesses: excludePids.compactMap(processObject(for:)))
+    description.uuid = UUID(); description.isPrivate = true; description.muteBehavior = .unmuted
+    tapDesc = description
+    let status = AudioHardwareCreateProcessTap(description, &tapID)
+    if status != noErr { throw SourceFailure("Could not tap system audio (\(status))") }
+  }
+  var formatAddr = address(kAudioTapPropertyFormat)
+  var asbd = AudioStreamBasicDescription()
+  var size = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+  let formatStatus = AudioObjectGetPropertyData(tapID, &formatAddr, 0, nil, &size, &asbd)
+  guard formatStatus == noErr, let format = AVAudioFormat(streamDescription: &asbd), let outputUID = defaultOutputUID(), let description = tapDesc else { throw SourceFailure("tap format or output device") }
+  tapFormat = format
+  let aggregate: [String: Any] = [
+    kAudioAggregateDeviceNameKey: "quietpls-capture tap",
+    kAudioAggregateDeviceUIDKey: UUID().uuidString,
+    kAudioAggregateDeviceMainSubDeviceKey: outputUID,
+    kAudioAggregateDeviceIsPrivateKey: true,
+    kAudioAggregateDeviceIsStackedKey: false,
+    kAudioAggregateDeviceTapAutoStartKey: true,
+    kAudioAggregateDeviceSubDeviceListKey: [[kAudioSubDeviceUIDKey: outputUID]],
+    kAudioAggregateDeviceTapListKey: [[kAudioSubTapDriftCompensationKey: true, kAudioSubTapUIDKey: description.uuid.uuidString]],
+  ]
+  if approvedOnly { try checkFault("aggregate") }
+  var status = AudioHardwareCreateAggregateDevice(aggregate as CFDictionary, &aggregateID)
+  if status != noErr { throw SourceFailure("create aggregate: \(status)") }
+  status = AudioDeviceCreateIOProcIDWithBlock(&ioProc, aggregateID, ioQueue) { _, inData, _, _, _ in
+    guard let buf = AVAudioPCMBuffer(pcmFormat: format, bufferListNoCopy: inData, deallocator: nil) else { return }
+    them.append(buf, channel: nil, since: start)
+  }
+  if status != noErr { throw SourceFailure("tap IO: \(status)") }
+  // No first sample until the include-list identity has been checked.
+  if approvedOnly { _ = try setApprovedDescription(initial: false) }
+  status = AudioDeviceStart(aggregateID, ioProc)
+  if status != noErr { throw SourceFailure("start tap: \(status)") }
+}
 func stop() {
   if stopping { return }
   stopping = true
-  levelTimer.cancel()
-  engine.inputNode.removeTap(onBus: 0)
+  levelTimer?.cancel()
+  removeSourceListeners()
+  if micInstalled { engine.inputNode.removeTap(onBus: 0); micInstalled = false }
   engine.stop()
   teardownTap()
   do {
     let r = try writeWav()
     emit(["type": "saved", "path": outPath, "seconds": Double(r.frames) / sampleRate,
-          "youPeak": Double(r.youPeak), "themPeak": Double(r.themPeak)])
+          "youPeak": Double(r.youPeak), "themPeak": Double(r.themPeak), "themDiscarded": them.discarded])
     exit(0)
-  } catch {
-    fail("write-failed", "\(error)")
-  }
+  } catch { fail("write-failed", "\(error)") }
 }
+func revoke() { discardThem(); stop() }
 
-signal(SIGINT, SIG_IGN)
-signal(SIGTERM, SIG_IGN)
+signal(SIGINT, SIG_IGN); signal(SIGTERM, SIG_IGN); signal(SIGUSR1, SIG_IGN)
 let sigint = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
 let sigterm = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
-sigint.setEventHandler(handler: stop)
-sigterm.setEventHandler(handler: stop)
-sigint.resume()
-sigterm.resume()
-// Parent went away (stdin closed) → stop and save rather than record forever.
+let sigrevoke = DispatchSource.makeSignalSource(signal: SIGUSR1, queue: .main)
+sigint.setEventHandler(handler: stop); sigterm.setEventHandler(handler: stop)
+sigrevoke.setEventHandler {
+  if revokeFixture {
+    discardThem()
+    appendFixture(seconds: 1) // callbacks still in flight after the discard
+    stop()
+  } else { revoke() }
+}
+sigint.resume(); sigterm.resume(); sigrevoke.resume()
+
+func appendFixture(seconds: Int) {
+  let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: sampleRate, channels: 1, interleaved: false)!
+  let buf = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(seconds * Int(sampleRate)))!
+  buf.frameLength = buf.frameCapacity
+  for i in 0..<Int(buf.frameLength) { buf.floatChannelData![0][i] = Float(sin(Double(i) * 2 * .pi * 440 / sampleRate)) * 0.3 }
+  you.append(buf, channel: 0, since: start)
+  them.append(buf, channel: 0, since: start)
+}
+if revokeFixture {
+  appendFixture(seconds: 2)
+  kill(getpid(), SIGUSR1)
+  dispatchMain()
+}
+
+let mic = AVCaptureDevice.authorizationStatus(for: .audio)
+if mic == .notDetermined {
+  let sem = DispatchSemaphore(value: 0)
+  AVCaptureDevice.requestAccess(for: .audio) { _ in sem.signal() }; sem.wait()
+}
+if AVCaptureDevice.authorizationStatus(for: .audio) != .authorized { fail("mic-denied", "Microphone access is off for this app") }
+do { try startSystemAudio() } catch {
+  if approvedOnly { sourceFailure(error) }
+  teardownTap(); fail("system-audio-unavailable", "\(error)")
+}
+let input = engine.inputNode
+if voiceProcessing {
+  do {
+    try input.setVoiceProcessingEnabled(true)
+    input.voiceProcessingOtherAudioDuckingConfiguration = .init(enableAdvancedDucking: false, duckingLevel: .min)
+  } catch { emit(["type": "warning", "code": "no-echo-cancel", "detail": "\(error)"]) }
+}
+let micFormat = input.outputFormat(forBus: 0)
+if micFormat.channelCount == 0 { teardownTap(); fail("mic-unavailable", "No microphone input found") }
+input.installTap(onBus: 0, bufferSize: 4096, format: micFormat) { buf, _ in you.append(buf, channel: 0, since: start) }
+micInstalled = true
+do { try engine.start() } catch { teardownTap(); fail("mic-unavailable", "Could not start the microphone: \(error)") }
+started = true
+faultArmed = true
+emit(["type": "started", "micRate": micFormat.sampleRate, "micChannels": micFormat.channelCount,
+      "tapRate": tapFormat?.sampleRate ?? 0, "tapChannels": tapFormat?.channelCount ?? 0, "echoCancel": input.isVoiceProcessingEnabled])
+let timer = DispatchSource.makeTimerSource(queue: .main)
+levelTimer = timer
+timer.schedule(deadline: .now() + 0.25, repeating: 0.25)
+timer.setEventHandler {
+  // Recheck the debounce even if the running-output property hasn't changed.
+  // Source-list listeners do the immediate resolution; this also catches read failures.
+  refreshSources()
+  emit(["type": "level", "you": Double(you.takeLevel()), "them": Double(them.takeLevel()), "seconds": Date().timeIntervalSince(start)])
+}
+timer.resume()
 let stdinSource = DispatchSource.makeReadSource(fileDescriptor: STDIN_FILENO, queue: .main)
 stdinSource.setEventHandler {
   var byte: UInt8 = 0

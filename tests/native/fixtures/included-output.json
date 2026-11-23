@@ -1,0 +1,35 @@
+{
+  "approved": [
+    "approved"
+  ],
+  "never": [
+    "never"
+  ],
+  "processes": [
+    {
+      "object": 1,
+      "pid": 10,
+      "bundle": "approved",
+      "path": "/Applications/Approved.app/Contents/MacOS/main",
+      "start": 100,
+      "parent": 1,
+      "runningOutput": true
+    },
+    {
+      "object": 2,
+      "pid": 20,
+      "bundle": "",
+      "path": "/tmp/player",
+      "start": 100,
+      "parent": 1,
+      "runningOutput": true
+    }
+  ],
+  "expect": {
+    "included": [
+      1
+    ],
+    "micOnly": false,
+    "unattributed": false
+  }
+}

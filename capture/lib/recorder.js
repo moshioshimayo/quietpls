@@ -8,6 +8,9 @@ const path = require("path");
 function startCapture({
   output,
   excludePids = [],
+  approvedOnly = false,
+  approveBundleIds = [],
+  neverBundleIds = [],
   onMessage,
   onStderr = () => {},
   onExit,
@@ -19,6 +22,11 @@ function startCapture({
       "--out",
       output,
       ...excludePids.flatMap((p) => ["--exclude-pid", String(p)]),
+      ...(approvedOnly ? [
+        "--approved-only",
+        ...approveBundleIds.flatMap((id) => ["--approve-bundle", id]),
+        ...neverBundleIds.flatMap((id) => ["--never-bundle", id]),
+      ] : []),
     ],
     { stdio: ["pipe", "pipe", "pipe"] },
   );
@@ -33,6 +41,12 @@ function startCapture({
   });
   child.stderr.on("data", (d) => onStderr(String(d)));
   let finished = false;
+  let revoked = false;
+  child.revoke = () => {
+    if (finished || revoked || child.exitCode != null || child.signalCode != null) return;
+    revoked = true;
+    child.kill("SIGUSR1");
+  };
   function finish(code) {
     if (!finished) {
       finished = true;
