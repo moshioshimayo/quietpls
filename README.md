@@ -123,9 +123,13 @@ by default. Monitoring works the same whether it is on or off.
 - While recording, the menu bar shows a red dot and the elapsed time, and a
   small REC indicator with a Stop button stays on screen. The pill stays the
   monitoring pill.
-- It records two channels: your mic ("you") and the call's audio from the
-  system audio output ("them"). The mic also hears anyone else in the room;
-  their speech is labeled "you".
+- It records two channels: your mic ("you") and the sound of the call app you
+  approved ("them"). Sound from other apps is never recorded. When quietpls
+  can't tell which app the call's sound comes from (FaceTime, Messages and
+  Phone calls today), it records your side only and says so. The mic also
+  hears anyone else in the room; their speech is labeled "you".
+- Setting an app to Never record while it's recording stops the recording and
+  drops its call audio.
 - When the call app releases the mic (or you click Stop), the recording is
   transcribed on this Mac with [whisper.cpp](https://github.com/ggml-org/whisper.cpp).
 - The transcript is saved as one markdown file per call and committed to a
