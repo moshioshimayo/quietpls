@@ -24,6 +24,8 @@ const KNOWN_APPS = {
   "com.tinyspeck.slackmacgap": "Slack",
   "com.hnc.Discord": "Discord",
   "com.apple.FaceTime": "FaceTime",
+  "com.apple.MobileSMS": "Messages",
+  "com.apple.mobilephone": "Phone",
   "com.cisco.webexmeetingsapp": "Webex",
   "com.google.Chrome": "Google Chrome",
   "com.apple.Safari": "Safari",
@@ -33,6 +35,13 @@ const KNOWN_APPS = {
   "net.whatsapp.WhatsApp": "WhatsApp",
   "com.apple.Terminal": "Terminal",
 };
+
+function bundleIdsForNames(names, seenIds = {}) {
+  return [...new Set(names.flatMap((name) => [
+    ...Object.keys(KNOWN_APPS).filter((id) => KNOWN_APPS[id] === name),
+    ...(seenIds[name] || []),
+  ]))].sort();
+}
 
 /** Friendly, sorted names for meeting-detector app ids ("bundle.id" or "pid N"). */
 function callApps(ids, nameForPid = () => "") {
@@ -99,11 +108,20 @@ function createDetector({
     _execFile: observed,
   });
   let current = [];
+  let currentIds = {};
   d.onDetectionChange(({ apps }) => {
     const names = callApps(apps, nameForPid);
-    if (names.join("\n") === current.join("\n")) return;
+    const ids = {};
+    for (const id of apps) {
+      if (/^pid \d+$/.test(id) || NOT_CALLS.test(id)) continue;
+      const name = callApps([id], nameForPid)[0];
+      if (name) (ids[name] ||= []).push(id);
+    }
+    for (const list of Object.values(ids)) list.sort();
+    if (names.join("\n") === current.join("\n") && JSON.stringify(ids) === JSON.stringify(currentIds)) return;
     current = names;
-    onChange({ apps: names });
+    currentIds = ids;
+    onChange({ apps: names, ids });
   });
   return {
     start: () => d.start(),
@@ -114,4 +132,4 @@ function createDetector({
   };
 }
 
-module.exports = { createDetector, callApps };
+module.exports = { createDetector, callApps, bundleIdsForNames };

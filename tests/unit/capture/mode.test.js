@@ -11,6 +11,7 @@ import vm from "vm";
 const require = createRequire(import.meta.url);
 const electron = require("electron");
 const Wav = require("../../../capture/lib/wav.js");
+const repo = require("../../../capture/lib/repo.js");
 
 const made = [];
 const mkdtemp = (prefix) => {
@@ -115,6 +116,7 @@ function makeMode({ settings = {}, data = mkdtemp("qpc-mode-data-") } = {}) {
     child: null, // the fake recorder: { opts, kills }
     micChecks: 0,
     polls: 0,
+    transcriptions: [],
     micUsers: "4242\tus.zoom.xos\n",
     gate: null, // when set, the next mic check waits for t.release()
   };
@@ -135,9 +137,14 @@ function makeMode({ settings = {}, data = mkdtemp("qpc-mode-data-") } = {}) {
         t.launches++;
         t.child = { opts, kills: [], pid: undefined };
         t.child.kill = (sig) => t.child.kills.push(sig);
+        t.child.revoke = () => t.child.kills.push("SIGUSR1");
+        queueMicrotask(() => opts.onMessage({ type: "started" }));
         return t.child;
       },
-      transcribe: async () => ({ transcription: [] }),
+      transcribe: async (_bin, _model, file) => {
+        t.transcriptions.push(file);
+        return { transcription: [{ offsets: { from: 0, to: 100 }, text: "My side" }] };
+      },
       findWhisper: () => "/usr/bin/true",
       checkMic: () => {
         t.micChecks++;
@@ -343,7 +350,7 @@ describe("consent covers the apps that were on the call", () => {
     await t.handlers["set-enabled"]({}, false);
   }, 30000);
 
-  it("stops the recording when an app on the call is set to Never, not when another app is", async () => {
+  it("revokes the recording when any app is newly set to Never", async () => {
     const t = makeMode();
     t.micUsers = TEAMS;
     await inCall(t);
@@ -351,11 +358,11 @@ describe("consent covers the apps that were on the call", () => {
     expect(t.mode.summary().phase).toBe("recording");
 
     await t.handlers.settings({}, { neverApps: ["Zoom"] });
-    expect(t.child.kills).toEqual([]);
-    expect(t.mode.summary().phase).toBe("recording");
+    expect(t.child.kills).toEqual(["SIGUSR1"]);
+    expect(t.mode.summary().phase).toBe("transcribing");
 
     await t.handlers.settings({}, { neverApps: ["Zoom", "Microsoft Teams"] });
-    expect(t.child.kills).toEqual(["SIGINT"]);
+    expect(t.child.kills).toEqual(["SIGUSR1"]);
     expect(t.mode.summary().phase).toBe("transcribing");
     await t.handlers["set-enabled"]({}, false);
   });
@@ -435,5 +442,227 @@ describe("crash leftovers", () => {
     makeMode({ data, settings: { enabled: false } }).mode.start();
     spy.mockRestore();
     expect(left.filter((f) => fs.existsSync(f))).toEqual([]);
+  });
+});
+
+const snapOf = (t) => t.handlers.snapshot();
+const messageOf = (t) => snapOf(t).state.error;
+const transcriptsOf = (t) => fs.readdirSync(t.folder).filter((f) => f.endsWith('.md'));
+const sourceError = { type: 'error', code: 'source-check-failed', detail: 'read failed' };
+function savedMic(t, discarded = true) {
+  const tone = Int16Array.from({ length: 3200 }, (_, i) => Math.round(8000 * Math.sin(i * 0.17)));
+  fs.writeFileSync(t.child.opts.output, Wav.encode([tone, discarded ? new Int16Array(tone.length) : tone]));
+  t.child.opts.onMessage({ type: 'saved', themDiscarded: discarded });
+}
+async function finish(t) {
+  await t.child.opts.onExit(0);
+  await t.handlers['set-enabled']({}, false);
+}
+
+describe('approved app capture contract', () => {
+  it('approves only the bundle actually seen and supplies Never ids without call PIDs', async () => {
+    const t = makeMode({ settings: { neverApps: ['Zoom'], seenIds: { Zoom: ['custom.zoom'] } } });
+    t.micUsers = TEAMS;
+    await inCall(t);
+    await t.handlers.accept();
+    expect(t.child.opts.approvedOnly).toBe(true);
+    expect(t.child.opts.approveBundleIds).toEqual(['com.microsoft.teams2']);
+    expect(t.child.opts.neverBundleIds).toEqual(expect.arrayContaining(['us.zoom.xos', 'custom.zoom']));
+    expect(t.child.opts.excludePids).not.toContain(4343);
+    expect(snapOf(t).settings.seenIds['Microsoft Teams']).toEqual(['com.microsoft.teams2']);
+    await finish(t);
+  });
+
+  it('passes approved-only without promoting a bundle-less process PID', async () => {
+    const t = makeMode();
+    t.micUsers = '4242\t\n';
+    await inCall(t);
+    await t.handlers.accept();
+    expect(t.child.opts.approvedOnly).toBe(true);
+    expect(t.child.opts.approveBundleIds).toEqual([]);
+    expect(t.child.opts.excludePids).not.toContain(4242);
+    await finish(t);
+  });
+
+  it('rechecks Never after folder preparation (two-app call)', async () => {
+    const t = makeMode();
+    t.micUsers = TEAMS + ZOOM;
+    await inCall(t);
+    let release;
+    let entered = false;
+    const prepare = repo.prepareFolder;
+    const spy = vi.spyOn(repo, 'prepareFolder').mockImplementation(async (...args) => {
+      entered = true;
+      await new Promise((r) => { release = r; });
+      return prepare(...args);
+    });
+    try {
+      const accepting = t.handlers.accept();
+      await until(() => entered);
+      await t.handlers.settings({}, { neverApps: ['Zoom'] });
+      release();
+      await accepting;
+      expect(t.launches).toBe(0);
+      expect(messageOf(t)).toMatch(/Not recorded: Zoom is set to Never/);
+    } finally {
+      spy.mockRestore();
+      await t.handlers['set-enabled']({}, false);
+    }
+  });
+
+  it('does not mark a spawn as started; a pre-start source error saves nothing', async () => {
+    const t = makeMode();
+    await inCall(t);
+    // Suppress the fake helper's started microtask for this refusal.
+    const micro = vi.spyOn(globalThis, 'queueMicrotask').mockImplementation(() => {});
+    await t.handlers.accept();
+    micro.mockRestore();
+    expect(t.mode.summary().phase).toBe('asking');
+    t.child.opts.onMessage(sourceError);
+    await t.child.opts.onExit(2);
+    expect(messageOf(t)).toBe("Not recorded: quietpls couldn't check which app the call's sound comes from.");
+    expect(transcriptsOf(t)).toEqual([]);
+    await t.handlers['set-enabled']({}, false);
+  });
+
+  it('shows mic-only status and suppresses the silent-other-side warning', async () => {
+    const t = makeMode();
+    await inCall(t);
+    await t.handlers.accept();
+    t.child.opts.onMessage({ type: 'notice', code: 'mic-only' });
+    expect(t.mode.menuItems().some((i) => i.label === 'Recording your side only — Zoom')).toBe(true);
+    expect(snapOf(t).health.lastCallMicOnly).toBe('Zoom');
+    // Run the production alert function (with the real escaping helper), not a
+    // copied text template. Bootstrapping the full window isn't needed here.
+    const ctx = { window: { qpc: { on() {}, snapshot: () => new Promise(() => {}) } }, document: { querySelectorAll: () => [] }, $: () => ({}), esc: (text) => text, inputSnap: snapOf(t) };
+    vm.createContext(ctx);
+    vm.runInContext(fs.readFileSync(new URL('../../../capture/renderer/main.js', import.meta.url), 'utf8'), ctx);
+    const notices = vm.runInContext('snap = inputSnap; alerts()', ctx);
+    expect(notices).toContainEqual({ kind: 'warn', html: "<b>Your side only.</b> quietpls couldn't tell that the call's sound was coming from Zoom, so this call records only your microphone." });
+    expect(notices.some((notice) => notice.html.includes('no sound from the other side'))).toBe(false);
+    savedMic(t);
+    await t.child.opts.onExit(0);
+    expect(snapOf(t).health.lastCallSilent).not.toContain('them');
+    await t.handlers['set-enabled']({}, false);
+  });
+
+  for (const order of ['error-first', 'saved-first']) {
+    it(`${order}: saves only you and preserves the source error after transcription`, async () => {
+      const t = makeMode();
+      await inCall(t);
+      await t.handlers.accept();
+      if (order === 'error-first') t.child.opts.onMessage(sourceError);
+      savedMic(t);
+      if (order === 'saved-first') t.child.opts.onMessage(sourceError);
+      // A manual Stop arriving too must not signal a second stop.
+      t.handlers.stop();
+      t.handlers.stop();
+      expect(t.child.kills.length).toBeLessThanOrEqual(1);
+      await t.child.opts.onExit(0);
+      expect(t.transcriptions).toHaveLength(1);
+      expect(t.transcriptions[0]).toMatch(/-you.wav$/);
+      expect(transcriptsOf(t)).toHaveLength(1);
+      expect(messageOf(t)).toBe("Recording stopped: quietpls couldn't check which app the call's sound comes from. Your side was saved.");
+      await t.handlers['set-enabled']({}, false);
+    });
+  }
+
+  for (const app of ['Zoom', 'Microsoft Teams']) {
+    it(`revokes for ${app}, retaining only confirmed mic audio with Keep audio on`, async () => {
+      const t = makeMode({ settings: { keepAudio: true } });
+      t.micUsers = TEAMS;
+      await inCall(t);
+      await t.handlers.accept();
+      await t.handlers.settings({}, { neverApps: [app] });
+      await t.handlers.settings({}, { neverApps: [app] });
+      expect(t.child.kills).toEqual(['SIGUSR1']);
+      savedMic(t);
+      await t.child.opts.onExit(0);
+      expect(t.transcriptions).toHaveLength(1);
+      expect(messageOf(t)).toBe(`Recording stopped: ${app} was set to Never record. Only your side was saved.`);
+      expect(Wav.splitCall(fs.readFileSync(t.child.opts.output)).them.peak).toBe(0);
+      await t.handlers['set-enabled']({}, false);
+    });
+  }
+
+  for (const keepAudio of [true, false]) {
+    it(`Stop then Never discards an unconfirmed mixed file unread (keepAudio=${keepAudio})`, async () => {
+      const t = makeMode({ settings: { keepAudio } });
+      await inCall(t);
+      await t.handlers.accept();
+      t.handlers.stop();
+      await t.handlers.settings({}, { neverApps: ['Microsoft Teams'] });
+      savedMic(t, false);
+      const read = vi.spyOn(fs, 'readFileSync');
+      await t.child.opts.onExit(0);
+      expect(read.mock.calls.some(([p]) => p === t.child.opts.output)).toBe(false);
+      read.mockRestore();
+      expect(fs.existsSync(t.child.opts.output)).toBe(false);
+      expect(t.transcriptions).toEqual([]);
+      expect(transcriptsOf(t)).toEqual([]);
+      expect(messageOf(t)).toBe('Recording stopped: Microsoft Teams was set to Never record. Nothing was saved.');
+      await t.handlers['set-enabled']({}, false);
+    });
+  }
+
+  for (const revoked of [false, true]) {
+    it(`started then ${revoked ? 'revocation' : 'source error'} then no saved is truthful`, async () => {
+      const t = makeMode();
+      await inCall(t);
+      await t.handlers.accept();
+      if (revoked) await t.handlers.settings({}, { neverApps: ['Zoom'] });
+      else t.child.opts.onMessage(sourceError);
+      await t.child.opts.onExit(2);
+      expect(messageOf(t)).toMatch(/^Recording stopped: .*Nothing was saved\.$/);
+      expect(messageOf(t)).not.toMatch(/Your side was saved/);
+      await t.handlers['set-enabled']({}, false);
+    });
+  }
+
+  it('always-on has the original options and ignores Never edits', async () => {
+    const t = makeMode();
+    t.handlers['ambient-dialog']();
+    const consent = windows.findLast((w) => w.page === 'ambient-consent');
+    await t.handlers['ambient-confirm']({ sender: consent.webContents }, 'ALWAYS ON');
+    expect(t.child.opts.approvedOnly).toBeUndefined();
+    expect(t.child.opts.approveBundleIds).toBeUndefined();
+    expect(t.child.opts.neverBundleIds).toBeUndefined();
+    await t.handlers.settings({}, { neverApps: ['Zoom'] });
+    expect(t.child.kills).toEqual([]);
+    t.handlers['ambient-stop']();
+    await finish(t);
+  });
+});
+
+
+describe('folder preparation consent controls', () => {
+  it('unchanged settings launches exactly once after preparation', async () => {
+    const t = makeMode(); t.micUsers = TEAMS + ZOOM;
+    await inCall(t); await t.handlers.accept();
+    expect(t.launches).toBe(1); await finish(t);
+  });
+  it('all apps Never never launches', async () => {
+    const t = makeMode({ settings: { neverApps: ['Zoom', 'Microsoft Teams'] } });
+    t.micUsers = TEAMS + ZOOM;
+    await t.handlers.settings({}, {});
+    await until(() => t.polls > 0);
+    await t.handlers.accept();
+    expect(t.launches).toBe(0);
+    await t.handlers['set-enabled']({}, false);
+  });
+  it('banner-wide Never while preparation is pending cancels the launch', async () => {
+    const t = makeMode(); t.micUsers = TEAMS + ZOOM;
+    await inCall(t);
+    const prepare = repo.prepareFolder;
+    let release; let entered = false;
+    const spy = vi.spyOn(repo, 'prepareFolder').mockImplementation(async (...args) => {
+      entered = true; await new Promise((r) => { release = r; }); return prepare(...args);
+    });
+    try {
+      const accepting = t.handlers.accept();
+      await until(() => entered);
+      await t.handlers.never(); release(); await accepting;
+      expect(t.launches).toBe(0);
+    } finally { spy.mockRestore(); await t.handlers['set-enabled']({}, false); }
   });
 });
