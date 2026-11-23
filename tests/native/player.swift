@@ -45,7 +45,19 @@ if let speech = option("--speech") {
     if sent { status.pointee = .endOfStream; return nil }
     sent = true; status.pointee = .haveData; return input
   }
-  for i in 0..<min(count, Int(output.frameLength)) { buffer.floatChannelData![0][i] += output.floatChannelData![0][i] * 0.6 }
+  // Speech is broadband: notch it at the B/C markers so their per-window energy measures only marker tones.
+  let speech = output.floatChannelData![0]
+  for f0 in [1000.0, 1600.0] {
+    let w = 2 * Double.pi * f0 / rate, alpha = sin(w) / 4, b0 = 1 / (1 + alpha), b1 = -2 * cos(w) * b0, a2 = (1 - alpha) * b0
+    for _ in 0..<2 {
+      var x1 = 0.0, x2 = 0.0, y1 = 0.0, y2 = 0.0
+      for i in 0..<Int(output.frameLength) {
+        let x = Double(speech[i]), y = b0 * x + b1 * x1 + b0 * x2 - b1 * y1 - a2 * y2
+        x2 = x1; x1 = x; y2 = y1; y1 = y; speech[i] = Float(y)
+      }
+    }
+  }
+  for i in 0..<min(count, Int(output.frameLength)) { buffer.floatChannelData![0][i] += speech[i] * 0.6 }
 }
 let engine = AVAudioEngine()
 let player = AVAudioPlayerNode()
