@@ -454,6 +454,16 @@ function savedMic(t, discarded = true) {
   fs.writeFileSync(t.child.opts.output, Wav.encode([tone, discarded ? new Int16Array(tone.length) : tone]));
   t.child.opts.onMessage({ type: 'saved', themDiscarded: discarded });
 }
+/** Record clicked; the helper is spawned but hasn't sent started yet. */
+async function acceptBeforeStarted(t) {
+  const micro = vi.spyOn(globalThis, 'queueMicrotask').mockImplementation(() => {});
+  try {
+    await t.handlers.accept();
+  } finally {
+    micro.mockRestore();
+  }
+  expect(t.launches).toBe(1);
+}
 async function finish(t) {
   await t.child.opts.onExit(0);
   await t.handlers['set-enabled']({}, false);
@@ -510,19 +520,56 @@ describe('approved app capture contract', () => {
     }
   });
 
-  it('does not mark a spawn as started; a pre-start source error saves nothing', async () => {
+  it('a pre-start source error saves nothing and says Not recorded', async () => {
     const t = makeMode();
     await inCall(t);
-    // Suppress the fake helper's started microtask for this refusal.
-    const micro = vi.spyOn(globalThis, 'queueMicrotask').mockImplementation(() => {});
-    await t.handlers.accept();
-    micro.mockRestore();
-    expect(t.mode.summary().phase).toBe('asking');
+    await acceptBeforeStarted(t);
     t.child.opts.onMessage(sourceError);
     await t.child.opts.onExit(2);
     expect(messageOf(t)).toBe("Not recorded: quietpls couldn't check which app the call's sound comes from.");
     expect(transcriptsOf(t)).toEqual([]);
     await t.handlers['set-enabled']({}, false);
+  });
+
+  describe('between spawn and the helper\'s started message', () => {
+    it('leaves the banner: the recording is visible and stoppable, Not now does nothing', async () => {
+      const t = makeMode();
+      await inCall(t);
+      await acceptBeforeStarted(t);
+      expect(t.mode.summary().phase).toBe('recording');
+      t.handlers.skip();
+      expect(t.mode.summary().phase).toBe('recording');
+      t.mode.menuItems().find((i) => i.label === 'Stop recording').click();
+      expect(t.child.kills).toEqual(['SIGINT']);
+      await finish(t);
+    });
+
+    it('banner Never for <App> revokes the starting recording like Settings Never', async () => {
+      const t = makeMode({ settings: { keepAudio: true } });
+      await inCall(t);
+      await acceptBeforeStarted(t);
+      await t.handlers.never();
+      expect(snapOf(t).settings.neverApps).toEqual(['Zoom']);
+      expect(t.child.kills).toEqual(['SIGUSR1']);
+      t.child.opts.onMessage({ type: 'started' });
+      savedMic(t);
+      await t.child.opts.onExit(0);
+      expect(messageOf(t)).toBe('Recording stopped: Zoom was set to Never record. Only your side was saved.');
+      expect(Wav.splitCall(fs.readFileSync(t.child.opts.output)).them.peak).toBe(0);
+      await t.handlers['set-enabled']({}, false);
+    });
+
+    it('turning Capture off stops and saves the recording', async () => {
+      const t = makeMode();
+      await inCall(t);
+      await acceptBeforeStarted(t);
+      await t.handlers['set-enabled']({}, false);
+      expect(t.child.kills).toEqual(['SIGINT']);
+      expect(t.mode.summary().phase).toBe('transcribing');
+      savedMic(t, false);
+      await t.child.opts.onExit(0);
+      expect(transcriptsOf(t)).toHaveLength(1);
+    });
   });
 
   it('shows mic-only status and suppresses the silent-other-side warning', async () => {
