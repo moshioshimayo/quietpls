@@ -100,7 +100,12 @@ function alerts() {
       html: "<b>Speech-to-text isn't installed.</b> In Terminal, run <code>brew install whisper-cpp</code>, then check again.",
       action: ["Check again", () => api.refresh()],
     });
-  if ((health.lastCallSilent || []).includes("them"))
+  if (health.lastCallMicOnly)
+    out.push({
+      kind: "warn",
+      html: `<b>Your side only.</b> quietpls couldn't tell that the call's sound was coming from ${esc(health.lastCallMicOnly)}, so this call records only your microphone.`,
+    });
+  else if ((health.lastCallSilent || []).includes("them"))
     out.push({
       kind: "warn",
       html: "<b>The last call had no sound from the other side.</b> macOS may be blocking system audio. Allow it in System Settings → Privacy &amp; Security → Screen &amp; System Audio Recording.",

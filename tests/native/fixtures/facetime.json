@@ -1,0 +1,33 @@
+{
+  "approved": [
+    "com.apple.FaceTime"
+  ],
+  "never": [
+    "never"
+  ],
+  "processes": [
+    {
+      "object": 1,
+      "pid": 10,
+      "bundle": "com.apple.FaceTime",
+      "path": "/System/Applications/FaceTime.app/Contents/MacOS/FaceTime",
+      "start": 100,
+      "parent": 1,
+      "runningOutput": false
+    },
+    {
+      "object": 2,
+      "pid": 20,
+      "bundle": "com.apple.avconferenced",
+      "path": "/usr/libexec/avconferenced",
+      "start": 100,
+      "parent": 1,
+      "runningOutput": false
+    }
+  ],
+  "expect": {
+    "included": [],
+    "micOnly": true,
+    "unattributed": false
+  }
+}

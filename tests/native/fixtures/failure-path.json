@@ -1,0 +1,24 @@
+{
+  "approved": [
+    "approved"
+  ],
+  "never": [
+    "never"
+  ],
+  "processes": [
+    {
+      "object": 1,
+      "pid": 10,
+      "bundle": "approved",
+      "path": "/Applications/Approved.app/Contents/MacOS/main",
+      "start": 100,
+      "parent": 1,
+      "runningOutput": false,
+      "error": "path"
+    }
+  ],
+  "expect": {
+    "type": "error",
+    "code": "source-check-failed"
+  }
+}

@@ -1,6 +1,6 @@
 {
   "name": "quietpls",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "description": "A floating macOS audio-level monitor for calls and meetings. Local-only, open source.",
   "main": "main.js",
   "bin": {
@@ -32,15 +32,15 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "electron-store": "^8.1.0",
-    "electron-updater": "^6.6.2"
+    "electron-store": "^8.2.0",
+    "electron-updater": "^6.8.11"
   },
   "devDependencies": {
-    "@playwright/test": "^1.58.2",
-    "canvas": "^3.2.0",
-    "electron": "^40.8.0",
+    "@playwright/test": "^1.65.1",
+    "canvas": "^3.2.3",
+    "electron": "^43.8.12",
     "electron-builder": "^26.18.0",
-    "playwright": "^1.58.2",
-    "vitest": "^3.2.4"
+    "playwright": "^1.65.1",
+    "vitest": "^5.1.1"
   }
 }

@@ -1,0 +1,44 @@
+{
+  "approved": [
+    "approved"
+  ],
+  "never": [
+    "never"
+  ],
+  "processes": [
+    {
+      "object": 1,
+      "pid": 10,
+      "bundle": "approved",
+      "path": "/Applications/Approved.app/Contents/MacOS/main",
+      "start": 100,
+      "parent": 1,
+      "runningOutput": false
+    },
+    {
+      "object": 2,
+      "pid": 20,
+      "bundle": "com.apple.MobileSMS",
+      "path": "/System/Applications/Messages.app/Contents/MacOS/Messages",
+      "start": 100,
+      "parent": 1,
+      "runningOutput": false
+    },
+    {
+      "object": 3,
+      "pid": 30,
+      "bundle": "com.apple.avconferenced",
+      "path": "/usr/libexec/avconferenced",
+      "start": 100,
+      "parent": 1,
+      "runningOutput": true
+    }
+  ],
+  "expect": {
+    "included": [
+      1
+    ],
+    "micOnly": false,
+    "unattributed": true
+  }
+}

@@ -590,6 +590,25 @@ function resetTrayIcon() {
   }
 }
 
+// App pages never navigate away or open windows. The few links the app shows
+// open in the default browser; anything else is dropped.
+const EXTERNAL_LINKS = new Set(["https://github.com/moshioshimayo/quietpls/issues"]);
+function openExternalLink(url) {
+  if (EXTERNAL_LINKS.has(url)) shell.openExternal(url);
+  else console.warn("[navigation] blocked", url);
+}
+app.on("web-contents-created", (_event, contents) => {
+  contents.on("will-navigate", (event) => {
+    if (event.url === contents.getURL()) return;
+    event.preventDefault();
+    openExternalLink(event.url);
+  });
+  contents.setWindowOpenHandler(({ url }) => {
+    openExternalLink(url);
+    return { action: "deny" };
+  });
+});
+
 app.whenReady().then(async () => {
   // Load locally persisted settings (single source of truth)
   currentSettings = {

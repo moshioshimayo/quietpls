@@ -1,0 +1,72 @@
+{
+  "approved": [
+    "approved"
+  ],
+  "never": [
+    "never"
+  ],
+  "processes": [
+    {
+      "object": 1,
+      "pid": 10,
+      "bundle": "approved",
+      "path": "/Applications/Approved.app/Contents/MacOS/main",
+      "start": 100,
+      "parent": 1,
+      "runningOutput": false
+    },
+    {
+      "object": 2,
+      "pid": 20,
+      "bundle": "different.helper",
+      "path": "/Applications/Approved.app/Contents/Helpers/Helper.app/Contents/MacOS/helper",
+      "start": 101,
+      "parent": 10,
+      "runningOutput": false
+    },
+    {
+      "object": 3,
+      "pid": 30,
+      "bundle": "never",
+      "path": "/Applications/Never.app/Contents/MacOS/main",
+      "start": 100,
+      "parent": 1,
+      "runningOutput": false
+    },
+    {
+      "object": 4,
+      "pid": 40,
+      "bundle": "other.helper",
+      "path": "/Applications/Never.app/Contents/helper",
+      "start": 101,
+      "parent": 30,
+      "runningOutput": false
+    },
+    {
+      "object": 5,
+      "pid": 50,
+      "bundle": "",
+      "path": "/tmp/player",
+      "start": 101,
+      "parent": 10,
+      "runningOutput": false
+    },
+    {
+      "object": 6,
+      "pid": 60,
+      "bundle": "never.shim",
+      "path": "/Applications/Approved.app/Contents/shim",
+      "start": 101,
+      "parent": 10,
+      "runningOutput": false
+    }
+  ],
+  "expect": {
+    "included": [
+      1,
+      2
+    ],
+    "micOnly": false,
+    "unattributed": false
+  }
+}

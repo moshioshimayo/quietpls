@@ -20,7 +20,7 @@ const path = require("path");
 const readline = require("readline");
 const { execFile } = require("child_process");
 
-const { createDetector } = require("./lib/detector");
+const { createDetector, bundleIdsForNames } = require("./lib/detector");
 const S = require("./lib/state");
 const W = require("./lib/whisper");
 const repo = require("./lib/repo");
@@ -41,6 +41,7 @@ const DEFAULTS = {
   keepDays: 7,
   neverApps: [],
   seenApps: [],
+  seenIds: {},
   speakerLabels: false,
   ambientKeepHours: 24,
   // Earlier transcript folders that still hold always-on text: swept until empty.
@@ -104,6 +105,7 @@ function createCaptureMode({
   } catch {
     /* first use */
   }
+  settings.seenIds = { ...settings.seenIds };
   function saveSettings() {
     fs.mkdirSync(DATA, { recursive: true });
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
@@ -119,9 +121,11 @@ function createCaptureMode({
     folder: { ok: false, reason: "not-chosen", remotes: [] },
     download: null,
     lastCallSilent: [],
+    lastCallMicOnly: null,
   };
   let levels = { you: 0, them: 0 };
   let capture = null; // { child, wavPath, start, apps }
+  let callIds = {};
   let starting = false; // accept() is between the click and launching the recorder
   let callGen = 0; // bumped on every detection change: a consent answers one call
   let ambientActive = false; // session only: never resumes after a relaunch
@@ -329,6 +333,7 @@ function createCaptureMode({
       settings.enabled,
       ambientActive,
       Boolean(capture || processing),
+      Boolean(capture && capture.micOnly),
     ]);
     if (key !== menuKey) {
       menuKey = key;
@@ -342,7 +347,9 @@ function createCaptureMode({
       idle: "Capture on — waiting for a call",
       detected: `Call on (${state.apps.join(", ")}) — not recording`,
       asking: `Call on (${state.apps.join(", ")}) — waiting for your OK`,
-      recording: `Recording ${state.apps.join(", ")}`,
+      recording: capture && capture.micOnly
+        ? `Recording your side only — ${capture.apps.join(", ")}`
+        : `Recording ${state.apps.join(", ")}`,
       transcribing: "Turning the call into text",
       saved: "Transcript saved",
       error: state.error || "Something went wrong",
@@ -392,7 +399,11 @@ function createCaptureMode({
       helperPath: path.join(binDir, "mic-users"),
     }),
     ...(deps.detectorExecFile && { execFile: deps.detectorExecFile }),
-    onChange: ({ apps }) => {
+    onChange: ({ apps, ids }) => {
+      callIds = ids || {};
+      for (const [name, list] of Object.entries(callIds))
+        settings.seenIds[name] = [...new Set([...(settings.seenIds[name] || []), ...list])].sort();
+      saveSettings();
       callGen++;
       log(`call apps: ${apps.join(", ") || "(none)"}`);
       if (apps.length) {
@@ -467,14 +478,13 @@ function createCaptureMode({
       log("not recording: consent withdrawn while checking");
       return;
     }
-    // "Never" for one app on the call outranks a yes to the others: the recorder
-    // takes all system audio, so it would record that app too.
-    const never = isAmbient
-      ? []
-      : state.apps.filter((a) => settings.neverApps.includes(a));
-    const blocker = never.length
-      ? `Not recorded: ${never.join(" and ")} ${never.length === 1 ? "is" : "are"} set to Never record. Change it in Settings to record calls while ${never.length === 1 ? "it's" : "they're"} on.`
-      : !health.folder.ok
+    // Never for one app on the call outranks a yes to the others.
+    const neverMessage = () => {
+      const names = isAmbient ? [] : state.apps.filter((a) => settings.neverApps.includes(a));
+      return names.length ? `Not recorded: ${names.join(" and ")} ${names.length === 1 ? "is" : "are"} set to Never record. Change it in Settings to record calls while ${names.length === 1 ? "it's" : "they're"} on.` : null;
+    };
+    const never = neverMessage();
+    const blocker = never || (!health.folder.ok
         ? health.folder.reason === "has-remote"
           ? "Your transcript folder's repo has a remote, so nothing was recorded. Pick a folder with no remote."
           : "Choose a transcript folder first."
@@ -482,7 +492,7 @@ function createCaptureMode({
           ? "Speech-to-text isn't installed (brew install whisper-cpp)."
           : !health.modelReady
             ? "Download the speech model first (Settings)."
-            : null;
+            : null);
     if (blocker) {
       if (isAmbient) {
         ambientActive = false;
@@ -492,7 +502,7 @@ function createCaptureMode({
       log(`not recording: ${blocker}`);
       dispatch({ type: "skip" });
       // A remote already has its own alert on screen until it's fixed; don't repeat it.
-      if (never.length || health.folder.reason !== "has-remote")
+      if (never || health.folder.reason !== "has-remote")
         dispatch({ type: "failed", error: blocker });
       openMain("settings");
       return;
@@ -500,6 +510,13 @@ function createCaptureMode({
     await repo.prepareFolder(settings.folder);
     if (withdrawn()) {
       log("not recording: consent withdrawn while checking");
+      return;
+    }
+    const lateNever = neverMessage();
+    if (lateNever) {
+      dispatch({ type: "skip" });
+      dispatch({ type: "failed", error: lateNever });
+      openMain("settings");
       return;
     }
     const start = new Date();
@@ -525,9 +542,17 @@ function createCaptureMode({
       ambient: isAmbient,
       settings: { ...settings },
     };
+    health.lastCallMicOnly = null;
+    health.lastCallSilent = [];
+    capture = c;
     c.child = startCapture({
       output: wavPath,
       excludePids: exclude,
+      ...(!isAmbient && {
+        approvedOnly: true,
+        approveBundleIds: [...new Set(c.apps.flatMap((name) => callIds[name] || []))].sort(),
+        neverBundleIds: bundleIdsForNames(settings.neverApps, settings.seenIds),
+      }),
       helper: CAPTURE_BIN,
       onMessage: (msg) => {
         if (msg.type === "level") {
@@ -535,17 +560,24 @@ function createCaptureMode({
           return;
         }
         log(`capture: ${JSON.stringify(msg)}`);
+        if (msg.type === "started") {
+          c.started = true;
+          if (isAmbient && !c.end) dispatch({ type: "ambient-on", at: start.getTime() });
+        }
+        if (msg.type === "notice" && msg.code === "mic-only") {
+          c.micOnly = true;
+          health.lastCallMicOnly = c.apps.join(", ");
+          render();
+        }
         if (msg.type === "saved") c.saved = msg;
         if (msg.type === "error") c.error = msg;
       },
       onStderr: (d) => log(`capture stderr: ${d.trim()}`),
       onExit: onCaptureExit,
     });
-    capture = c;
-    dispatch({
-      type: isAmbient ? "ambient-on" : "accept",
-      at: start.getTime(),
-    });
+    // Leave the consent banner at spawn: Stop, Never and Capture-off act on a
+    // recording from here on (c.started only decides the ending text).
+    if (!isAmbient) dispatch({ type: "accept", at: start.getTime() });
     log(`recording → ${wavPath}`);
     if (isAmbient)
       chunkTimer = setTimeout(
@@ -599,6 +631,18 @@ function createCaptureMode({
       "macOS didn't allow system audio recording. Allow it in System Settings → Privacy & Security → Screen & System Audio Recording.",
   };
 
+  function ending(c, youSaved) {
+    if (c.revoked)
+      return `Recording stopped: ${c.revoked} was set to Never record. ${youSaved ? "Only your side was saved." : "Nothing was saved."}`;
+    if (c.error && c.error.code === "source-check-failed") {
+      const cause = "quietpls couldn't check which app the call's sound comes from.";
+      return c.started
+        ? `Recording stopped: ${cause} ${youSaved ? "Your side was saved." : "Nothing was saved."}`
+        : `Not recorded: ${cause}`;
+    }
+    return null;
+  }
+
   async function onCaptureExit(code) {
     const c = capture;
     capture = null;
@@ -607,9 +651,10 @@ function createCaptureMode({
     if (!c) return;
     processing = true;
     if (!c.saved) {
-      const err = c.error
+      fs.rmSync(c.wavPath, { force: true });
+      const err = ending(c, false) || (c.error
         ? ERRORS[c.error.code] || c.error.detail
-        : `Recording stopped unexpectedly (exit ${code}).`;
+        : `Recording stopped unexpectedly (exit ${code}).`);
       if (c.error && c.error.code === "mic-denied") health.mic = "denied";
       processing = false;
       if (c.ambient) {
@@ -617,6 +662,14 @@ function createCaptureMode({
         stopAmbient();
       }
       dispatch({ type: "failed", error: err });
+      if (quitRequested) app.quit();
+      return;
+    }
+    if (c.revoked && c.saved.themDiscarded !== true) {
+      // Do not read or transcribe a file the helper may have written before revoke.
+      fs.rmSync(c.wavPath, { force: true });
+      processing = false;
+      dispatch({ type: "failed", error: ending(c, false) });
       if (quitRequested) app.quit();
       return;
     }
@@ -649,11 +702,13 @@ function createCaptureMode({
                 })
             : undefined,
       });
-      health.lastCallSilent = result.silent;
+      health.lastCallSilent = c.micOnly ? result.silent.filter((side) => side !== "them") : result.silent;
       log(
         `saved ${result.file} @ ${result.sha}; ${result.lines.length} lines; audio ${result.audioDeleted ? "deleted" : "kept"}`,
       );
-      if (!c.ambient || ambientActive)
+      const finalError = ending(c, result.lines.some((line) => line.who === "you"));
+      if (finalError) dispatch({ type: "failed", error: finalError });
+      else if (!c.ambient || ambientActive)
         dispatch({ type: "saved", file: result.name });
       policy.sweep(AUDIO_DIR, settings);
       sweepAmbientAll(callSettings.folder);
@@ -666,7 +721,7 @@ function createCaptureMode({
       }
       dispatch({
         type: "failed",
-        error: `Couldn't save the transcript: ${e.message} ${c.ambient ? "Always-on stopped; audio deleted." : `Audio kept at ${c.wavPath}.`}`,
+        error: ending(c, false) || `Couldn't save the transcript: ${e.message} ${c.ambient ? "Always-on stopped; audio deleted." : `Audio kept at ${c.wavPath}.`}`,
       });
     }
     purgeScratch(SCRATCH_DIR);
@@ -681,15 +736,17 @@ function createCaptureMode({
   // MARK: settings + transcripts
 
   async function updateSettings(patch) {
+    const added = (patch.neverApps || []).filter((name) => !settings.neverApps.includes(name));
     settings = { ...settings, ...patch };
+    // Mark first, before signaling or yielding. Applies to an ordinary stop still pending.
+    if (capture && !capture.ambient && !capture.revoked && added.length) {
+      capture.revoked = added.join(" and ");
+      capture.end ||= new Date();
+      clearTimeout(chunkTimer);
+      dispatch({ type: "stopped" });
+      capture.child.revoke();
+    }
     saveSettings();
-    // Never for an app on the call being recorded withdraws its consent: stop now.
-    if (
-      capture &&
-      !capture.ambient &&
-      capture.apps.some((a) => settings.neverApps.includes(a))
-    )
-      stopRecording();
     applyDetection();
     dispatch({ type: "settings" });
     await refreshHealth();
@@ -862,14 +919,15 @@ function createCaptureMode({
   handle("accept", () => accept());
   handle("skip", () => dispatch({ type: "skip" }));
   handle("never", () => {
-    settings.neverApps = [
+    const neverApps = [
       ...new Set([
         ...settings.neverApps,
         ...S.askableApps(state.apps, settings),
       ]),
     ];
-    saveSettings();
     dispatch({ type: "never" });
+    // Same path as Settings → Never: revokes a recording already running.
+    return updateSettings({ neverApps });
   });
   handle("stop", () => stopRecording());
   handle("dismiss", () => dispatch({ type: "dismiss" }));
