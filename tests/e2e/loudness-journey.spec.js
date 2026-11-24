@@ -321,7 +321,7 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
       .toMatchObject({ width: 240 });
     await page.evaluate(() => window.__fakeMic.endCurrentTrack());
     await expect(word()).toHaveText("Reconnecting mic…", { timeout: 3000 });
-    await expect(pill()).toHaveClass(/is-uncertain/);
+    await expect(pill()).toHaveClass(/\bunsure\b/);
     await shot(page, "P1.S1.error");
     await expect(word()).toHaveText(/Listening|Normal/, { timeout: 10000 });
     // Same-device reconnect keeps the session's adjusted normal.

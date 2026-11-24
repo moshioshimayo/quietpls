@@ -1189,7 +1189,7 @@ if (typeof window !== "undefined") {
     reportCaptureStatus();
   }
   async function refreshIdleVoiceState() {
-    if (isMonitoring || permissionStatus === "denied" || permissionStatus === "restricted") return;
+    if (isMonitoring || captureStatus?.reason === "start" || permissionStatus === "denied" || permissionStatus === "restricted") return;
     if (permissionStatus === "not-determined") {
       idleDecision = NEEDS_SETUP;
       render(idleDecision);
@@ -1202,7 +1202,7 @@ if (typeof window !== "undefined") {
       );
       if (!selected.deviceId) return;
       const record = await window.electronAPI.getCalibration(selected.deviceId);
-      if (isMonitoring || preferredId !== config.audioDeviceId || permissionStatus !== "granted") return;
+      if (isMonitoring || captureStatus?.reason === "start" || preferredId !== config.audioDeviceId || permissionStatus !== "granted") return;
       idleDecision = window.CalibrationManager.isValidCalibrationRecord(record) ? IDLE : NEEDS_SETUP;
       render(idleDecision);
     } catch (_) { /* Actual input health is checked when monitoring starts. */ }
