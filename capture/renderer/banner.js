@@ -42,8 +42,10 @@ function show(snap) {
   $("#warn").textContent = blocked || "";
   $("#facts").hidden = $("#private").hidden = Boolean(blocked);
   $("#accept").textContent = blocked ? "Open settings" : "Record this call";
-  // Card plus the body's transparent margin (8 top + 40 bottom).
-  requestAnimationFrame(() => window.qpc.fit($(".card").offsetHeight + 48));
+  // Card plus the body's transparent margin (8 top + 40 bottom). Measured now:
+  // offsetHeight forces layout, while a frame callback may not run before the
+  // window first paints, leaving the shadow clipped at the initial height.
+  window.qpc.fit($(".card").offsetHeight + 48);
 }
 
 window.qpc.on("snapshot", show);
