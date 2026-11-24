@@ -1131,10 +1131,9 @@ if (typeof window !== "undefined") {
     }
     const preferredId = config.audioDeviceId;
     try {
-      const [devices, transports] = await Promise.all([
-        navigator.mediaDevices.enumerateDevices(), window.electronAPI.getInputTransports(),
-      ]);
-      const selected = window.MicPolicy.chooseInput(preferredId, devices, transports);
+      const selected = await window.MicPolicy.resolveChoice(
+        navigator.mediaDevices, window.electronAPI.getInputTransports, preferredId,
+      );
       if (!selected.deviceId) return;
       const record = await window.electronAPI.getCalibration(selected.deviceId);
       if (isMonitoring || preferredId !== config.audioDeviceId || permissionStatus !== "granted") return;
