@@ -25,6 +25,26 @@ describe("reviewed copy contract", () => {
     }
   });
 
+  it("judges old text in its owner's files, short literals only as whole strings", () => {
+    const fake = [
+      { id: "CR-1", owner: "T3", action: "retire", expected: null, old: "×", oldLiterals: ["×"] },
+      { id: "CR-2", owner: "T3", action: "change", expected: "Monitored time", old: "Duration" },
+    ];
+    const clean = {
+      "settings.html": "<h2>Monitored time</h2><p>3 × a week</p>",
+      "renderer.js": 'const close = "×"; const label = "Duration";', // T1's own strings
+    };
+    expect(copyViolations("T3", { rows: fake, sources: clean })).toEqual([]);
+    const stale = {
+      "settings.html": '<h2>Monitored time</h2><button aria-label="Close">×</button>',
+      "settings-renderer.js": 'cell.title = "Duration: " + minutes;',
+    };
+    expect(copyViolations("T3", { rows: fake, sources: stale })).toEqual([
+      'CR-1: old text survives: "×"',
+      'CR-2: old text survives: "Duration"',
+    ]);
+  });
+
   it("keeps authored target copy free of banned vocabulary", () => {
     const authored = rows.filter((row) => !row.diagnostic && row.action !== "retire")
       .flatMap(textVariants).map((text) => text.replace(/\{[^{}]+\}/g, ""));

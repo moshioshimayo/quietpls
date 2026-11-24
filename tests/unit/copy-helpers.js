@@ -3,7 +3,7 @@ const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "../..");
 const expectationsPath = path.join(ROOT, "tests/copy-expectations.json");
-// Ownership follows plan §3. Scan the whole shipped UI for literals: restructuring
+// Ownership follows plan §3. Scan the whole shipped UI for target literals: restructuring
 // a surface must not make a correctly moved string disappear from the check.
 const OWNER_FILES = {
   T1: ["index.html", "renderer.js", "main.js", "updater-state.js", "level-logic.js", "input-transports.js", "capture-controller.js"],
@@ -72,14 +72,39 @@ function sourceText(file, source) {
     .join("\n");
 }
 
+// Preserve HTML attributes as well as visible text (accessible names/tooltips).
+const htmlAttributes = (source) =>
+  [...source.matchAll(/(?:title|aria-label|placeholder|alt)="([^"]*)"/g)].map(([, value]) => value);
+
+function fileText(file, source) {
+  if (!file.endsWith(".html")) return sourceText(file, source);
+  return [sourceText(file, source), ...htmlAttributes(source)].join(" ");
+}
+
+// Whole shipped strings: each JS string, HTML text node or attribute value.
+function fileStrings(file, source) {
+  const parts = file.endsWith(".html")
+    ? [...source.replace(/<!--[^]*?-->/g, "").replace(/<style\b[^]*?<\/style>/gi, "").split(/<[^>]*>/), ...htmlAttributes(source)]
+    : sourceText(file, source).split("\n");
+  return parts.map(normalize).filter(Boolean);
+}
+
+// "×", "--" or a grade letter occurs inside unrelated text: count it only as a whole string.
+const isShortLiteral = (text) => text.length < 3 || !/[\p{L}\p{N}]/u.test(text);
+
 function copyViolations(owner, { rows = loadExpectations(), sources = readUI() } = {}) {
   if (owner != null && !OWNER_FILES[owner]) throw new Error(`Unknown copy owner ${owner}`);
-  // Preserve HTML attributes as well as visible text (accessible names/tooltips).
-  const corpus = normalize(Object.entries(sources).map(([file, source]) => {
-    if (!file.endsWith(".html")) return sourceText(file, source);
-    const attributes = [...source.matchAll(/(?:title|aria-label|placeholder|alt)="([^"]*)"/g)].map(([, value]) => value);
-    return [sourceText(file, source), ...attributes].join(" ");
-  }).join("\n"));
+  // Target copy may move to any surface; old text is judged in its owner's files only.
+  const corpus = normalize(Object.entries(sources).map(([file, source]) => fileText(file, source)).join("\n"));
+  const ownCorpus = {};
+  const ownStrings = {};
+  for (const [team, files] of Object.entries(OWNER_FILES)) {
+    const own = Object.entries(sources).filter(([file]) => files.includes(file));
+    ownCorpus[team] = normalize(own.map(([file, source]) => fileText(file, source)).join("\n"));
+    ownStrings[team] = new Set(own.flatMap(([file, source]) => fileStrings(file, source)));
+  }
+  const survives = (team, old) =>
+    isShortLiteral(old) ? ownStrings[team].has(old) : ownCorpus[team].includes(old);
   // Another row may still use a replaced short literal, including as part of a
   // longer message. Dynamic templates protect their retained static fragments.
   const kept = rows.filter((row) => row.action !== "retire").flatMap(textVariants).map(normalize);
@@ -90,7 +115,7 @@ function copyViolations(owner, { rows = loadExpectations(), sources = readUI() }
     }
     if (row.action !== "retain") {
       for (const old of row.oldLiterals || [row.old]) {
-        if (old && !kept.some((literal) => literal.includes(normalize(old))) && corpus.includes(normalize(old))) {
+        if (old && !kept.some((literal) => literal.includes(normalize(old))) && survives(row.owner, normalize(old))) {
           violations.push(`${row.id}: old text survives: ${JSON.stringify(old)}`);
         }
       }
@@ -108,4 +133,4 @@ function bannedCopyViolations(messages) {
 }
 
 module.exports = { OWNER_FILES, UI_FILES, BANNED, normalize, loadExpectations, readUI,
-  textVariants, sourceText, renderExpected, assertRenderedCopy, copyViolations, bannedCopyViolations };
+  textVariants, sourceText, fileStrings, renderExpected, assertRenderedCopy, copyViolations, bannedCopyViolations };
