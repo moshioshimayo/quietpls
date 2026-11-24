@@ -13,9 +13,10 @@
 //   QP_SHOTS_DIR="$HOME/qp25-shots/round-1" npx playwright test tests/e2e/shots.spec.js
 // Options: QP_SHOTS_THEMES=light,dark  QP_SHOTS_SCREEN=0|1 (in-guest
 // `screencapture -x`, default on macOS)  QP_SHOTS_VIDEO=1 (Playwright window
-// recordings)  QP_SHOTS_HOLD_MS=<ms> (when screencapture is unavailable: hold
-// each native state and drop a HOLD-<file> marker so the operator takes
-// `cua sb screenshot local:m16 -o <file>` from the host). One cell:
+// recordings)  QP_SHOTS_HOLD_MS=<ms> (Terminal has no Screen Recording grant
+// in m16: hold each full-screen state with a HOLD-<file> marker while a
+// watcher started through `cua sb exec` (cua-spacesd has the grant) runs
+// `screencapture -x <file>` in the shots dir; see the judge README). One cell:
 // `-g "P2.S9.E-9"`. Reruns merge into manifest.json.
 const { test, expect } = require("@playwright/test");
 const { execFileSync } = require("child_process");
@@ -134,7 +135,7 @@ async function shoot(c, page, variant, { fullScreen = c.cell.screen } = {}) {
       await page.screenshot({ path: path.join(OUT, file), omitBackground: true });
       c.files.push(file);
     }
-    if (!page || (fullScreen && SCREEN)) {
+    if (!page || (fullScreen && (SCREEN || HOLD_MS))) {
       await screen(c, page ? `${base}~screen.${theme}.png` : `${base}.${theme}.png`);
     }
   }
@@ -156,7 +157,8 @@ async function screen(c, file) {
     fs.writeFileSync(marker, `cua sb screenshot local:m16 -o ${file}\n`);
     await sleep(HOLD_MS);
     fs.rmSync(marker, { force: true });
-    c.notes.push(`${file}: held ${HOLD_MS} ms for a cua screenshot`);
+    if (fs.existsSync(path.join(OUT, file))) c.files.push(file);
+    else c.notes.push(`${file}: held ${HOLD_MS} ms, no screenshot arrived`);
   } else {
     c.notes.push(`${file}: needs a full-screen VM shot (cua sb screenshot local:m16)`);
   }
