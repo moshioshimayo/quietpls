@@ -143,9 +143,12 @@ test.describe("Capture state truth", () => {
           r[key].files = await shoot(app, "c-mic-only", { capture: main, indicator });
         } else {
           await expect(main.locator("#alerts")).toContainText("System audio is unavailable", { timeout: 10000 });
-          r[key] = { captureWindowChip: await chip(main), captureWindowAlert: await alerts(main), recording: await visible(app, "/indicator.html") };
-          r[key].files = await shoot(app, "c-cant-start", { capture: main });
-          expect(r[key].recording).toBe(false);
+          // The indicator stays up to show the failure, never a running recording.
+          const indicator = await H.findWindowByUrl(app, "indicator.html", 10000);
+          r[key] = { captureWindowChip: await chip(main), captureWindowAlert: await alerts(main), indicator: await indicator.locator("body").innerText() };
+          r[key].files = await shoot(app, "c-cant-start", { capture: main, indicator });
+          expect(r[key].indicator).not.toMatch(/Recording \d/);
+          expect(r[key].captureWindowChip).not.toMatch(/^Recording/);
         }
       } finally {
         await H.closeApp(app);
