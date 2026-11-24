@@ -162,13 +162,14 @@
   {
     "id": "CR-015",
     "owner": "T1",
-    "expected": "Close summary",
+    "expected": null,
     "old": "Done",
-    "action": "change",
+    "action": "retire",
     "location": "index.html:74",
     "oldLiterals": [
       "Done"
-    ]
+    ],
+    "reason": "Summary × removed: Done closes the summary (round-2 judge batch E3)"
   },
   {
     "id": "CR-016",

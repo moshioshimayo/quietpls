@@ -211,7 +211,7 @@ test.describe("Widget State Transitions", () => {
   test("summary closes on the first click", async () => {
     await mainWindow.evaluate(() => window.electronAPI.widgetTransition("sessionComplete"));
     await expect(mainWindow.locator("#sessionCompletePanel")).toBeVisible();
-    await mainWindow.locator("#sessionCloseBtn").click();
+    await mainWindow.locator("#summaryDoneBtn").click();
     await expect(mainWindow.locator("#sessionCompletePanel")).not.toBeVisible();
     await expect(mainWindow.locator("#compactPill")).toBeVisible();
   });

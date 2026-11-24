@@ -184,7 +184,6 @@ if (typeof window !== "undefined") {
       else if (calib === "done" || calib === "skipped" || calib === "saved") collapseAfterCalibration(); // Done
       else finalizeAndShowSessionComplete(); // Stop
     });
-    $("sessionCloseBtn").addEventListener("click", closeSummary);
     $("summaryDoneBtn").addEventListener("click", closeSummary);
     sessionCompletePanel.addEventListener("mouseenter", () => { summaryHovered = true; pauseSummary(); });
     sessionCompletePanel.addEventListener("mouseleave", () => { summaryHovered = false; resumeSummary(); });

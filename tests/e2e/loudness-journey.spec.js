@@ -345,7 +345,7 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
       /speaking time|ease your voice/i,
     );
     expect((await obs()).main.monitoring).toBe(false);
-    await page.locator("#sessionCloseBtn").click();
+    await page.locator("#summaryDoneBtn").click();
     await expect(word()).toHaveText("Start monitoring");
   });
 
@@ -482,8 +482,8 @@ test.describe("Hide during an auto-started call (2.2.0 regression)", () => {
     // The call ends: the existing grace period stops the auto-started run.
     await new Promise((resolve) => call.on("exit", resolve));
     await expect(pill).not.toHaveClass(MONITORING, { timeout: 60000 });
-    if (await page.locator("#sessionCloseBtn").isVisible()) {
-      await page.locator("#sessionCloseBtn").click();
+    if (await page.locator("#summaryDoneBtn").isVisible()) {
+      await page.locator("#summaryDoneBtn").click();
     }
 
     // The next call starts it again (calibrated now: straight to monitoring).
