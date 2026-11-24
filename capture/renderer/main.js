@@ -35,7 +35,9 @@ function setupDone(s) {
 
 function renderStatus() {
   const { phase, apps, file } = snap.state;
-  const [text, wanted] = STATUS[phase];
+  // Waiting only once setup is complete; until then the chip says what's missing.
+  const [text, wanted] =
+    phase === "idle" && !setupDone(snap) ? ["Set up transcripts", null] : STATUS[phase];
   const action = phase === "off" && !setupDone(snap) ? null : wanted;
   $("#status").className = `cstatus ${phase}`;
   $("#status-dot").className = `dot ${phase}`;

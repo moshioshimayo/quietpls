@@ -406,7 +406,8 @@ function createCaptureMode({
   function phaseWords(phase) {
     return {
       off: "Call prompts off",
-      idle: "Waiting for a call",
+      // Not ready to record yet: never claim to be waiting for a call.
+      idle: health.whisper && health.modelReady && health.folder.ok ? "Waiting for a call" : "Set up transcripts",
       detected: `Not recording · ${state.apps.join(", ")}`,
       asking: `Record this call? · ${state.apps.join(", ")}`,
       recording: capture && capture.micOnly

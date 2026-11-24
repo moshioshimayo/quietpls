@@ -146,6 +146,10 @@ describe("Capture window (CAPS)", () => {
       const words = m.els["#status-text"].textContent;
       h.assertRenderedCopy(id, seen(words), values || {}, [{ id, expected: h.textVariants(h.loadExpectations().find((r) => r.id === id))[0] }]);
     }
+    // Idle but not set up (transcription data missing): never "Waiting for a call".
+    const unready = load("main.js");
+    unready.run(`snap = ${JSON.stringify(snap({ health: { modelReady: false } }))}; renderStatus()`);
+    contains("CR-316", unready.els["#status-text"].textContent, {}, 1);
     const m = load("main.js");
     m.run(`snap = ${JSON.stringify(snap({ state: { phase: "recording", apps: ["Zoom"] } }))}; renderStatus()`);
     h.assertRenderedCopy("CR-272", seen(m.els["#status-text"].textContent), { time: "12:04", apps: "Zoom" });
