@@ -302,6 +302,10 @@ describe("Capture lib messages (CAPE)", () => {
     h.assertRenderedCopy("CR-234", `Record a call in ${b.els["#app"].textContent}?`, { app: "an app" });
     expect(b.els["#app2"].textContent).toBe("com.example.callr");
     expect(b.run('appList(["process 4242", "Zoom"])')).toBe("an app + Zoom");
+    // Several unknown apps are never folded into one (doomsday D4): say how many.
+    expect(b.run('appList(["process 4242", "com.example.callr"])')).toBe("2 apps");
+    expect(b.run('appList(["process 4242", "Zoom", "com.example.callr"])')).toBe("2 apps + Zoom");
+    expect(b.run('appList(["process 4242", "process 4242"])')).toBe("an app");
     expect(() => speakers.renameSpeaker("[00:00:01] [them] (Speaker 1) hi", "Speaker 1", " ")).toThrow("Enter a speaker name");
   });
 

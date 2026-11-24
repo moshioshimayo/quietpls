@@ -5048,6 +5048,10 @@
     "location": "capture/renderer/common.js:22",
     "oldLiterals": [
       "an app"
+    ],
+    "variants": [
+      "an app",
+      "{count} apps"
     ]
   },
   {

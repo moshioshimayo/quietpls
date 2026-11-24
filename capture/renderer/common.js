@@ -33,7 +33,9 @@ function esc(s) {
 const friendly = (app) =>
   /^process \d+$|^[\w-]+(\.[\w-]+){2,}$/.test(app) ? "an app" : app;
 
+// Several unknown apps keep their count ("2 apps"): every app recorded is one shown.
 function appList(apps) {
-  const names = [...new Set(apps.map(friendly))];
+  const unknown = new Set(apps.filter((a) => friendly(a) === "an app")).size;
+  const names = [...new Set(apps.map((a) => (friendly(a) === "an app" && unknown > 1 ? `${unknown} apps` : friendly(a))))];
   return names.length ? names.join(" + ") : "an app";
 }
