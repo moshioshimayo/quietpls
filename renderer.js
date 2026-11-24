@@ -154,6 +154,7 @@ if (typeof window !== "undefined") {
     $("recalibrateBtn").addEventListener("click", recalibrate);
     $("retryBtn").addEventListener("click", () => {
       if (capture) capture.retry().catch(() => {});
+      else startMonitoring().catch(() => {});
     });
     $("calPrimaryBtn").addEventListener("click", () => beginCalibration());
     $("settingsBtn").addEventListener("click", () => window.electronAPI.openSettings());
@@ -495,7 +496,14 @@ if (typeof window !== "undefined") {
       stopMonitoring();
       window.electronAPI.setMonitoring(false);
       permissionStatus = await window.electronAPI.getMicrophoneStatus();
-      showPermissionOff();
+      if (permissionStatus === "granted") {
+        resumeAfterPermission = false;
+        captureStatus = { state: "unavailable", reason: "start" };
+        showDecision({ zone: "unavailable", label: "Mic unavailable", level: 0, relDb: null });
+        reportCaptureStatus();
+      } else {
+        showPermissionOff();
+      }
     }
     console.log("Monitoring started");
   }
@@ -857,7 +865,10 @@ if (typeof window !== "undefined") {
     $("stateNote").textContent = accessOff
       ? permissionStatus === "granted" ? "Couldn’t start the mic. Check microphone access in System Settings, then try again."
         : "Turn on quietpls in System Settings → Privacy & Security → Microphone. Monitoring starts again when you come back."
-      : !numeric ? amountText(decision) : "";
+      : captureStatus?.reason === "start"
+        ? "Couldn’t start the mic. Check microphone access in System Settings, then try again. Restart quietpls if the mic still won’t start."
+        : decision.zone === "unavailable" ? "Check the mic connection, then try again."
+          : !numeric ? amountText(decision) : "";
     $("stateNote").hidden = !$("stateNote").textContent;
     $("relBar").hidden = p.uncertain || decision.zone === "uncalibrated";
     $("relFill").style.left = (decision.level || 0) + "%";
@@ -878,6 +889,7 @@ if (typeof window !== "undefined") {
     $("accessBtn").hidden = !accessOff;
     $("checkAccessBtn").hidden = !accessOff;
     $("retryBtn").hidden = accessOff || decision.zone !== "unavailable";
+    $("retryBtn").title = decision.zone === "unavailable" ? amountText(decision) : "";
     $("recalibrateBtn").hidden = decision.zone === "unavailable" || !isMonitoring;
     $("stopBtn").hidden = !isMonitoring;
     if (calib) renderCalibration(decision, word, p);

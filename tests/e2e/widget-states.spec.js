@@ -350,4 +350,16 @@ test.describe("Widget State Transitions", () => {
     await expect(mainWindow.locator("#expandedPanel")).not.toBeVisible();
     await expect(mainWindow.locator("#sessionCompletePanel")).not.toBeVisible();
   });
+
+  test("granted access with an input-start error offers a working retry", async () => {
+    await mainWindow.evaluate(() => window.__fakeMic.setDenied(true));
+    await mainWindow.locator("#compactPill").click();
+    await expect(mainWindow.locator("#pillWord")).toHaveText("Mic unavailable");
+    await expect(mainWindow.locator("#stateNote")).toContainText("Restart quietpls");
+    await expect(mainWindow.locator("#accessBtn")).not.toBeVisible();
+    await mainWindow.evaluate(() => window.__fakeMic.setDenied(false));
+    await mainWindow.locator("#retryBtn").click();
+    await expect(mainWindow.locator("#calTitle")).toHaveText("Use your normal call voice");
+    await expect(mainWindow.locator("#calPrimaryBtn")).toHaveText("Start");
+  });
 });
