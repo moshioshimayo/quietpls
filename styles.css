@@ -6,7 +6,6 @@ button { cursor:default; }
 #compactPill { border:0; flex:none; position:relative; }
 #pillWord { flex:none; }
 #compactPill:has(.mm:not([hidden])) { gap:5px; padding-right:7px; }
-#miniMeter { width:22px; }
 #miniFill { transition:width var(--duration-meter) var(--ease-out); }
 .pill.normal { --status-color:var(--normal); }
 .pill.rising { --status-color:var(--rising); }
@@ -15,7 +14,9 @@ button { cursor:default; }
 .status-row { color:var(--status-color,var(--text)); }
 #expandedPanel.normal { --status-color:var(--normal); }
 #expandedPanel.rising { --status-color:var(--rising); }
+#expandedPanel.rising #detailsMark { color:var(--rising-fill); }
 #expandedPanel.loud { --status-color:var(--loud); }
+#expandedPanel.loud #detailsMark { --loud-mark:var(--white); }
 #expandedPanel.off,#expandedPanel.unsure { --status-color:var(--text-2); }
 .read { flex:none; }
 .read-caption { text-align:right; margin-top:1px; }

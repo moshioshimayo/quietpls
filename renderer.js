@@ -254,6 +254,7 @@ if (typeof window !== "undefined") {
         if (isMonitoring || manualStopDuringMeeting) return;
         autoStartedForMeeting = true;
         try {
+          await window.electronAPI.widgetTransition("compact");
           await startMonitoring({ automatic: true });
         } catch (err) {
           autoStartedForMeeting = false;
