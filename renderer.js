@@ -103,6 +103,7 @@ if (typeof window !== "undefined") {
   let summaryStarted = 0;
   let summaryHovered = false;
   let summaryFocused = false;
+  let setupTipPending = false;
 
   let config = { sensitivity: 0, audioDeviceId: "" };
 
@@ -309,10 +310,17 @@ if (typeof window !== "undefined") {
     // The success panel is shown once; the next open shows details.
     if (!expanded && (calib === "done" || calib === "skipped")) setCalib(null);
     if (expanded) {
+      $("firstRunTip").hidden = true;
       const focus = calib === "ready" || calib === "failed" ? $("calPrimaryBtn") : calib ? $("calSecondaryBtn") : $("hideBtn");
       focus.focus({ preventScroll: true });
     } else if (!complete) {
       compactPill.focus({ preventScroll: true });
+      if (setupTipPending) {
+        setupTipPending = false;
+        localStorage.setItem("voiceSetupTipShown", "1");
+        $("firstRunTip").hidden = false;
+        setTimeout(() => { $("firstRunTip").hidden = true; }, 8000);
+      }
     }
   }
 
@@ -724,9 +732,7 @@ if (typeof window !== "undefined") {
     setCalib(skipped ? "skipped" : "done");
     if (!skipped) scheduleAutoCollapse(SUCCESS_COLLAPSE_MS);
     if (!localStorage.getItem("voiceSetupTipShown")) {
-      localStorage.setItem("voiceSetupTipShown", "1");
-      $("firstRunTip").hidden = false;
-      setTimeout(() => { $("firstRunTip").hidden = true; }, 8000);
+      setupTipPending = true;
     }
   }
 
