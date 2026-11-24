@@ -171,7 +171,8 @@ if (typeof document === "undefined") {
   // on by itself once macOS allows the mic; the check falls back if it goes.
   async function onStatus(status) {
     const next = panelForStatus(status);
-    if (panel === "welcome" || next === panel) return;
+    // On step 2 (incl. after Back from the check), Continue moves forward.
+    if (panel === "welcome" || next === panel || (panel === "ask" && next === "check")) return;
     announce(statusAnnouncement(status));
     show(next);
   }
