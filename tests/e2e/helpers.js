@@ -41,7 +41,10 @@ async function launchApp(options = {}) {
   }
   const app = await electron.launch({
     executablePath: electronPath,
-    args: [path.join(APP_ROOT, "main.js"), ...(options.args || [])],
+    // The package directory, so app.getVersion() is the product version (About).
+    args: [APP_ROOT, ...(options.args || [])],
+    // Follow nativeTheme (setTheme) instead of Playwright's forced light media.
+    colorScheme: null,
     env: {
       ...process.env,
       QUIETPLS_E2E_TEST: "1",
@@ -122,18 +125,11 @@ async function dismissOnboardingIfNeeded(electronApp, timeoutMs = 5000) {
   ).catch(() => null);
   if (!onboarding) return false;
 
-  const skip = onboarding.locator("#skipBtn");
-  const start = onboarding.locator("#startMonitoringBtn");
-  if (await skip.isVisible().catch(() => false)) {
-    await skip.click();
-  } else if (await start.isVisible().catch(() => false)) {
-    await start.click();
-  } else {
-    // Wait for the step to render its nav buttons, then retry once
-    await onboarding.waitForTimeout(1000);
-    if (await skip.isVisible().catch(() => false)) await skip.click();
-    else await start.click();
-  }
+  // 2.5.0: Set up later (Close when managed); 3abfe96: Skip or Start Monitoring.
+  await onboarding
+    .locator("[data-later]:visible, #skipBtn:visible, #startMonitoringBtn:visible")
+    .first()
+    .click({ timeout: 3000 });
 
   // Wait for the onboarding window to close
   const startWait = Date.now();
@@ -411,34 +407,45 @@ async function finishCalibration(page, timeout = 45000) {
   if (await start.waitFor({ state: "visible", timeout: 2000 }).then(() => true, () => false))
     await start.click();
   const title = page.locator("#calTitle");
-  const text = page.locator("#calText");
-  // 2.5.0: text "Try a slightly louder voice."; 3abfe96: title "... a bit louder".
+  const secondary = page.locator("#calSecondaryBtn");
+  // The eight-second louder check may already have skipped itself (Done), or
+  // Reset can finish at Saved; 3abfe96 titles its rehearsal "... a bit louder".
   await expect
     .poll(
-      async () =>
-        /^Try a slightly louder voice\./.test(await text.innerText()) ||
-        /a bit louder/.test(await title.innerText()),
+      async () => {
+        const heading = await title.textContent();
+        const action = await secondary.textContent();
+        return /a bit louder/.test(heading) ||
+          (/Skip check|Done/.test(action) &&
+            /Normal voice saved|All set|That's the cue/.test(heading));
+      },
       { timeout },
     )
     .toBe(true);
-  const legacy = /a bit louder/.test(await title.innerText());
-  if (!legacy) await expect(title).toHaveText("Normal voice saved");
-  await page.locator("#calSecondaryBtn").click(); // Skip check
-  if (legacy) {
-    await expect(title).toHaveText("This is your normal");
-  } else {
-    await expect(title).toHaveText("Normal voice saved");
-    await expect(text).toHaveText(/^Louder check skipped/);
+
+  // The normal voice is saved for the mic in use, whichever way setup ends.
+  expect(await page.evaluate(async () => {
+    const calls = window.__fakeMic.gumCalls();
+    const id = calls[calls.length - 1]?.audio?.deviceId?.exact;
+    if (!id) return false;
+    const record = await window.electronAPI.getCalibration(id);
+    return window.CalibrationManager.isValidCalibrationRecord(record);
+  })).toBe(true);
+
+  if (/^Skip/.test(await secondary.textContent())) await secondary.click();
+  // "All set" closes itself after 3 s.
+  if (await page.locator("#expandedPanel").isVisible()) {
+    await page.getByRole("button", { name: /^Done$/ }).click();
   }
-  await page.getByRole("button", { name: /^Done$/ }).click();
-  await expect(page.locator("#compactPill")).toBeVisible();
+  // 2.5.0 keeps the pill visible beside the panel: compact = panel closed.
+  await expect(page.locator("#expandedPanel")).not.toBeVisible();
 }
 
 /** Stop from the widget: open details if compact, then press its Stop. */
 async function stopFromWidget(page) {
   const stop = page
     .locator("#stopBtn:visible, #calSecondaryBtn:visible")
-    .filter({ hasText: /^Stop$/ });
+    .filter({ hasText: /^(Stop|Cancel)$/ }); // Cancel: 2.5.0 voice setup not started
   // The pill stays visible beside an open panel (2.5.0): open details only if needed.
   if (!(await stop.count())) await page.locator("#compactPill").click();
   await stop.click();

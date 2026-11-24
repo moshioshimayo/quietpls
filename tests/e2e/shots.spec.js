@@ -133,6 +133,12 @@ async function shoot(c, page, variant, { fullScreen = c.cell.screen } = {}) {
       await sleep(500);
     }
     if (page) {
+      // Dark evidence must be dark: the renderer has to see the theme.
+      const dark = await page.evaluate(() => matchMedia("(prefers-color-scheme: dark)").matches);
+      if (dark !== (theme === "dark")) {
+        c.reached = false;
+        c.notes.push(`${base}.${theme}: renderer prefers-color-scheme is ${dark ? "dark" : "light"}`);
+      }
       const file = `${base}.${theme}.png`;
       await page.screenshot({ path: path.join(OUT, file), omitBackground: true });
       c.files.push(file);
@@ -242,7 +248,8 @@ async function startMonitoring(c, { collapse = true } = {}) {
 }
 
 async function openDetails(c) {
-  if (await pill(c.w).isVisible()) await pill(c.w).click();
+  // 2.5.0 keeps the pill visible beside the panel; a click there would close it.
+  if (!(await c.w.locator("#expandedPanel").isVisible())) await pill(c.w).click();
   await sleep(600);
 }
 
