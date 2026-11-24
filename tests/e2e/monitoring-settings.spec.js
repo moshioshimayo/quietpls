@@ -148,7 +148,7 @@ test.describe("Settings Monitoring and History", () => {
     await settings.locator('[data-session-id="modern"] [data-action="view"]').click();
     await expect(settings.locator("#sessionModal")).toContainText("“Ease your voice” shown for 11% of talking time");
     await settings.getByRole("button", {name:"Delete session…",exact:true}).click();
-    await expect(settings.getByRole("dialog")).toBeVisible();
+    await expect(settings.getByRole("alertdialog")).toBeVisible();
     expect(await settings.locator("#deleteConfirmModal").evaluate((dialog) => dialog.getBoundingClientRect().bottom <= innerHeight)).toBe(true);
     await expect(settings.getByRole("button", {name:"Cancel",exact:true})).toBeFocused();
     await settings.keyboard.press("Escape");
@@ -159,7 +159,7 @@ test.describe("Settings Monitoring and History", () => {
     fs.writeFileSync(historyFile, "unreadable during delete");
     await settings.getByRole("button", {name:"Delete session",exact:true}).click();
     await expect(settings.locator("#deleteError")).toBeVisible();
-    await expect(settings.getByRole("dialog")).toBeVisible();
+    await expect(settings.getByRole("alertdialog")).toBeVisible();
     expect(fs.readFileSync(historyFile, "utf8")).toBe("unreadable during delete");
     fs.writeFileSync(historyFile, originalHistory);
     await settings.getByRole("button", {name:"Delete session",exact:true}).click();
