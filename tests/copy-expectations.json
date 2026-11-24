@@ -1590,10 +1590,11 @@
   {
     "id": "CR-141",
     "owner": "T3",
-    "expected": "View transcripts",
+    "expected": null,
     "old": "View transcripts",
-    "action": "retain",
+    "action": "retire",
     "location": "settings.html:212",
+    "reason": "superseded by B22 — single Capture settings… entry; transcripts reachable via tray View Transcripts… CR-292",
     "oldLiterals": [
       "View transcripts"
     ]

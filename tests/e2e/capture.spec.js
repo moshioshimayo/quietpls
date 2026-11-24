@@ -107,9 +107,11 @@ test.describe("Capture (beta)", () => {
     await setMicUsers(app, ZOOM);
     await app.evaluate(({ ipcMain }) => ipcMain.emit("open-settings"));
     const settings = await windowByUrl(app, "settings.html");
-    await expect(settings.locator("#captureSection h4")).toHaveText(
-      "Capture (beta)",
-    );
+    await expect(
+      settings
+        .locator("#captureSection")
+        .getByRole("heading", { name: "Capture (beta)", exact: true }),
+    ).toBeVisible();
     await expect(settings.locator("#captureEnabled")).not.toBeChecked();
     await expect(settings.locator("#captureActions")).toBeHidden();
     await settings.waitForTimeout(4000); // two detector polls, if it were running
