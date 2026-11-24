@@ -321,12 +321,12 @@ function setupHtml() {
     },
     {
       state: health.modelReady ? "done" : dl && dl.error ? "bad" : "",
-      what: `Download a speech model · ${esc(model.size)}`,
+      what: `Download transcription data · ${esc(model.size)}`,
       why: health.modelReady
-        ? `${esc(model.id)} ready`
+        ? "Transcription data ready"
         : dl && dl.error
           ? `Couldn’t download. Try again. ${esc(dl.error)}`
-          : "Downloaded from Hugging Face; stored on this Mac for local transcription.",
+          : "Saved on this Mac, so calls are transcribed here.",
       action: health.modelReady
         ? ""
         : dl && !dl.error
@@ -419,7 +419,7 @@ function renderSettings() {
     </div></section>
     <section><h3>Speaker labels</h3><div class="body">
       <label class="switch"><input id="speakers" type="checkbox" role="switch" ${settings.speakerLabels ? "checked" : ""} ${!health.speakerModelReady || !health.uv ? "disabled" : ""}> Add speaker labels</label>
-      <span class="hint">${health.speakerModelReady ? "Speaker model ready · 26 MB" : '<button id="speaker-download" class="sm">Download speaker model · 26 MB</button>'}</span>
+      <span class="hint">${health.speakerModelReady ? "Speaker labeling ready · 26 MB" : '<button id="speaker-download" class="sm">Download speaker labeling · 26 MB</button>'}</span>
       <span class="hint">${health.uv ? "Setup downloads the required tools. Speaker labeling then runs on this Mac." : "In Terminal, run brew install uv first. " + command("brew install uv")}</span>
       <span class="hint">Call voices get Speaker 1, Speaker 2, and so on. The main mic voice is You. Select a label to rename it, then press Return. One person may receive more than one label.</span>
       ${health.speakerError ? `<span class="bad">Couldn’t set up speaker labels. ${esc(health.speakerError)}</span>` : ""}
@@ -429,19 +429,19 @@ function renderSettings() {
       <div><button id="folder" class="sm">Choose folder…</button></div>
       <span class="hint">Each call transcript is a Markdown file on this Mac, with version history kept by git. Capture won’t use a folder that has a git remote, so transcripts aren’t pushed online.</span>
     </div></section>
-    <section><h3>Speech model</h3><div class="body">
+    <section><h3>Transcription</h3><div class="body">
       <div class="models">${models
         .map(
           (m) => `
         <input type="radio" name="model" value="${m.id}" id="m-${m.id}" ${m.id === settings.model ? "checked" : ""}>
-        <label for="m-${m.id}">${esc(m.label)} <span class="muted">· ${esc(m.id)} · ${esc(m.size)}</span></label>
+        <label for="m-${m.id}">${esc(m.label)} <span class="muted">· ${esc(m.size)}</span></label>
         <span>${m.ready ? '<span class="ok">✓ Ready</span>' : dl && dl.id === m.id && !dl.error ? `<progress max="1" value="${dl.progress}"></progress>` : `<button class="sm" data-dl="${m.id}">Download</button>`}</span>`,
         )
         .join("")}
       </div>
       ${dl && dl.error ? `<span class="bad">Couldn’t download. Try again. ${esc(dl.error)}</span>` : ""}
       <span class="hint">${health.whisper ? "Speech-to-text installed · " + esc(health.whisper) : "Install speech-to-text: run brew install whisper-cpp in Terminal. " + command("brew install whisper-cpp")}</span>
-      <span class="hint">Speech models download from Hugging Face and stay in ~/Library/Application Support/quietpls/models. Transcription runs on this Mac.</span>
+      <span class="hint">Transcription data downloads once and stays on this Mac in ~/Library/Application Support/quietpls/models. Calls are transcribed here.</span>
     </div></section>
     <section><h3>Audio retention</h3><div class="body">
       <label class="choice"><input type="radio" name="keep" value="no" ${settings.keepAudio ? "" : "checked"}> Delete audio after transcript is saved (default)</label>

@@ -544,7 +544,7 @@ function createCaptureMode({
         : !health.whisper
           ? "Install speech-to-text: run brew install whisper-cpp in Terminal."
           : !health.modelReady
-            ? "Download a speech model in Capture settings first."
+            ? "Download transcription data in Capture settings first."
             : null);
     if (blocker) {
       if (isAmbient) {

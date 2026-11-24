@@ -2918,7 +2918,7 @@
   {
     "id": "CR-249",
     "owner": "T4",
-    "expected": "Download a speech model in Settings first.",
+    "expected": "Download transcription data in Settings first.",
     "old": "Can’t record yet: the speech model isn’t downloaded.",
     "action": "change",
     "location": "capture/renderer/banner.js:17",
@@ -3793,7 +3793,7 @@
     "old": "Download the speech model ({size})",
     "action": "change",
     "location": "capture/renderer/main.js:306",
-    "template": "Download a speech model · {size}",
+    "template": "Download transcription data · {size}",
     "placeholders": [
       "size"
     ],
@@ -3802,14 +3802,10 @@
   {
     "id": "CR-321",
     "owner": "T4",
-    "expected": null,
+    "expected": "Transcription data ready",
     "old": "{model} is ready",
     "action": "change",
     "location": "capture/renderer/main.js:308",
-    "template": "{model} ready",
-    "placeholders": [
-      "model"
-    ],
     "oldLiterals": []
   },
   {
@@ -3829,7 +3825,7 @@
   {
     "id": "CR-323",
     "owner": "T4",
-    "expected": "Downloaded from Hugging Face; stored on this Mac for local transcription.",
+    "expected": "Saved on this Mac, so calls are transcribed here.",
     "old": "Downloaded once from Hugging Face and kept in ~/Library/Application Support/quietpls/models. Capture makes no other network requests.",
     "action": "change",
     "location": "capture/renderer/main.js:311",
@@ -4120,7 +4116,7 @@
   {
     "id": "CR-349",
     "owner": "T4",
-    "expected": "Speaker model ready · 26 MB",
+    "expected": "Speaker labeling ready · 26 MB",
     "old": "26 MB ONNX model ready.",
     "action": "change",
     "location": "capture/renderer/main.js:384",
@@ -4131,9 +4127,9 @@
   {
     "id": "CR-350",
     "owner": "T4",
-    "expected": "Download speaker model · 26 MB",
+    "expected": "Download speaker labeling · 26 MB",
     "old": "Download speaker model (26 MB)",
-    "action": "retain",
+    "action": "change",
     "location": "capture/renderer/main.js:384",
     "oldLiterals": [
       "Download speaker model (26 MB)"
@@ -4210,9 +4206,9 @@
   {
     "id": "CR-357",
     "owner": "T4",
-    "expected": "Speech model",
+    "expected": "Transcription",
     "old": "Speech model",
-    "action": "retain",
+    "action": "change",
     "location": "capture/renderer/main.js:393",
     "oldLiterals": [
       "Speech model"
@@ -4223,11 +4219,10 @@
     "owner": "T4",
     "expected": null,
     "old": "{label} · {id} · {size}",
-    "action": "retain",
+    "action": "change",
     "location": "capture/renderer/main.js:398",
-    "template": "{label} · {id} · {size}",
+    "template": "{label} · {size}",
     "placeholders": [
-      "id",
       "label",
       "size"
     ],
@@ -4285,7 +4280,7 @@
   {
     "id": "CR-363",
     "owner": "T4",
-    "expected": "Speech models download from Hugging Face and stay in ~/Library/Application Support/quietpls/models. Transcription runs on this Mac.",
+    "expected": "Transcription data downloads once and stays on this Mac in ~/Library/Application Support/quietpls/models. Calls are transcribed here.",
     "old": "Models download once from Hugging Face into ~/Library/Application Support/quietpls/models; Capture makes no other network requests.",
     "action": "change",
     "location": "capture/renderer/main.js:405",
@@ -4702,7 +4697,7 @@
   {
     "id": "CR-400",
     "owner": "T4",
-    "expected": "Download a speech model in Capture settings first.",
+    "expected": "Download transcription data in Capture settings first.",
     "old": "Download the speech model first (Settings).",
     "action": "change",
     "location": "capture/mode.js:494",

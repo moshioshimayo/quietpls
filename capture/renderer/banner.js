@@ -12,7 +12,7 @@ function blocker({ state, settings, health }) {
   if (!health.folder.ok) return "Choose a transcript folder in Settings first.";
   if (!health.whisper)
     return "Install speech-to-text in Capture settings first.";
-  if (!health.modelReady) return "Download a speech model in Settings first.";
+  if (!health.modelReady) return "Download transcription data in Settings first.";
   if (health.mic === "denied")
     return "Turn on quietpls microphone access in System Settings.";
   return null;
