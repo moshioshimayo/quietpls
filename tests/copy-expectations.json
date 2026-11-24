@@ -2944,7 +2944,7 @@
     "old": "text to {folder} (git, this Mac only)",
     "action": "change",
     "location": "capture/renderer/banner.js:34",
-    "template": "{folder} · on this Mac",
+    "template": "{folder}",
     "placeholders": [
       "folder"
     ],

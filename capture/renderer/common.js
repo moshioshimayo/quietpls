@@ -15,9 +15,11 @@ function tilde(p, home) {
 }
 
 // Long paths keep their start and last two folders: "~/…/Meetings/Transcripts".
-function shortPath(p, home) {
+// With max, a result still longer than max keeps only the last folder: "…/Transcripts".
+function shortPath(p, home, max = Infinity) {
   const parts = tilde(p, home).split("/");
-  return parts.length > 4 ? [parts[0], "…", ...parts.slice(-2)].join("/") : parts.join("/");
+  const short = parts.length > 4 ? [parts[0], "…", ...parts.slice(-2)].join("/") : parts.join("/");
+  return short.length > max && parts.length > 2 ? "…/" + parts[parts.length - 1] : short;
 }
 
 // Escapes written as \x22/\x27 so copy checks can read this file's strings.
