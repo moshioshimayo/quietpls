@@ -103,8 +103,13 @@ function copyViolations(owner, { rows = loadExpectations(), sources = readUI() }
     ownCorpus[team] = normalize(own.map(([file, source]) => fileText(file, source)).join("\n"));
     ownStrings[team] = new Set(own.flatMap(([file, source]) => fileStrings(file, source)));
   }
+  // A whole word, so ids and calls ("historyError", formatDuration) are not old copy.
+  const word = (old) => new RegExp(
+    (/^[\p{L}\p{N}]/u.test(old) ? "(?<![\\p{L}\\p{N}_$])" : "") +
+    old.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
+    (/[\p{L}\p{N}]$/u.test(old) ? "(?![\\p{L}\\p{N}_$])" : ""), "u");
   const survives = (team, old) =>
-    isShortLiteral(old) ? ownStrings[team].has(old) : ownCorpus[team].includes(old);
+    isShortLiteral(old) ? ownStrings[team].has(old) : word(old).test(ownCorpus[team]);
   // Another row may still use a replaced short literal, including as part of a
   // longer message. Dynamic templates protect their retained static fragments.
   const kept = rows.filter((row) => row.action !== "retire").flatMap(textVariants).map(normalize);

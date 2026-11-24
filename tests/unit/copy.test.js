@@ -33,15 +33,20 @@ describe("reviewed copy contract", () => {
     const clean = {
       "settings.html": "<h2>Monitored time</h2><p>3 × a week</p>",
       "renderer.js": 'const close = "×"; const label = "Duration";', // T1's own strings
+      "settings-renderer.js": 'byId("historyError"); x.innerHTML = `<b>${formatDuration(s)}</b>`;',
     };
+    fake.push({ id: "CR-3", owner: "T3", action: "change", expected: "Mic unavailable", old: "Error" });
+    clean["settings.html"] += "<p>Mic unavailable</p>";
     expect(copyViolations("T3", { rows: fake, sources: clean })).toEqual([]);
     const stale = {
       "settings.html": '<h2>Monitored time</h2><button aria-label="Close">×</button>',
-      "settings-renderer.js": 'cell.title = "Duration: " + minutes;',
+      "settings-renderer.js": 'cell.title = "Duration: " + minutes; row.textContent = "Error";',
     };
+    stale["settings.html"] += "<p>Mic unavailable</p>";
     expect(copyViolations("T3", { rows: fake, sources: stale })).toEqual([
       'CR-1: old text survives: "×"',
       'CR-2: old text survives: "Duration"',
+      'CR-3: old text survives: "Error"',
     ]);
   });
 
