@@ -337,7 +337,7 @@ function setupHtml() {
       state: health.folder.ok ? "done" : folderBad ? "bad" : "",
       what: "Choose a transcript folder",
       why: health.folder.ok
-        ? `${esc(tilde(settings.folder, home))} · on this Mac`
+        ? `<span title="${esc(tilde(settings.folder, home))}">${esc(shortPath(settings.folder, home))}</span> · on this Mac`
         : folderBad
           ? "Choose a folder that exists and doesn’t sync to an online code repository"
           : "Saves each call transcript as a Markdown file on this Mac. The folder can’t sync to an online code repository (no git remote).",
@@ -425,7 +425,7 @@ function renderSettings() {
       ${health.speakerError ? `<span class="bad">Couldn’t set up speaker labels. ${esc(health.speakerError)}</span>` : ""}
     </div></section>
     <section><h3>Transcript folder</h3><div class="body">
-      <span class="path">${esc(tilde(settings.folder, home)) || "—"}</span>${folderLine}
+      <span class="path" title="${esc(tilde(settings.folder, home))}">${esc(shortPath(settings.folder, home)) || "—"}</span>${folderLine}
       <div><button id="folder" class="sm">Choose folder…</button></div>
       <span class="hint">Each call transcript is a Markdown file on this Mac, with version history kept by git. Capture won’t use a folder that has a git remote, so transcripts aren’t pushed online.</span>
     </div></section>

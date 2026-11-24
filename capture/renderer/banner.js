@@ -29,8 +29,9 @@ function show(snap) {
   );
   $("#app2").textContent = askable.length === 1 ? askable[0] : "these apps";
   $("#where").textContent = settings.folder
-    ? `${tilde(settings.folder, home)} · on this Mac`
+    ? `${shortPath(settings.folder, home)} · on this Mac`
     : "Choose a transcript folder first";
+  $("#where").title = settings.folder ? tilde(settings.folder, home) : "";
   $("#audio").textContent = settings.keepAudio
     ? settings.keepDays === 1
       ? "Kept for 1 day, then deleted"

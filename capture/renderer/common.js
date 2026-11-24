@@ -14,6 +14,12 @@ function tilde(p, home) {
   return p && home && p.startsWith(home) ? "~" + p.slice(home.length) : p || "";
 }
 
+// Long paths keep their start and last two folders: "~/…/Meetings/Transcripts".
+function shortPath(p, home) {
+  const parts = tilde(p, home).split("/");
+  return parts.length > 4 ? [parts[0], "…", ...parts.slice(-2)].join("/") : parts.join("/");
+}
+
 // Escapes written as \x22/\x27 so copy checks can read this file's strings.
 const ENTITIES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\x22": "&quot;", "\x27": "&#39;" };
 function esc(s) {
