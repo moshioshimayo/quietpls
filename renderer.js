@@ -906,7 +906,12 @@ if (typeof window !== "undefined") {
   }
 
   function setGlyph(id, mark) {
-    $(id).querySelector("use").setAttribute("href", "#" + mark);
+    const svg = $(id), use = svg.querySelector("use");
+    if (use.getAttribute("href") === "#" + mark) return;
+    use.setAttribute("href", "#" + mark);
+    svg.classList.remove("glyph-enter");
+    void svg.clientWidth;
+    svg.classList.add("glyph-enter");
   }
 
   function renderTicks() {
@@ -1003,7 +1008,8 @@ if (typeof window !== "undefined") {
       t.title = checkSkipped ? "Normal voice saved" : "All set";
       t.text = checkSkipped ? "Louder check skipped. Your normal voice is saved."
         : "That's the cue you'll see on calls. Return to your normal voice.";
-      t.note = checkSkipped ? "" : "Closes in 3 seconds";
+      const seconds = Math.max(1, Math.ceil((SUCCESS_COLLAPSE_MS - (Date.now() - doneAt)) / 1000));
+      t.note = checkSkipped ? "" : seconds === 3 ? "Closes in 3 seconds" : "Closes in " + seconds + (seconds === 1 ? " second" : " seconds");
       t.secondary = "Done";
     }
     $("calHint").textContent = hint;

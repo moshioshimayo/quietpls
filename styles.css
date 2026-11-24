@@ -3,7 +3,13 @@ html,body { margin:0; padding:0; background:transparent; color:var(--text); font
 [hidden] { display:none !important; }
 button { cursor:default; }
 .container { width:max-content; margin:24px auto 40px; display:flex; align-items:flex-end; flex-direction:column; gap:8px; }
-#compactPill { border:0; flex:none; position:relative; }
+#compactPill { border:0; flex:none; position:relative; overflow:hidden; isolation:isolate; }
+#compactPill > * { position:relative; z-index:1; }
+#compactPill.loud { background:var(--surface); }
+#compactPill.loud::before { content:""; position:absolute; inset:0; border-radius:inherit; background:var(--loud-fill); box-shadow:inset 0 1px 0 var(--hi); animation:loud-fill var(--duration-fill) var(--ease-out) both; }
+.glyph-enter { animation:glyph-enter var(--duration-state) var(--ease-out); }
+@keyframes glyph-enter { from { opacity:0; } to { opacity:1; } }
+@keyframes loud-fill { from { clip-path:circle(8px at 15px 15px); } to { clip-path:circle(180px at 15px 15px); } }
 #pillWord { flex:none; }
 #compactPill:has(.mm:not([hidden])) { gap:5px; padding-right:7px; }
 #miniFill { transition:width var(--duration-meter) var(--ease-out); }
@@ -33,7 +39,8 @@ button { cursor:default; }
 #normalNotch { background:var(--text); }
 #calText { margin-top:6px; }
 .cal-heading { margin-top:2px; }
-#calMark { color:var(--normal); }
+#calMark { color:var(--normal); stroke-dasharray:16; animation:check-draw var(--duration-check) var(--ease-out); }
+@keyframes check-draw { from { stroke-dashoffset:16; } to { stroke-dashoffset:0; } }
 #calLive { margin-top:10px; gap:10px; }
 #calLivePill { box-shadow:0 0 0 .5px var(--ctl-line); }
 #calHint { display:block; }
