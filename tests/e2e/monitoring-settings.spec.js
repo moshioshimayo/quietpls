@@ -69,6 +69,7 @@ test.describe("Settings Monitoring and History", () => {
     await settings.getByRole("button", { name: "Test mic", exact: true }).click();
     await expect(settings.getByRole("button", { name: "Stop test", exact: true })).toBeVisible();
     await settings.evaluate(() => {
+      window.__firstTestStream = micTestStream;
       const original = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
       navigator.mediaDevices.getUserMedia = async (...args) => {
         const stream = await original(...args);
@@ -78,6 +79,7 @@ test.describe("Settings Monitoring and History", () => {
       };
     });
     await history().click();
+    expect(await settings.evaluate(() => window.__firstTestStream.getTracks().every((track) => track.readyState === "ended"))).toBe(true);
     await monitoring().click();
     await settings.getByRole("button", { name: "Test mic", exact: true }).click();
     await expect.poll(() => settings.evaluate(() => !!window.__releaseTest)).toBe(true);
