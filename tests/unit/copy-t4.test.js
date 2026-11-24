@@ -184,6 +184,10 @@ describe("Capture window (CAPS)", () => {
     h.assertRenderedCopy("CR-301", seen(alerts(snap({ health: { lastCallSilent: ["them"] } }))[0].text));
     const failed = alerts(snap({ state: { phase: "error", error: "No mic found. Connect or select a mic, then try again." } }));
     h.assertRenderedCopy("CR-402", failed[0].text);
+    expect(failed[0].actions.map(([label]) => label)).toEqual(["Dismiss"]);
+    // System audio can't start: the alert opens its System Settings pane as well.
+    const audio = alerts(snap({ state: { phase: "error", error: "System audio is unavailable. Check Screen & System Audio Recording in System Settings, then try again." } }));
+    expect(audio[0].actions.map(([label]) => label)).toEqual(["Open System Settings", "Dismiss"]);
     expect(m.run("alerts")).toBeTypeOf("function");
     // A remote URL or folder name is never interpreted as markup.
     const markup = alerts(snap({ health: { folder: { ok: false, reason: "missing", remotes: [] } }, settings: { folder: `${HOME}/<b>notes</b>` } }));

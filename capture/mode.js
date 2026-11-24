@@ -342,7 +342,7 @@ function createCaptureMode({
         transcribing: " Transcribing…",
         asking: " Record call?",
         saved: " Saved",
-        error: " Check recording",
+        error: " Not recording",
         ambient: ` ALWAYS ON ${capture ? timer(elapsed) : "· transcribing"}`,
       }[phase] || ""
     );

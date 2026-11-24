@@ -3246,7 +3246,7 @@
   {
     "id": "CR-275",
     "owner": "T4",
-    "expected": "Check recording",
+    "expected": "Not recording · Check recording",
     "old": "Needs attention",
     "action": "change",
     "location": "capture/renderer/main.js:19; capture/mode.js:286",

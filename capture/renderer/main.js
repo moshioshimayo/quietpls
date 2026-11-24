@@ -16,7 +16,7 @@ const STATUS = {
   recording: ["Recording", "Stop"],
   transcribing: ["Transcribing…", null],
   saved: ["Transcript saved", "View"],
-  error: ["Check recording", null],
+  error: ["Not recording · Check recording", null],
   ambient: ["ALWAYS ON · mic + system audio", "Stop"],
 };
 
@@ -80,7 +80,12 @@ function alerts() {
     out.push({
       kind: "bad",
       text: state.error,
-      action: ["Dismiss", () => api.dismiss()],
+      actions: [
+        ...(/^System audio is unavailable/.test(state.error)
+          ? [["Open System Settings", () => api.openPrivacy("audio")]]
+          : []),
+        ["Dismiss", () => api.dismiss()],
+      ],
     });
   if (health.folder.reason === "has-remote") {
     out.push({
@@ -137,10 +142,10 @@ function renderAlerts() {
     el.className = `alert ${a.kind}`;
     el.innerHTML = `${glyph(a.kind === "bad" ? "x" : "unsure")}<span class="msg"></span>`;
     el.querySelector(".msg").textContent = a.text;
-    if (a.action) {
+    for (const [label, fn] of a.actions || (a.action ? [a.action] : [])) {
       const b = document.createElement("button");
-      b.textContent = a.action[0];
-      b.onclick = a.action[1];
+      b.textContent = label;
+      b.onclick = fn;
       el.append(b);
     }
     box.append(el);
