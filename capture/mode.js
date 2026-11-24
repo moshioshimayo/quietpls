@@ -32,6 +32,7 @@ const speakers = require("./lib/speakers");
 const ambient = require("./lib/ambient");
 const { transcriptFiles } = require("./lib/search");
 const { startCapture: realStartCapture } = require("./lib/recorder");
+const { WIDGET_INSETS } = require("../widget-animator");
 
 const DEFAULTS = {
   enabled: false,
@@ -215,16 +216,14 @@ function createCaptureMode({
     );
   }
 
-  // The pill window reserves transparent shadow margins around what you see: main.js
-  // sizes it from widget-animator.js STATE_BOUNDS (240 × 94 around a 176 × 30 pill) and
-  // styles.css centres `.container` with `margin: 24px auto 40px`.
-  const PILL_MARGIN = { top: 24, side: 32, bottom: 40 };
+  // The pill window reserves transparent shadow space around what you see.
   function visiblePill(b) {
+    const m = WIDGET_INSETS;
     return {
-      x: b.x + PILL_MARGIN.side,
-      y: b.y + PILL_MARGIN.top,
-      width: b.width - 2 * PILL_MARGIN.side,
-      height: b.height - PILL_MARGIN.top - PILL_MARGIN.bottom,
+      x: b.x + m.left,
+      y: b.y + m.top,
+      width: b.width - m.left - m.right,
+      height: b.height - m.top - m.bottom,
     };
   }
 
