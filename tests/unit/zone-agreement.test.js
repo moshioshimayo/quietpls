@@ -87,8 +87,8 @@ it("explains alert delay, rounded thresholds, hysteresis and recovery without ch
   const t = LL.createDecisionTracker({ baselineDb: -30 });
   const feed = (db, ms) => { let d; for (let i = 0; i < ms; i += 20) d = t.update({ dbfs: db, voiced: true, frameMs: 20 }); return d; };
   feed(-30, 3000);
-  const pending = feed(-18, 1000);
-  expect(pending.zone).toBe("normal");
+  const pending = feed(-18, 1700);
+  expect(pending.zone).toBe("warning");
   const before = JSON.stringify(pending);
   expect(decisionExplanation(pending)).toBe("Feedback waits for a sustained change");
   expect(JSON.stringify(pending)).toBe(before);

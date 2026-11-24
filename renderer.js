@@ -302,6 +302,8 @@ if (typeof window !== "undefined") {
     if (expanded) {
       const focus = calib === "ready" || calib === "failed" ? $("calPrimaryBtn") : calib ? $("calSecondaryBtn") : $("hideBtn");
       focus.focus({ preventScroll: true });
+    } else if (!complete) {
+      compactPill.focus({ preventScroll: true });
     }
   }
 
@@ -438,6 +440,7 @@ if (typeof window !== "undefined") {
       }
     }
     forceCalibration = !!(options && options.recalibrate);
+    if (!forceCalibration) resetOnly = false;
     calibrationManager = null;
     calibration = null;
     calibrationDeviceId = null;
@@ -591,9 +594,9 @@ if (typeof window !== "undefined") {
   }
 
   // Explicit "Set normal voice again" (details, context menu or Settings).
-  async function recalibrate() {
+  async function recalibrate(options) {
     console.log("[calibration] Recalibration requested");
-    resetOnly = true;
+    resetOnly = !options?.setup;
     if (!isMonitoring) {
       try {
         await showDetails();
@@ -758,6 +761,7 @@ if (typeof window !== "undefined") {
   }
 
   function pillWord(decision) {
+    if (calib === "saved") return "Learning voice 100%";
     if (decision.zone === "calibrating" && calibrationManager) {
       return (
         "Learning voice " +
@@ -822,11 +826,11 @@ if (typeof window !== "undefined") {
 
   function render(decision) {
     const word = pillWord(decision);
-    const p = PILL[decision.zone] || PILL.idle;
+    const p = calib === "saved" ? PILL.calibrating : PILL[decision.zone] || PILL.idle;
     compactPill.className = ["pill", p.cls, isMonitoring ? "monitoring" : ""].join(" ");
     compactPill.setAttribute("aria-label", "quietpls: " + word + ". Show details");
     setGlyph("pillMark", permissionStatus === "denied" || permissionStatus === "restricted" ? "g-micoff" : p.mark);
-    $("pillMark").style.setProperty("--progress", calibrationManager ? calibrationManager.getProgress() * 100 : 0);
+    $("pillMark").style.setProperty("--progress", calib === "saved" ? 100 : calibrationManager ? calibrationManager.getProgress() * 100 : 0);
     $("pillWord").textContent = word;
     const metered = isMonitoring && ["silent", "normal", "warning", "danger"].includes(decision.zone);
     $("miniMeter").hidden = !metered;

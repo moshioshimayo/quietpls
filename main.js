@@ -950,9 +950,11 @@ app.whenReady().then(async () => {
   ipcMain.handle("get-capture-status", () => lastCaptureStatus);
 
   // Settings "Recalibrate": same live operation as the context-menu item.
-  ipcMain.on("request-recalibration", () => {
+  ipcMain.on("request-recalibration", (event) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("trigger-recalibration");
+      mainWindow.webContents.send("trigger-recalibration", {
+        setup: event.sender.getURL().includes("onboarding.html"),
+      });
     }
   });
 
@@ -1033,7 +1035,11 @@ app.whenReady().then(async () => {
     const clampedX = Math.max(-200, Math.min(Math.round(x), width + 200));
     const clampedY = Math.max(-200, Math.min(Math.round(y), height + 200));
     mainWindow.setPosition(clampedX, clampedY);
-    appStateStore.set("pillPosition", { x: clampedX, y: clampedY });
+    const bounds = mainWindow.getBounds();
+    appStateStore.set("pillPosition", {
+      x: Math.round(clampedX + (bounds.width - STATE_BOUNDS[STATES.COMPACT].width) / 2),
+      y: clampedY,
+    });
   });
 
   // Native context menu

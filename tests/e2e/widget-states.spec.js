@@ -66,7 +66,7 @@ test.describe("Widget State Transitions", () => {
       height: 94,
     });
     const box = await compactPill.boundingBox();
-    expect(box).toMatchObject({ width: 240, height: 94 });
+    expect(box).toMatchObject({ width: 176, height: 30 });
 
     await expect(mainWindow.locator("#expandedPanel")).not.toBeVisible();
     await expect(mainWindow.locator("#sessionCompletePanel")).not.toBeVisible();
@@ -296,5 +296,32 @@ test.describe("Widget State Transitions", () => {
       .toBe(true);
     const labels = await electronApp.evaluate(() => global.__contextMenuLabels);
     expect(labels).toContain("Voice Setup…");
+  });
+
+  test("an automatic call with undetermined access stays compact and asks for setup without prompting", async () => {
+    const { setMicAccess } = require("./helpers");
+    await setMicAccess(electronApp, "not-determined");
+    await electronApp.evaluate(({ systemPreferences }) => {
+      globalThis.__promptCount = 0;
+      systemPreferences.askForMediaAccess = async () => { globalThis.__promptCount++; return false; };
+    });
+    await sendToWidget("meeting-detection-changed", { detected: true });
+    await expect(mainWindow.locator("#pillWord")).toHaveText("Set normal voice");
+    await expect(mainWindow.locator("#expandedPanel")).not.toBeVisible();
+    expect(await electronApp.evaluate(() => globalThis.__promptCount)).toBe(0);
+  });
+
+  test("access off recovers on focus without restarting", async () => {
+    const { setMicAccess } = require("./helpers");
+    await setMicAccess(electronApp, "denied");
+    await mainWindow.locator("#compactPill").click();
+    await expect(mainWindow.locator("#pillWord")).toHaveText("Mic access off");
+    await expect(mainWindow.locator("#accessBtn")).toBeVisible();
+    await expect(mainWindow.locator("#checkAccessBtn")).toBeVisible();
+    await setMicAccess(electronApp, "granted");
+    await electronApp.evaluate(({ app, BrowserWindow }) => app.emit("browser-window-focus", {}, BrowserWindow.getAllWindows()[0]));
+    await expect(mainWindow.locator("#calTitle")).toHaveText("Use your normal call voice");
+    await expect(mainWindow.locator("#calPrimaryBtn")).toHaveText("Start");
+    expect(await mainWindow.evaluate(() => window.__fakeMic.gumCalls().length)).toBe(1);
   });
 });

@@ -82,7 +82,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   clearCalibration: (deviceId) =>
     ipcRenderer.send("clear-calibration", { deviceId }),
   onTriggerRecalibration: (callback) =>
-    ipcRenderer.on("trigger-recalibration", () => callback()),
+    ipcRenderer.on("trigger-recalibration", (event, options) => callback(options)),
 
   // Meeting detection (US-016)
   onMeetingDetectionChanged: (callback) =>

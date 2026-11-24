@@ -96,7 +96,7 @@ function shellHarness() {
   const context={require:fakeRequire,__dirname:ROOT,process:{env:{},platform:"darwin"},console,setTimeout:()=>1,setInterval:()=>1};
   vm.runInNewContext(fs.readFileSync(path.join(ROOT,"main.js"),"utf8")+`
     mainWindow={isDestroyed:()=>false,webContents:{send:(...args)=>globalThis.sent.push(args)}};
-    globalThis.probe={createTray,buildMenuTemplate,showAboutDialog,setupAutoUpdater,maybePromptUpdate,
+    globalThis.probe={createTray,buildMenuTemplate,showAboutDialog,setupAutoUpdater,maybePromptUpdate,checkForUpdates,
       getTray:()=>tray,setActive(value,phase="idle"){isMonitoring=value;captureMode={summary:()=>({phase}),menuItems:()=>[]};}};
   `,Object.assign(context,{sent}));
   return {probe:context.probe,updater,messages,sent,app};
@@ -133,4 +133,15 @@ it("uses the native About panel and defers a downloaded update through monitorin
   assertRenderedCopy("CR-217",messages[0].message,{version:"2.5.1"});
   probe.maybePromptUpdate();expect(messages).toHaveLength(1);
   expect(bannedCopyViolations(messages.flatMap(m=>[m.title,m.message,m.detail]))).toEqual([]);
+});
+
+it("answers a manual update failure with the diagnostic and a retry action", async () => {
+  const { probe, updater, messages } = shellHarness();
+  const detail = "The connection is offline.";
+  updater.checkForUpdates = () => Promise.reject(new Error(detail));
+  probe.checkForUpdates(true);
+  await Promise.resolve();
+  expect(messages).toHaveLength(1);
+  expect(messages[0].title).toBe("Couldn’t Check for Updates");
+  assertRenderedCopy("CR-215", messages[0].detail, { "diagnostic detail": detail });
 });

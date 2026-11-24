@@ -111,7 +111,7 @@ test.describe("Bluetooth mic policy — widget and Settings", () => {
     );
     const select = settingsPage.locator("#audioDeviceSelect");
     await expect(select.locator("option")).toHaveText([
-      "Automatic (keeps headset audio clear)",
+      "Automatic (prefers non-Bluetooth)",
       "MacBook Pro Microphone (Built-in)",
       "AirPods (Bluetooth)",
     ]);
@@ -128,7 +128,7 @@ test.describe("Bluetooth mic policy — widget and Settings", () => {
     await page.locator("#newMicSetup").click();
     await expect(note).toBeVisible();
     await expect(note).toHaveText(
-      "Headset audio may sound less clear while this mic is in use.",
+      "A Bluetooth mic may reduce headset audio quality.",
     );
     await expect
       .poll(() => gumIds(page))
@@ -210,7 +210,7 @@ test.describe("Bluetooth mic policy — only a Bluetooth mic", () => {
         .toEqual(["Using Your Bluetooth Mic"]);
 
       // Second session: no second note.
-      await stopFromWidget(page);
+      await page.locator("#calSecondaryBtn").filter({ hasText: "Cancel" }).click();
       await page.locator("#compactPill").click();
       await expect(page.locator("#pillWord")).toHaveText(
         /Set normal voice|Normal|Listening/,
