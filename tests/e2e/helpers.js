@@ -13,10 +13,21 @@ const electronPath = require("electron");
  * options.onboarding: start at first-run onboarding instead of past it.
  * options.args: extra command-line switches.
  * options.generalSettings: initial quietpls-general-settings.json contents.
+ * options.profile: a userData dir to start from (copied, never modified).
+ * options.files: { relativePath: string|object } written into userData.
+ * options.env: extra environment; options.recordVideo: Playwright recordVideo.
  */
 async function launchApp(options = {}) {
   // Fresh profile per launch: never reads or writes the real app's data.
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), "quietpls-e2e-"));
+  if (options.profile) fs.cpSync(options.profile, userData, { recursive: true });
+  for (const [rel, body] of Object.entries(options.files || {})) {
+    fs.mkdirSync(path.dirname(path.join(userData, rel)), { recursive: true });
+    fs.writeFileSync(
+      path.join(userData, rel),
+      typeof body === "string" ? body : JSON.stringify(body),
+    );
+  }
   // Past first-run onboarding, like a returning user.
   fs.writeFileSync(
     path.join(userData, "quietpls-app-state.json"),
@@ -36,7 +47,9 @@ async function launchApp(options = {}) {
       QUIETPLS_E2E_TEST: "1",
       QUIETPLS_USER_DATA: userData,
       NODE_ENV: "test",
+      ...options.env,
     },
+    ...(options.recordVideo && { recordVideo: options.recordVideo }),
   });
 
   // The shipped runtime: the supported Electron line (spec A5).
@@ -46,7 +59,35 @@ async function launchApp(options = {}) {
   const window = await app.firstWindow();
   await window.waitForLoadState("domcontentloaded");
 
-  return { app, window };
+  return { app, window, userData };
+}
+
+/** Close the app; a native modal can block close(), so kill after 5 s. */
+async function closeApp(app) {
+  const closed = app.close().then(() => true, () => true);
+  const timedOut = new Promise((r) => setTimeout(() => r(false), 5000));
+  if (!(await Promise.race([closed, timedOut]))) app.process().kill("SIGKILL");
+}
+
+/** Follow light or dark like the system appearance would ("system" resets). */
+async function setTheme(app, theme) {
+  await app.evaluate(({ nativeTheme }, t) => {
+    nativeTheme.themeSource = t;
+  }, theme);
+}
+
+/**
+ * Make the main process report a microphone access state without touching
+ * the Mac's TCC database: granted | denied | restricted | not-determined.
+ * Pair "denied" with __fakeMic.setDenied(true) in the renderer.
+ */
+async function setMicAccess(app, status) {
+  await app.evaluate(({ ipcMain, systemPreferences }, s) => {
+    systemPreferences.getMediaAccessStatus = () => s;
+    systemPreferences.askForMediaAccess = async () => s === "granted";
+    ipcMain.removeHandler("get-microphone-status");
+    ipcMain.handle("get-microphone-status", () => s);
+  }, status);
 }
 
 /**
@@ -205,7 +246,8 @@ async function installFakeMic(page, options = {}) {
     lfo.frequency.value = 3.33;
     const lfoDepth = ctx.createGain();
     lfoDepth.gain.value = 0.5;
-    lfo.connect(lfoDepth).connect(syllables.gain);
+    // options.steady: a constant tone (fan/music-like), no syllables.
+    if (!opts.steady) lfo.connect(lfoDepth).connect(syllables.gain);
     const level = ctx.createGain();
     if (opts.wav) {
       const bytes = Uint8Array.from(atob(opts.wav), (c) => c.charCodeAt(0));
@@ -220,7 +262,7 @@ async function installFakeMic(page, options = {}) {
       lfo.start();
     }
 
-    const state = { gumCalls: [], tracks: [] };
+    const state = { gumCalls: [], tracks: [], denied: Boolean(opts.deny) };
     const setLevelDb = (db) => {
       level.gain.setValueAtTime(
         db === null ? 0 : Math.pow(10, db / 20),
@@ -229,17 +271,25 @@ async function installFakeMic(page, options = {}) {
     };
     setLevelDb(opts.wav ? 0 : -30);
 
-    navigator.mediaDevices.enumerateDevices = async () => [
-      {
-        kind: "audioinput",
-        deviceId: "default",
-        groupId: systemDefault().groupId,
-        label: "Default - " + systemDefault().label,
-      },
-      ...devices,
-    ];
+    navigator.mediaDevices.enumerateDevices = async () =>
+      devices.length
+        ? [
+            {
+              kind: "audioinput",
+              deviceId: "default",
+              groupId: systemDefault().groupId,
+              label: "Default - " + systemDefault().label,
+            },
+            ...devices,
+          ]
+        : [];
     navigator.mediaDevices.getUserMedia = async (constraints) => {
       state.gumCalls.push(JSON.parse(JSON.stringify(constraints)));
+      if (state.denied) {
+        const err = new Error("Permission denied");
+        err.name = "NotAllowedError";
+        throw err;
+      }
       const exact =
         constraints.audio &&
         constraints.audio.deviceId &&
@@ -268,9 +318,10 @@ async function installFakeMic(page, options = {}) {
 
     window.__fakeMic = {
       setLevelDb,
+      setDenied: (v) => (state.denied = Boolean(v)),
       setDevices: (next, nextDefault) => {
-        devices = next;
-        defaultId = nextDefault || next[0].deviceId;
+        devices = next; // [] = every mic unplugged
+        defaultId = nextDefault || (next[0] && next[0].deviceId);
         navigator.mediaDevices.dispatchEvent(new Event("devicechange"));
       },
       gumCalls: () => state.gumCalls,
@@ -427,6 +478,10 @@ module.exports = {
   widgetBounds,
   setFakeTransports,
   launchApp,
+  closeApp,
+  setTheme,
+  setMicAccess,
+  findWindowByUrl,
   getWidgetWindow,
   dismissOnboardingIfNeeded,
   setSettingsStore,
