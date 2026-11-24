@@ -335,4 +335,19 @@ test.describe("Widget State Transitions", () => {
     await expect(mainWindow.locator("#calPrimaryBtn")).toHaveText("Start");
     expect(await mainWindow.evaluate(() => window.__fakeMic.gumCalls().length)).toBe(1);
   });
+
+  test("a call on a saved mic starts quietly and replaces an old summary", async () => {
+    await mainWindow.evaluate(async () => {
+      const device = { deviceId: "fake-builtin", label: "Fake Built-in Mic" };
+      const record = window.CalibrationManager.makeCalibrationRecord({ baselineDb: -40, speechMs: 10000 }, device);
+      window.electronAPI.saveCalibration(device.deviceId, record);
+      await window.electronAPI.getCalibration(device.deviceId);
+      await window.electronAPI.widgetTransition("sessionComplete");
+    });
+    await sendToWidget("meeting-detection-changed", { detected: true });
+    await expect(mainWindow.locator("#compactPill")).toHaveClass(/\bmonitoring\b/);
+    await expect(mainWindow.locator("#pillWord")).toHaveText(/Listening|Normal|Getting loud|Ease your voice/);
+    await expect(mainWindow.locator("#expandedPanel")).not.toBeVisible();
+    await expect(mainWindow.locator("#sessionCompletePanel")).not.toBeVisible();
+  });
 });

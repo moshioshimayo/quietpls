@@ -67,11 +67,11 @@ describe("stored ratios and displayed percentages share one denominator", () => 
     const pct = (ratio) => Math.round(ratio * 100);
     const insights = generateInsights(r).join(" | ");
     if (pct(r.gettingLoudRatio) > 0) {
-      expect(insights).toContain(`Getting loud for ${pct(r.gettingLoudRatio)}%`);
-    } else expect(insights).not.toContain("Getting loud for");
+      expect(insights).toContain(`“Getting loud” shown for ${pct(r.gettingLoudRatio)}%`);
+    } else expect(insights).not.toContain("“Getting loud” shown for");
     if (pct(r.tooLoudRatio) > 0) {
-      expect(insights).toContain(`Ease your voice for ${pct(r.tooLoudRatio)}%`);
-    } else expect(insights).toContain("You never needed to ease your voice");
+      expect(insights).toContain(`“Ease your voice” shown for ${pct(r.tooLoudRatio)}%`);
+    } else expect(insights).toContain("“Ease your voice” shown for under 1% of talking time");
 
     const bars = SHL.computeSessionZonePercentages(r);
     expect(bars.loud).toBe(pct(r.gettingLoudRatio));
