@@ -360,10 +360,10 @@ const { createUpdaterState } = require("./updater-state");
 const updateStatus = createUpdaterState();
 let manualUpdateCheck = false;
 
+// A standard app alert (icon, bold message, detail), never a sheet on the pill
+// window. macOS shows no `title`, so the headline goes in `message`.
 function showMessage(options) {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    return dialog.showMessageBox(mainWindow, options);
-  }
+  app.focus({ steal: true });
   return dialog.showMessageBox(options);
 }
 
@@ -435,8 +435,8 @@ function setupAutoUpdater() {
     updateTrayMenu();
     if (manualUpdateCheck) {
       manualUpdateCheck = false;
-      showMessage({ type: "info", title: "You’re Up to Date",
-        message: `quietpls ${app.getVersion()} is the latest version.`, buttons: ["OK"] });
+      showMessage({ type: "info", title: "You’re Up to Date", message: "You’re Up to Date",
+        detail: `quietpls ${app.getVersion()} is the latest version.`, buttons: ["OK"] });
     }
   });
 

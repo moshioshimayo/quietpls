@@ -74,7 +74,7 @@ function shellHarness() {
   const messages=[], sent=[], windows=[];
   const app=Object.assign(new EventEmitter(),{
     isPackaged:true,whenReady:()=>({then(){}}),getVersion:()=>"2.5.0",
-    setAboutPanelOptions(options){this.aboutOptions=options;},showAboutPanel(){this.aboutShown=true;},quit(){}
+    setAboutPanelOptions(options){this.aboutOptions=options;},showAboutPanel(){this.aboutShown=true;},quit(){},focus(){}
   });
   const updater=Object.assign(new EventEmitter(),{quitAndInstall(){},checkForUpdates:async()=>null});
   class Store { constructor(o){this.data={...o.defaults};} get(k){return this.data[k];} set(k,v){this.data[k]=v;} }
