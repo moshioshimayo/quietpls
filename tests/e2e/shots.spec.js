@@ -240,14 +240,14 @@ async function startVoiceSetup(c) {
 }
 
 /** Saved normal voice: click the pill (starts monitoring, opens details), then
- *  collapse with a second click, as a mouse user does (no keyboard focus ring). */
+ *  collapse with Hide, as a mouse user does (no keyboard focus ring). */
 async function startMonitoring(c, { collapse = true } = {}) {
   await pill(c.w).click();
   await sleep(800);
-  if (collapse) {
-    await pill(c.w).click();
-    await sleep(300);
-    if (await c.w.locator("#expandedPanel").isVisible()) await c.w.keyboard.press("Escape");
+  if (collapse && (await c.w.locator("#expandedPanel").isVisible())) {
+    const hide = c.w.locator("#hideBtn");
+    if (await hide.isVisible()) await hide.click();
+    else await c.w.keyboard.press("Escape"); // 2.4.3 baseline
   }
   await sleep(300);
 }
@@ -485,9 +485,12 @@ const CELLS = [
     async run(c) {
       await open(c, { profile: "warm", mic: { wav: H.SPEECH_WAV } });
       await level(c, null);
-      await startMonitoring(c, { collapse: false });
-      await reach(c, c.w, /Listening/);
-      await sleep(1500);
+      await startMonitoring(c);
+      await reachPill(c, /Listening/);
+      // AC-X6: details the user opens while nothing is heard (the start click's
+      // panel auto-collapses by design).
+      await openDetails(c);
+      await reach(c, c.w, /Feedback appears when you talk/);
       await shoot(c, c.w);
     },
   },
@@ -513,7 +516,10 @@ const CELLS = [
         window.__fakeMic.endCurrentTrack();
       });
       await reachPill(c, /unavailable/i, 40000);
+      // Opening details also retries the mic (Reconnecting…); AC-X8's end state is
+      // "Mic unavailable" + Try again once that retry fails too.
       await openDetails(c);
+      await reach(c, c.w, /Check the mic connection/, 40000);
       await shoot(c, c.w);
     },
   },
