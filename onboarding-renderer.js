@@ -155,7 +155,8 @@ if (typeof document === "undefined") {
 
   function resize() {
     requestAnimationFrame(() => {
-      if (api.setupResize) api.setupResize(document.documentElement.scrollHeight);
+      // The body's own height: documentElement never reports less than the window.
+      if (api.setupResize) api.setupResize(Math.ceil(document.body.getBoundingClientRect().height));
     });
   }
 
