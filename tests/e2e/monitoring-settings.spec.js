@@ -99,6 +99,9 @@ test.describe("Settings Monitoring and History", () => {
     expect((await nativeSettings()).bounds.height).toBeLessThan(height);
     await settings.keyboard.press("Meta+1");
     await expect(monitoring()).toHaveAttribute("aria-selected", "true");
+    await settings.keyboard.press("Meta+2");
+    await expect(history()).toHaveAttribute("aria-selected", "true");
+    await settings.keyboard.press("Meta+1");
     await settings.keyboard.press("ArrowRight");
     await expect(history()).toHaveAttribute("aria-selected", "true");
     await settings.keyboard.press("Meta+1");
@@ -151,6 +154,14 @@ test.describe("Settings Monitoring and History", () => {
     await settings.keyboard.press("Escape");
     await expect(settings.getByRole("button", {name:"Delete session…",exact:true})).toBeFocused();
     await settings.getByRole("button", {name:"Delete session…",exact:true}).click();
+    const historyFile = path.join(profile, "sessions.json");
+    const originalHistory = fs.readFileSync(historyFile, "utf8");
+    fs.writeFileSync(historyFile, "unreadable during delete");
+    await settings.getByRole("button", {name:"Delete session",exact:true}).click();
+    await expect(settings.locator("#deleteError")).toBeVisible();
+    await expect(settings.getByRole("dialog")).toBeVisible();
+    expect(fs.readFileSync(historyFile, "utf8")).toBe("unreadable during delete");
+    fs.writeFileSync(historyFile, originalHistory);
     await settings.getByRole("button", {name:"Delete session",exact:true}).click();
     await expect(settings.locator('[data-session-id="modern"]')).toHaveCount(0);
     expect((await settings.evaluate(() => window.electronAPI.getSession("legacy"))).data.grade).toBe("A");
