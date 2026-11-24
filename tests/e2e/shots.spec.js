@@ -573,8 +573,10 @@ const CELLS = [
     timeout: 90000,
     async run(c) {
       // Quiet room noise: listened time runs out with no talking accepted.
+      // -45 dB clean speech still counts as talking; -80 is below the gate's
+      // -70 dB absolute minimum yet still finite input that counts as listened.
       await open(c, { mic: { wav: H.SPEECH_WAV } });
-      await level(c, -45);
+      await level(c, -80);
       await startVoiceSetup(c);
       await reach(c, c.w, /Try voice setup again|Try again|didn.t hear|no talking/i, 60000);
       await shoot(c, c.w);
@@ -587,7 +589,7 @@ const CELLS = [
       await open(c, { mic: { wav: H.SPEECH_WAV } });
       await startVoiceSetup(c);
       await reach(c, c.w, /\b[78] of 10 seconds/, 40000);
-      await level(c, -45);
+      await level(c, -80); // stop talking (see P1.S3.error)
       await reach(c, c.w, /Almost there/i, 50000);
       await shoot(c, c.w);
     },
