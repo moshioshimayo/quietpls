@@ -131,9 +131,8 @@ test.describe("Setup window (S5)", () => {
       const panel = win.locator("[data-panel=managed]");
       await expect(panel.getByRole("button")).toHaveText(["Close"]);
       await expect(win.locator("#skipBtn")).toBeHidden();
-      const closed = win.waitForEvent("close");
-      await win.keyboard.press("Escape");
-      await closed;
+      // The window closes while the key event is still being delivered.
+      await Promise.all([win.waitForEvent("close"), win.keyboard.press("Escape").catch(() => {})]);
     } finally {
       await app.close();
     }
