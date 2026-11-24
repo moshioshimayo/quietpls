@@ -801,4 +801,19 @@ describe("new mic handoff", () => {
     expect(ctrl.getStatus().state).toBe("idle");
     expect(env.tracks[0].stopped).toBe(true);
   });
+  it("a deferred pin survives device events and stops if that mic disappears later", async () => {
+    const env=makeEnv(), prompts=[];
+    const {ctrl}=makeController(env,{onDeviceSwitch:async s=>{prompts.push(s);return false;}});
+    await ctrl.start("");
+    env.systemDefault=HEADSET;
+    await ctrl._onDeviceChange();await flush();
+    expect(await ctrl.deferDeviceSwitch()).toBe(true);
+    await ctrl._onDeviceChange();await flush();
+    expect(env.gumCalls).toHaveLength(1);
+    env.inputs=[HEADSET];
+    await ctrl._onDeviceChange();await flush();
+    expect(ctrl.getStatus()).toMatchObject({state:"idle",reason:"pinned-device-gone"});
+    expect(prompts).toHaveLength(1);
+    expect(env.tracks[0].stopped).toBe(true);
+  });
 });

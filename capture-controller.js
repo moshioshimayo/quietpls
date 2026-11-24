@@ -272,7 +272,11 @@ function createCaptureController(options) {
       const devices = await enumerate();
       const known = await transports();
       if (gen !== generation) return false;
-      let next = CaptureMicPolicy.chooseInput(pinnedId || preferredId, devices, known);
+      if (pinnedId && !devices.some(d => d.deviceId === pinnedId)) {
+        stop("pinned-device-gone");
+        return false;
+      }
+      let next = CaptureMicPolicy.chooseInput(pinnedId || approvedSwitchId || preferredId, devices, known);
       if (device && next.deviceId && next.deviceId !== device.deviceId &&
           next.deviceId !== approvedSwitchId && o.onDeviceSwitch) {
         if (pendingSwitch?.device.deviceId === next.deviceId) return false;
@@ -452,6 +456,7 @@ function createCaptureController(options) {
     const inputs = devices.filter((d) => d.kind === "audioinput");
     if (state === "idle" || !device) return;
     const present = (id) => inputs.some((d) => d.deviceId === id);
+    if (pinnedId && present(pinnedId)) return;
     let why = null;
     if (!present(device.deviceId) && inputs.length > 0) why = "device-gone";
     else if (preferredId && fallback && present(preferredId))
@@ -513,7 +518,7 @@ function createCaptureController(options) {
     return acquire();
   }
 
-  function stop() {
+  function stop(why) {
     generation++;
     clearRetry();
     clearRecheck();
@@ -531,7 +536,7 @@ function createCaptureController(options) {
     choice = null;
     fallback = false;
     attempts = 0;
-    setState("idle");
+    setState("idle", why);
   }
 
   return {
@@ -541,7 +546,7 @@ function createCaptureController(options) {
     async acceptDeviceSwitch() {
       if (!pendingSwitch) return false;
       approvedSwitchId = pendingSwitch.device.deviceId;
-      pinnedId = approvedSwitchId;
+      pinnedId = null;
       pendingSwitch = null;
       attempts = 0;
       return acquire();

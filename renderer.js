@@ -573,6 +573,10 @@ if (typeof window !== "undefined") {
   async function handleCaptureStatus(status) {
     const previous = captureStatus;
     captureStatus = status;
+    if (status.reason === "pinned-device-gone" && isMonitoring) {
+      await finalizeAndShowSessionComplete();
+      return;
+    }
     console.log(
       "[capture] " +
         status.state +
