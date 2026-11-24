@@ -35,7 +35,6 @@ input[type=range] { width:100%; min-width:60px; margin:0; accent-color:var(--acc
 #micTestLabel { min-width:40px; max-width:116px; text-align:right; }
 .permission-row { align-items:flex-start; padding:10px; }
 .permission-row small { max-width:260px; }
-.permission-check { display:block; font-size:11px; margin:6px 10px 0 auto; }
 .support-link { margin-top:12px; text-align:center; }
 .support-link a { font:inherit; text-decoration:none; }
 .history-overview { padding:10px; }
