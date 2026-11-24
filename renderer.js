@@ -1091,16 +1091,39 @@ if (typeof window !== "undefined") {
 
   // ---- Session Complete Flow (US-014) ----
 
-  function populateSessionInsights(insights, durationSec) {
+  function populateSessionInsights(insights, durationSec, noTalking) {
     $("sessionDuration").textContent = formatDuration(durationSec);
     const listEl = $("insightList");
     listEl.innerHTML = "";
     for (const text of insights) {
+      if (/^Peak at /.test(text)) continue;
       const li = document.createElement("li");
-      li.className = "session-complete__insight-item";
-      li.textContent = text;
+      li.className = noTalking ? "summary-empty status" : "row";
+      if (!noTalking) {
+        const red = /Ease your voice/.test(text);
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.classList.add("g");
+        svg.setAttribute("aria-hidden", "true");
+        svg.style.color = red ? "var(--loud-fill)" : "var(--rising-fill)";
+        svg.style.setProperty("--loud-mark", "var(--white)");
+        const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+        use.setAttribute("href", red ? "#g-loud" : "#g-rise");
+        svg.appendChild(use);
+        li.appendChild(svg);
+      }
+      const label = document.createElement("span");
+      label.textContent = text;
+      li.appendChild(label);
       listEl.appendChild(li);
     }
+    const peak = insights.find(text => /^Peak at /.test(text));
+    $("summaryPeak").textContent = peak || "";
+    $("summaryPeak").hidden = !peak;
+    const minutes = Math.max(1, Math.round(durationSec / 60));
+    $("summaryEmptyDetail").textContent = "quietpls was listening for " + minutes +
+      (minutes === 1 ? " minute" : " minutes") + " but didn't hear you talk.";
+    $("summaryEmptyDetail").hidden = !noTalking;
+    $("historyBtn").hidden = noTalking;
   }
 
   /**
@@ -1121,7 +1144,9 @@ if (typeof window !== "undefined") {
       await window.electronAPI.widgetTransition("compact");
       return;
     }
-    populateSessionInsights(window.SessionInsights.generateInsights(sessionData), sessionData.duration);
+    // The summary shows the cue shares and peak; History retains the trend samples.
+    populateSessionInsights(window.SessionInsights.generateInsights({ ...sessionData, volumeSamples: [] }),
+      sessionData.duration, !sessionData.speakingTime);
     const total = Math.max(1, sessionData.speakingTime || 0);
     const shares = ["normal", "warning", "danger"].map(z => Math.max(0, sessionData.zoneTime?.[z] || 0) / total * 100);
     [...$("sessionSplit").children].forEach((el, i) => { el.style.flex = shares[i]; el.hidden = shares[i] === 0; });
