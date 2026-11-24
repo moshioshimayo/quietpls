@@ -141,7 +141,10 @@ it("answers a manual update failure with the diagnostic and a retry action", asy
   updater.checkForUpdates = () => Promise.reject(new Error(detail));
   probe.checkForUpdates(true);
   await Promise.resolve();
-  expect(messages).toHaveLength(1);
+  await Promise.resolve();
+  expect(messages).toHaveLength(2);
   expect(messages[0].title).toBe("Couldn’t Check for Updates");
-  assertRenderedCopy("CR-215", messages[0].detail, { "diagnostic detail": detail });
+  expect(messages[0].detail).toBeUndefined();
+  expect(messages[0].buttons).toContain("Show Details");
+  assertRenderedCopy("CR-215", messages[1].detail, { "diagnostic detail": detail });
 });

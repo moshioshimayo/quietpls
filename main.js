@@ -360,6 +360,21 @@ function showMessage(options) {
   return dialog.showMessageBox(options);
 }
 
+function showUpdateError(error) {
+  showMessage({
+    type: "warning",
+    title: "Couldn’t Check for Updates",
+    message: "Try Check for Updates again from the menu bar.",
+    buttons: ["OK", "Show Details"], defaultId: 0, cancelId: 0,
+  }).then(({ response }) => {
+    if (response !== 1) return;
+    showMessage({
+      type: "info", title: "Update Details", message: "Couldn’t Check for Updates",
+      detail: String(error.message || error), buttons: ["OK"],
+    });
+  });
+}
+
 function checkForUpdates(manual = false) {
   if (!app.isPackaged) {
     if (manual) {
@@ -382,13 +397,7 @@ function checkForUpdates(manual = false) {
     updateTrayMenu();
     if (manualUpdateCheck) {
       manualUpdateCheck = false;
-      showMessage({
-        type: "warning",
-        title: "Couldn’t Check for Updates",
-        message: "Try Check for Updates again from the menu bar.",
-        detail: String(err.message || err),
-        buttons: ["OK"],
-      });
+      showUpdateError(err);
     }
   });
 }
@@ -430,8 +439,7 @@ function setupAutoUpdater() {
     updateTrayMenu();
     if (manualUpdateCheck) {
       manualUpdateCheck = false;
-      showMessage({ type: "warning", title: "Couldn’t Check for Updates",
-        message: "Try Check for Updates again from the menu bar.", detail: String(err.message || err), buttons: ["OK"] });
+      showUpdateError(err);
     }
   });
 
