@@ -56,10 +56,10 @@ test.describe("Widget State Transitions", () => {
     const compactPill = mainWindow.locator("#compactPill");
     await expect(compactPill).toBeVisible();
     expect(await compactPill.evaluate((el) => el.tagName)).toBe("BUTTON");
-    await expect(compactPill).toHaveText(/^\s*Start monitoring\s*$/);
+    await expect(compactPill).toHaveText(/^\s*Set normal voice\s*$/);
     await expect(compactPill).toHaveAttribute(
       "aria-label",
-      "quietpls: Start monitoring. Show details",
+      "quietpls: Set normal voice. Show details",
     );
     expect(await widgetBounds(electronApp)).toMatchObject({
       width: 240,
@@ -108,7 +108,7 @@ test.describe("Widget State Transitions", () => {
 
     await mainWindow.locator("#calSecondaryBtn").click(); // Stop
     await expect(compactPill).toBeVisible();
-    await expect(compactPill).toHaveText(/Start monitoring/);
+    await expect(compactPill).toHaveText(/Set normal voice/);
     await expect(mainWindow.locator("#expandedPanel")).not.toBeVisible();
     await expect(mainWindow.locator("#sessionCompletePanel")).not.toBeVisible();
     await expect
@@ -153,7 +153,7 @@ test.describe("Widget State Transitions", () => {
   });
 
   test("long session shows sessionComplete summary after stop", async () => {
-    test.slow(); // needs a real >=60s monitoring session for the summary
+    test.setTimeout(150000); // real session plus hover and auto-dismiss intervals
     const compactPill = mainWindow.locator("#compactPill");
     const expandedPanel = mainWindow.locator("#expandedPanel");
     const sessionCompletePanel = mainWindow.locator("#sessionCompletePanel");
@@ -185,10 +185,21 @@ test.describe("Widget State Transitions", () => {
     await expect(expandedPanel).not.toBeVisible();
     await expect(compactPill).toBeVisible();
 
-    // sessionComplete -> compact (via close)
-    await mainWindow.locator("#sessionCloseBtn").click();
+    // Hover pauses the twenty-second clock. Leaving resumes it.
+    await sessionCompletePanel.hover();
+    await mainWindow.waitForTimeout(21000);
+    await expect(sessionCompletePanel).toBeVisible();
+    await mainWindow.mouse.move(1, 1);
+    await expect(sessionCompletePanel).not.toBeVisible({ timeout: 22000 });
     await expect(compactPill).toBeVisible();
-    await expect(sessionCompletePanel).not.toBeVisible();
+  });
+
+  test("summary closes on the first click", async () => {
+    await mainWindow.evaluate(() => window.electronAPI.widgetTransition("sessionComplete"));
+    await expect(mainWindow.locator("#sessionCompletePanel")).toBeVisible();
+    await mainWindow.locator("#sessionCloseBtn").click();
+    await expect(mainWindow.locator("#sessionCompletePanel")).not.toBeVisible();
+    await expect(mainWindow.locator("#compactPill")).toBeVisible();
   });
 
   // An undismissed summary, then Recalibrate (Settings/context menu) or a

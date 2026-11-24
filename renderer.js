@@ -61,6 +61,8 @@ if (typeof window !== "undefined") {
     danger: { mark: "g-loud", cls: "loud" },
   };
   const IDLE = { zone: "idle", label: "Start monitoring", relDb: null, level: 0 };
+  const NEEDS_SETUP = { zone: "uncalibrated", label: "Set normal voice", relDb: null, level: 0 };
+  let idleDecision = IDLE;
 
   // Capture (mic, nodes, health) is owned by one controller per monitoring run.
   let capture = null;
@@ -235,6 +237,8 @@ if (typeof window !== "undefined") {
       if (capture && config.audioDeviceId !== previousDevice) {
         console.log("[capture] mic selection changed — reacquiring");
         capture.setDevice(config.audioDeviceId).catch(() => {});
+      } else if (!isMonitoring) {
+        refreshIdleVoiceState();
       }
     });
 
@@ -1042,7 +1046,8 @@ if (typeof window !== "undefined") {
     lastDecision = null;
     setCalib(null);
     reportCaptureStatus();
-    render(IDLE);
+    render(idleDecision);
+    refreshIdleVoiceState();
     console.log("Monitoring stopped");
   }
 
@@ -1117,6 +1122,26 @@ if (typeof window !== "undefined") {
     showDecision({ zone: "unavailable", label: "Mic access off", level: 0, relDb: null });
     reportCaptureStatus();
   }
+  async function refreshIdleVoiceState() {
+    if (isMonitoring || permissionStatus === "denied" || permissionStatus === "restricted") return;
+    if (permissionStatus === "not-determined") {
+      idleDecision = NEEDS_SETUP;
+      render(idleDecision);
+      return;
+    }
+    const preferredId = config.audioDeviceId;
+    try {
+      const [devices, transports] = await Promise.all([
+        navigator.mediaDevices.enumerateDevices(), window.electronAPI.getInputTransports(),
+      ]);
+      const selected = window.MicPolicy.chooseInput(preferredId, devices, transports);
+      if (!selected.deviceId) return;
+      const record = await window.electronAPI.getCalibration(selected.deviceId);
+      if (isMonitoring || preferredId !== config.audioDeviceId || permissionStatus !== "granted") return;
+      idleDecision = window.CalibrationManager.isValidCalibrationRecord(record) ? IDLE : NEEDS_SETUP;
+      render(idleDecision);
+    } catch (_) { /* Actual input health is checked when monitoring starts. */ }
+  }
   async function onPermissionStatus(status) {
     permissionStatus = status;
     if (status === "denied" || status === "restricted") {
@@ -1132,7 +1157,9 @@ if (typeof window !== "undefined") {
       await startMonitoring();
     } else if (status === "granted" && captureStatus?.reason === "permission") {
       captureStatus = null;
-      render(IDLE);
+      refreshIdleVoiceState();
+    } else if (!isMonitoring) {
+      refreshIdleVoiceState();
     }
   }
 

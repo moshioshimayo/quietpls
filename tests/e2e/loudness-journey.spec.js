@@ -376,7 +376,7 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
       .toBe(before + 1);
     await expect(page.locator("#sessionCompletePanel")).not.toBeVisible();
     await page.locator("#calSecondaryBtn").click(); // Stop during calibration
-    await expect(word()).toHaveText("Start monitoring");
+    await expect(word()).toHaveText("Set normal voice");
   });
 });
 
