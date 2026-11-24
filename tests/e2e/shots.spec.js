@@ -239,11 +239,16 @@ async function startVoiceSetup(c) {
   if (await shows(button(c.w, /^Start$/))) await button(c.w, /^Start$/).click();
 }
 
-/** Saved normal voice: click the pill (starts monitoring, opens details), then collapse. */
+/** Saved normal voice: click the pill (starts monitoring, opens details), then
+ *  collapse with a second click, as a mouse user does (no keyboard focus ring). */
 async function startMonitoring(c, { collapse = true } = {}) {
   await pill(c.w).click();
   await sleep(800);
-  if (collapse) await c.w.keyboard.press("Escape");
+  if (collapse) {
+    await pill(c.w).click();
+    await sleep(300);
+    if (await c.w.locator("#expandedPanel").isVisible()) await c.w.keyboard.press("Escape");
+  }
   await sleep(300);
 }
 
