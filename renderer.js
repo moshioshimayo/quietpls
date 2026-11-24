@@ -180,7 +180,8 @@ if (typeof window !== "undefined") {
       if (!isMonitoring) refreshIdleVoiceState();
     });
     $("calSecondaryBtn").addEventListener("click", () => {
-      if (calib === "louder" || calib === "back") finishRehearsal(true); // Skip
+      if (calib === "louder") finishRehearsal(true); // Skip
+      else if (calib === "back") { finishRehearsal(false); collapseAfterCalibration(); } // Done: the cue was seen
       else if (calib === "done" || calib === "skipped" || calib === "saved") collapseAfterCalibration(); // Done
       else finalizeAndShowSessionComplete(); // Stop
     });
@@ -1009,7 +1010,8 @@ if (typeof window !== "undefined") {
       t.text = calib === "louder" ? "Try a slightly louder voice." : "Return to your normal voice";
       t.mark = true;
       t.live = true;
-      t.secondary = "Skip check";
+      // Once the cue showed, the check succeeded: finishing is Done, never "skipped".
+      t.secondary = calib === "back" ? "Done" : "Skip check";
     } else if (calib === "done" || calib === "skipped") {
       t.mark = true;
       t.step = "Try the feedback";

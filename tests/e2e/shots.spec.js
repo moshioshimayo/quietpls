@@ -647,11 +647,16 @@ const CELLS = [
       await toLouderCheck(c);
       await level(c, 8);
       await reach(c, c.w, /cue you.ll see|read as Getting loud/i, 15000);
+      await shoot(c, c.w, "cue");
+      // AC-R2: back to the normal voice, then "All set".
+      await level(c, 0);
+      await reach(c, c.w, /All set|This is your normal/i, 16000);
       await shoot(c, c.w);
-      // AC-P7: after first setup, the one-time tip under the pill.
-      if (await shows(button(c.w, /^Done$/), 8000)) {
-        await button(c.w, /^Done$/).click();
-        await sleep(700);
+      // AC-P7: after first setup, the one-time tip under the pill ("All set"
+      // closes itself after 3 s, or at once on Done).
+      if (await shows(button(c.w, /^Done$/), 1000)) await button(c.w, /^Done$/).click();
+      if (await shows(c.w.locator("#firstRunTip"), 8000)) {
+        await sleep(400);
         await shoot(c, c.w, "tip");
       }
     },
