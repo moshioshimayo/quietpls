@@ -80,7 +80,7 @@ async function saveTranscript(dir, name, markdown, message) {
   if (!check.ok) {
     const err = new Error(
       check.reason === "has-remote"
-        ? `Transcript wasn’t written because the folder has a git remote (${check.remotes.map((r) => r.name).join(", ")}). Choose another folder.`
+        ? "Transcript wasn’t written because the folder syncs to an online code repository. Choose another folder."
         : "Choose a transcript folder in Capture settings first.",
     );
     err.code = check.reason;
@@ -112,7 +112,7 @@ async function saveAmbient(dir, name, markdown) {
   if (!check.ok) {
     const err = new Error(
       check.reason === "has-remote"
-        ? "Transcript wasn’t written because the folder has a git remote. Choose another folder."
+        ? "Transcript wasn’t written because the folder syncs to an online code repository. Choose another folder."
         : "Choose a transcript folder in Capture settings first.",
     );
     err.code = check.reason;

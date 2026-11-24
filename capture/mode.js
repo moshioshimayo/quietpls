@@ -536,7 +536,7 @@ function createCaptureMode({
     const never = neverMessage();
     const blocker = never || (!health.folder.ok
         ? health.folder.reason === "has-remote"
-          ? "Recording didn’t start. Choose a transcript folder with no git remote."
+          ? "Recording didn’t start. Your transcript folder syncs to an online code repository. Choose another folder."
           : "Choose a transcript folder in Capture settings first."
         : !health.whisper
           ? "Install speech-to-text: run brew install whisper-cpp in Terminal."

@@ -81,12 +81,9 @@ function alerts() {
       action: ["Dismiss", () => api.dismiss()],
     });
   if (health.folder.reason === "has-remote") {
-    const r = health.folder.remotes
-      .map((x) => `${x.name} → ${x.url}`)
-      .join(", ");
     out.push({
       kind: "bad",
-      text: `Capture can’t save to ${tilde(settings.folder, home)} because it has a git remote (${r}). Choose a folder with no remote.`,
+      text: `Capture can’t save to ${tilde(settings.folder, home)} because it syncs to an online code repository. Choose another folder.`,
       action: ["Choose folder…", () => api.chooseFolder()],
     });
   } else if (health.folder.reason === "missing") {
@@ -340,10 +337,10 @@ function setupHtml() {
       state: health.folder.ok ? "done" : folderBad ? "bad" : "",
       what: "Choose a transcript folder",
       why: health.folder.ok
-        ? `${esc(tilde(settings.folder, home))} · no git remote`
+        ? `${esc(tilde(settings.folder, home))} · on this Mac`
         : folderBad
-          ? "Choose an existing folder with no git remote"
-          : "Saves each call transcript as a Markdown file with local git history. Choose a folder with no git remote.",
+          ? "Choose a folder that exists and doesn’t sync to an online code repository"
+          : "Saves each call transcript as a Markdown file on this Mac. The folder can’t sync to an online code repository (no git remote).",
       action: `<button class="sm${health.folder.ok ? "" : " primary"}" data-do="folder">${health.folder.ok ? "Change…" : "Choose…"}</button>`,
     },
     {
@@ -404,9 +401,9 @@ function renderSettings() {
   const folderLine = !settings.folder
     ? '<span class="muted">No folder selected</span>'
     : health.folder.ok
-      ? '<span class="ok">✓ Local git folder, no remote</span>'
+      ? '<span class="ok">✓ Ready. Saves transcripts on this Mac.</span>'
       : health.folder.reason === "has-remote"
-        ? `<span class="bad">✗ Git remote found (${health.folder.remotes.map((r) => esc(r.name)).join(", ")}). Choose another folder.</span>`
+        ? '<span class="bad">✗ This folder syncs to an online code repository. Choose another folder.</span>'
         : '<span class="bad">✗ Folder not found</span>';
   const apps = [
     ...new Set([...(settings.seenApps || []), ...(settings.neverApps || [])]),
@@ -430,7 +427,7 @@ function renderSettings() {
     <section><h3>Transcript folder</h3><div class="body">
       <span class="path">${esc(tilde(settings.folder, home)) || "—"}</span>${folderLine}
       <div><button id="folder" class="sm">Choose folder…</button></div>
-      <span class="hint">Each call transcript is a Markdown file with local git history. Capture saves only to folders with no git remote.</span>
+      <span class="hint">Each call transcript is a Markdown file on this Mac, with version history kept by git. Capture won’t use a folder that has a git remote, so transcripts aren’t pushed online.</span>
     </div></section>
     <section><h3>Speech model</h3><div class="body">
       <div class="models">${models

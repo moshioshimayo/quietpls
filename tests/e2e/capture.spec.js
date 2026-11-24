@@ -217,7 +217,7 @@ test.describe("Capture (beta)", () => {
     await setMicUsers(app, ZOOM);
     await expect.poll(() => phase(banner)).toBe("asking");
     await expect(banner.locator("#warn")).toHaveText(
-      "Choose a transcript folder with no git remote in Settings.",
+      "Your transcript folder syncs to an online code repository. Choose another folder in Settings.",
     );
     await expect(banner.locator("#accept")).toHaveText("Open settings");
     await banner.evaluate(() => window.qpc.accept());

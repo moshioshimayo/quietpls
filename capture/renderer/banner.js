@@ -8,7 +8,7 @@ function blocker({ state, settings, health }) {
   if (never.length)
     return `Recording blocked. ${never.join(" and ")} ${never.length === 1 ? "is" : "are"} set to Never.`;
   if (health.folder.reason === "has-remote")
-    return "Choose a transcript folder with no git remote in Settings.";
+    return "Your transcript folder syncs to an online code repository. Choose another folder in Settings.";
   if (!health.folder.ok) return "Choose a transcript folder in Settings first.";
   if (!health.whisper)
     return "Install speech-to-text in Capture settings first.";
@@ -29,7 +29,7 @@ function show(snap) {
   );
   $("#app2").textContent = askable.length === 1 ? askable[0] : "these apps";
   $("#where").textContent = settings.folder
-    ? `${tilde(settings.folder, home)} · local git folder`
+    ? `${tilde(settings.folder, home)} · on this Mac`
     : "Choose a transcript folder first";
   $("#audio").textContent = settings.keepAudio
     ? settings.keepDays === 1
