@@ -829,8 +829,9 @@ app.whenReady().then(async () => {
     toggleMonitoringFromMain();
   });
 
-  // Cmd+Shift+S to open settings
-  globalShortcut.register("CommandOrControl+,", () => {
+  // Cmd+Shift+S to open settings (as in 2.4.3). Never a global Cmd+, : that is every
+  // other app's Settings shortcut; ⌘, stays the quietpls menu's accelerator.
+  globalShortcut.register("CommandOrControl+Shift+S", () => {
     createSettingsWindow();
   });
 

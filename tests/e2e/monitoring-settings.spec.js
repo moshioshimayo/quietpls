@@ -65,6 +65,14 @@ test.describe("Settings Monitoring and History", () => {
     await settings.locator("#showInMenubar").check();
   });
 
+  test("global shortcuts never take another app's Cmd+, (Settings is Cmd+Shift+S, as in 2.4.3)", async () => {
+    const registered = await app.evaluate(({ globalShortcut }) => ({
+      comma: globalShortcut.isRegistered("CommandOrControl+,"),
+      shiftS: globalShortcut.isRegistered("CommandOrControl+Shift+S"),
+    }));
+    expect(registered).toEqual({ comma: false, shiftS: true });
+  });
+
   test("a mic chosen from the widget is kept when Settings saves next", async () => {
     // What the widget's mic menu sends after it saves mic B (main.js show-input-menu).
     await app.evaluate(({ BrowserWindow }) => {
