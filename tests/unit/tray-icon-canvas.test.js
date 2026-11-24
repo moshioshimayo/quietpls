@@ -23,6 +23,7 @@ function createMockCtx() {
     moveTo: record('moveTo'),
     lineTo: record('lineTo'),
     arcTo: record('arcTo'),
+    roundRect: record('roundRect'),
     closePath: record('closePath'),
     fill: record('fill'),
     fillStyle: '',
@@ -44,29 +45,29 @@ describe('tray-icon-canvas', () => {
 
   describe('getColorForZone', () => {
     it('returns amber for quiet zone', () => {
-      expect(mod.getColorForZone('quiet')).toBe('#9ca3af');
+      expect(mod.getColorForZone('quiet')).toBe('#000000');
     });
 
     it('returns cyan for normal zone', () => {
-      expect(mod.getColorForZone('normal')).toBe('#06b6d4');
+      expect(mod.getColorForZone('normal')).toBe('#000000');
     });
 
     it('returns red for loud zone', () => {
-      expect(mod.getColorForZone('loud')).toBe('#facc15');
+      expect(mod.getColorForZone('loud')).toBe('#000000');
     });
 
     it('returns dark red for danger zone', () => {
-      expect(mod.getColorForZone('danger')).toBe('#dc2626');
+      expect(mod.getColorForZone('danger')).toBe('#d92d20');
     });
 
     it('returns gray for inactive zone', () => {
-      expect(mod.getColorForZone('inactive')).toBe('#6b7280');
+      expect(mod.getColorForZone('inactive')).toBe('#000000');
     });
 
     it('falls back to gray for unknown zone', () => {
-      expect(mod.getColorForZone('bogus')).toBe('#6b7280');
-      expect(mod.getColorForZone('')).toBe('#6b7280');
-      expect(mod.getColorForZone(undefined)).toBe('#6b7280');
+      expect(mod.getColorForZone('bogus')).toBe('#000000');
+      expect(mod.getColorForZone('')).toBe('#000000');
+      expect(mod.getColorForZone(undefined)).toBe('#000000');
     });
   });
 
@@ -88,7 +89,7 @@ describe('tray-icon-canvas', () => {
     it('sets fillStyle to zone colour', () => {
       const ctx = createMockCtx();
       mod.drawTrayIcon(ctx, 44, 44, 80, 'loud', [80]);
-      expect(ctx.fillStyle).toBe('#facc15');
+      expect(ctx.fillStyle).toBe('#000000');
     });
 
     it('handles zero volume without errors', () => {
@@ -147,7 +148,7 @@ describe('tray-icon-canvas', () => {
     it('uses danger colour for danger zone', () => {
       const ctx = createMockCtx();
       mod.drawTrayIcon(ctx, 44, 44, 95, 'danger', [95]);
-      expect(ctx.fillStyle).toBe('#dc2626');
+      expect(ctx.fillStyle).toBe('#d92d20');
     });
   });
 

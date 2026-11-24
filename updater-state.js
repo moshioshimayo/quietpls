@@ -6,13 +6,15 @@
 const LABELS = {
   idle: "Check for Updates…",
   checking: "Checking for Updates…",
-  downloading: "Downloading Update…",
+  downloading: "Downloading update…",
   ready: "Restart to Update",
 };
 
 function createUpdaterState() {
   let state = "idle";
   let version = null;
+  let active = false;
+  let promptedVersion = null;
 
   return {
     get state() {
@@ -29,7 +31,7 @@ function createUpdaterState() {
     },
     get label() {
       return state === "ready" && version
-        ? `${LABELS.ready} (${version})…`
+        ? `${LABELS.ready} (${version})`
         : LABELS[state];
     },
     get enabled() {
@@ -37,7 +39,14 @@ function createUpdaterState() {
       // clickable unless a check/download is in flight.
       return state === "idle" || state === "ready";
     },
+    setActive(value) { active = !!value; },
+    takePrompt() {
+      if (active || state !== "ready" || promptedVersion === version) return false;
+      promptedVersion = version;
+      return true;
+    },
     onChecking() {
+      if (state === "ready") return;
       state = "checking";
     },
     onAvailable(v) {

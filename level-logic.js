@@ -37,8 +37,8 @@ const ZONE_LABELS = Object.freeze({
   normal: "Normal",
   warning: "Getting loud",
   danger: "Ease your voice",
-  calibrating: "Calibrating",
-  uncalibrated: "Set your normal voice",
+  calibrating: "Learning voice",
+  uncalibrated: "Set normal voice",
   starting: "Starting…",
   reconnecting: "Reconnecting mic…",
   unavailable: "Mic unavailable",
@@ -261,7 +261,7 @@ function formatRelative(relDb) {
   if (typeof relDb !== "number" || !Number.isFinite(relDb)) return "";
   const r = Math.round(relDb);
   if (r < 1) return "Normal";
-  return "+" + r + " dB above your normal";
+  return "+" + r + " dB above normal";
 }
 
 /** Short readout for the pill panel: "+7 dB" / "Normal" / "—". */

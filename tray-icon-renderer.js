@@ -19,6 +19,7 @@ const PIXEL_SIZE = ICON_SIZE * SCALE; // 44x44
 // Rolling volume history — keeps last BAR_COUNT + 3 samples for smoothness
 const MAX_HISTORY = BAR_COUNT + 3;
 let volumeHistory = [];
+const icons = new Map();
 
 /**
  * Push a new volume sample into the rolling history.
@@ -57,11 +58,13 @@ function getVolumeHistory() {
  */
 function createTrayIcon(volumeLevel, zone) {
   try {
+    const key = zone === "danger" ? "danger" : zone === "inactive" ? "inactive" : "active";
+    if (icons.has(key)) return icons.get(key);
     const canvas = createCanvas(PIXEL_SIZE, PIXEL_SIZE);
     const ctx = canvas.getContext('2d');
 
     // Push the latest sample
-    pushVolumeSample(volumeLevel);
+    // Shape is static; sample history does not drive the mark.
 
     // Draw at 2x resolution
     drawTrayIcon(ctx, PIXEL_SIZE, PIXEL_SIZE, volumeLevel, zone, volumeHistory);
@@ -75,7 +78,8 @@ function createTrayIcon(volumeLevel, zone) {
     });
 
     // Mark as template image for macOS dark/light menu bar adaptation
-    image.setTemplateImage(false); // We use custom colours, not template tinting
+    image.setTemplateImage(zone !== "danger");
+    icons.set(key, image);
 
     return image;
   } catch (err) {

@@ -3,7 +3,7 @@ const {
   launchApp,
   getWidgetWindow,
   dismissOnboardingIfNeeded,
-  getWindow,
+  findWindowByUrl,
   installFakeMic,
   setFakeTransports,
   finishCalibration,
@@ -73,7 +73,7 @@ test.describe("Bluetooth mic policy — widget and Settings", () => {
       "MacBook Pro Microphone (Built-in)",
     );
     await expect(page.locator("#micNote")).toHaveText(
-      "Headset mic skipped — keeps call audio clear",
+      "Using a mic that keeps headset audio clear",
     );
     await finishCalibration(page);
     await expect(label()).toHaveText(/Normal/, { timeout: 10000 });
@@ -95,7 +95,7 @@ test.describe("Bluetooth mic policy — widget and Settings", () => {
 
   test("Settings marks the Bluetooth mic, notes it, and respects an explicit pick", async () => {
     await page.evaluate(() => window.electronAPI.openSettings());
-    settingsPage = await getWindow(electronApp, "Settings");
+    settingsPage = await findWindowByUrl(electronApp, "settings.html");
     await settingsPage.waitForLoadState("domcontentloaded");
     await installFakeMic(settingsPage, {
       devices: [BUILTIN, AIRPODS],
@@ -111,12 +111,12 @@ test.describe("Bluetooth mic policy — widget and Settings", () => {
     );
     const select = settingsPage.locator("#audioDeviceSelect");
     await expect(select.locator("option")).toHaveText([
-      "System Default (skips Bluetooth mics)",
+      "Automatic (prefers non-Bluetooth)",
       "MacBook Pro Microphone (Built-in)",
       "AirPods (Bluetooth)",
     ]);
     const note = settingsPage.locator("#bluetoothMicNote");
-    await expect(note).toBeHidden();
+    await expect(note).toBeVisible();
 
     // Mic test on System Default never opens the Bluetooth default either.
     await settingsPage.locator("#testMicBtn").click();
@@ -124,9 +124,11 @@ test.describe("Bluetooth mic policy — widget and Settings", () => {
     await settingsPage.locator("#testMicBtn").click();
 
     await select.selectOption("fake-airpods");
+    await expect(page.locator("#newMicView")).toBeVisible();
+    await page.locator("#newMicSetup").click();
     await expect(note).toBeVisible();
     await expect(note).toHaveText(
-      "Using a Bluetooth mic switches your headphones to call-quality audio.",
+      "A Bluetooth mic may reduce headset audio quality.",
     );
     await expect
       .poll(() => gumIds(page))
@@ -140,7 +142,7 @@ test.describe("Bluetooth mic policy — widget and Settings", () => {
     await expect(label()).toHaveText(/Normal/, { timeout: 10000 });
 
     await select.selectOption("");
-    await expect(note).toBeHidden();
+    await expect(note).toBeVisible();
     await expect
       .poll(() => gumIds(page))
       .toEqual(["fake-builtin", "fake-airpods", "fake-builtin"]);
@@ -205,10 +207,10 @@ test.describe("Bluetooth mic policy — only a Bluetooth mic", () => {
       expect(await gumIds(page)).toEqual(["fake-airpods"]);
       await expect
         .poll(notes)
-        .toEqual(["quietpls is using your Bluetooth mic"]);
+        .toEqual(["Using Your Bluetooth Mic"]);
 
       // Second session: no second note.
-      await stopFromWidget(page);
+      await page.locator("#calSecondaryBtn").filter({ hasText: "Cancel" }).click();
       await page.locator("#compactPill").click();
       await expect(page.locator("#pillWord")).toHaveText(
         /Set normal voice|Normal|Listening/,
@@ -249,9 +251,7 @@ test.describe("Bluetooth mic policy — onboarding", () => {
         defaultId: "fake-airpods",
       });
       // (Re)enter the demo step so it opens a mic with the mock in place.
-      await onboarding.evaluate(() => window.goToStep(2));
-      await onboarding.waitForTimeout(500);
-      await onboarding.evaluate(() => window.goToStep(3));
+      await onboarding.click("#getStartedBtn");
       await expect.poll(() => gumIds(onboarding)).toEqual(["fake-builtin"]);
     } finally {
       await app.close();

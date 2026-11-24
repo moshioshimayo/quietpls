@@ -6,7 +6,7 @@ const {
   SPEECH_WAV,
   launchApp,
   getWidgetWindow,
-  getWindow,
+  findWindowByUrl,
   dismissOnboardingIfNeeded,
   installFakeMic,
   installObservers,
@@ -56,7 +56,7 @@ const relativeLevel = (relDb) =>
 async function expectButtonsInside(app, page) {
   await expect
     .poll(() => widgetBounds(app))
-    .toMatchObject({ width: 320, height: 240 });
+    .toMatchObject({ width: 368 });
   const { vw, vh, rects } = await page.evaluate(() => ({
     vw: window.innerWidth,
     vh: window.innerHeight,
@@ -67,7 +67,8 @@ async function expectButtonsInside(app, page) {
         return { id: b.id, top: r.top, left: r.left, bottom: r.bottom, right: r.right };
       }),
   }));
-  expect({ vw, vh }).toEqual({ vw: 320, vh: 240 });
+  expect(vw).toBe(368);
+  expect(vh).toBeGreaterThan(150);
   expect(rects.length).toBeGreaterThan(0);
   for (const r of rects) {
     expect(r.top, r.id).toBeGreaterThanOrEqual(0);
@@ -107,8 +108,9 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
     await shot(page, "P1.S1.E-4");
     await pill().click();
     await expect(page.locator("#calibrationView")).toBeVisible();
+    await page.locator("#calPrimaryBtn").click();
     await expect(page.locator("#calText")).toHaveText(
-      /^[4-9] of 10 seconds of talking heard · Mic: Fake Built-in Mic$/,
+      /^[4-9] of 10 seconds heard · Fake Built-in Mic$/,
       { timeout: 30000 },
     );
     await shot(page, "P1.S3.default");
@@ -116,8 +118,8 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
     expect(cal.decision.zone).toBe("calibrating");
 
     // Rehearsal: louder sentence until quietpls shows Getting loud or more.
-    await expect(page.locator("#calTitle")).toHaveText(
-      "Now say one sentence a bit louder",
+    await expect(page.locator("#calText")).toHaveText(
+      "Try a slightly louder voice.",
       { timeout: 45000 },
     );
     const rehearsal = await obs();
@@ -128,12 +130,12 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
     await shot(page, "P1.S3.E-7");
     await setLevel(8);
     await expect(page.locator("#calTitle")).toHaveText(
-      "Good — that read as Getting loud. Now back to your normal voice",
+      "That's the cue you'll see on calls",
       { timeout: 15000 },
     );
     await shot(page, "P1.S3.E-8");
     await setLevel(0);
-    await expect(page.locator("#calTitle")).toHaveText("This is your normal", {
+    await expect(page.locator("#calTitle")).toHaveText("All set", {
       timeout: 16000,
     });
     await shot(page, "P1.S3.success");
@@ -145,7 +147,7 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
     await expect(pill()).toBeVisible({ timeout: 6000 });
     await expect
       .poll(() => widgetBounds(app))
-      .toMatchObject({ width: 188, height: 32 });
+      .toMatchObject({ width: 240 });
   });
 
   test("+12 dB turns the compact pill to Ease your voice without any transition", async () => {
@@ -160,10 +162,10 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
     await expect(word()).toHaveText("Getting loud", { timeout: 10000 });
     await shot(page, "P1.S1.E-2");
     await expect(word()).toHaveText("Ease your voice", { timeout: 15000 });
-    await expect(pill()).toHaveClass(/zone-danger/);
+    await expect(pill()).toHaveClass(/\bloud\b/);
     await expect(pill()).toBeVisible();
     await expect(panel()).not.toBeVisible();
-    expect(await widgetBounds(app)).toMatchObject({ width: 188, height: 32 });
+    expect(await widgetBounds(app)).toMatchObject({ width: 240 });
     const o = await obs();
     const latch = o.changes.find(
       (c) => c.zone === "danger" && c.audioMs >= start.audioMs,
@@ -180,15 +182,15 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
     await expect(panel()).toBeVisible();
     await expect(page.locator("#detailsView")).toBeVisible();
     await expect(page.locator("#zoneLabel")).toHaveText("Ease your voice");
-    await expect(panel()).toHaveClass(/zone-danger/);
+    await expect(panel()).toHaveClass(/\bloud\b/);
     await expect(page.locator("#dbReadout")).toHaveText(
-      /^\+\d+ dB above your normal$/,
+      /^\+\d+ dB$/,
     );
     await expect(page.locator("#micLabel")).toHaveText("Fake Built-in Mic");
     await expect(page.locator("#hideBtn")).toBeFocused();
 
     const { fill, relDb } = await page.evaluate(() => ({
-      fill: parseFloat(document.getElementById("relFill").style.width),
+      fill: parseFloat(document.getElementById("relFill").style.left),
       relDb: window.__obs.decision.relDb,
     }));
     expect(Math.abs(fill - relativeLevel(relDb))).toBeLessThan(8);
@@ -204,10 +206,10 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
     await shot(page, "P1.S2.E-3");
 
     await page.evaluate(() => window.electronAPI.openSettings());
-    const settings = await getWindow(app, "Settings");
+    const settings = await findWindowByUrl(app, "settings.html");
     await settings.waitForLoadState("domcontentloaded");
     await expect(settings.locator("#liveLevelText")).toHaveText(
-      /dB above your normal · Ease your voice/,
+      /dB above normal/,
       { timeout: 5000 },
     );
     await settings.close();
@@ -232,7 +234,7 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
       expect(after.frames).toBeGreaterThan(before.frames + 20);
       expect(after.main.monitoring).toBe(true);
       await expect(page.locator("#sessionCompletePanel")).not.toBeVisible();
-      expect(await widgetBounds(app)).toMatchObject({ width: 188, height: 32 });
+      expect(await widgetBounds(app)).toMatchObject({ width: 240 });
     }
     await shot(page, "P1.S1.E-9");
   });
@@ -267,7 +269,7 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
     await expect(word()).toHaveText("Normal", { timeout: 15000 });
     await pill().click();
     await expect(page.locator("#dbReadout")).toHaveText(
-      /^(At your normal|\+\d dB above your normal)$/,
+      /^(Near or below normal|\+\d dB)$/,
     );
     await expectButtonsInside(app, page);
     await shot(page, "P1.S2.default");
@@ -287,7 +289,9 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
         (await sessionCount(page)),
       )
       .toBe(sessionsBefore + 1);
-    await finishCalibration(page);
+    await page.locator("#calPrimaryBtn").click();
+    await expect(page.locator("#calTitle")).toHaveText("Normal voice saved", { timeout: 45000 });
+    await page.locator("#calSecondaryBtn").filter({ hasText: "Done" }).click();
     await expect(pill()).toBeVisible({ timeout: 6000 });
 
     // Leaning back: 5 dB quieter than the saved normal for 30 s of speech.
@@ -295,7 +299,7 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
     const o = await obs();
     const wait = 32000 / (o.acceptedMs / o.audioMs) + 15000;
     await expect(page.locator("#reanchorLine")).toHaveText(
-      /^Normal adjusted −[45] dB for this session — your setup looks different from when you set it$/,
+      /^Normal adjusted −[45] dB for this session$/,
       { timeout: wait },
     );
     await pill().click();
@@ -314,7 +318,7 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
     test.setTimeout(30000);
     await expect
       .poll(() => widgetBounds(app))
-      .toMatchObject({ width: 188, height: 32 });
+      .toMatchObject({ width: 240 });
     await page.evaluate(() => window.__fakeMic.endCurrentTrack());
     await expect(word()).toHaveText("Reconnecting mic…", { timeout: 3000 });
     await expect(pill()).toHaveClass(/is-uncertain/);
@@ -352,7 +356,7 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
     await page.waitForTimeout(3000);
     const before = await sessionCount(page);
     await page.evaluate(() => window.electronAPI.openSettings());
-    const settings = await getWindow(app, "Settings");
+    const settings = await findWindowByUrl(app, "settings.html");
     await settings.waitForLoadState("domcontentloaded");
     await settings.evaluate(() =>
       window.electronAPI.updateSettings({
@@ -361,8 +365,10 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
       }),
     );
     await settings.close();
+    await expect(page.locator("#newMicTitle")).toHaveText("New mic: Fake Headset");
+    await page.locator("#newMicSetup").click();
     await expect(word()).toHaveText(/Set normal voice/, { timeout: 8000 });
-    await expect(page.locator("#calText")).toHaveText(/Mic: Fake Headset/);
+    await expect(page.locator("#calMicName")).toHaveText("Fake Headset");
     await expect
       .poll(async () =>
         (await sessionCount(page)),
@@ -370,7 +376,7 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
       .toBe(before + 1);
     await expect(page.locator("#sessionCompletePanel")).not.toBeVisible();
     await page.locator("#calSecondaryBtn").click(); // Stop during calibration
-    await expect(word()).toHaveText("Start monitoring");
+    await expect(word()).toHaveText("Set normal voice");
   });
 });
 
@@ -516,19 +522,17 @@ test("onboarding step 3 says Hearing you / Waiting for your voice and never coac
     expect(onboarding).toBeTruthy();
     await onboarding.waitForLoadState("domcontentloaded");
     await installFakeMic(onboarding, { wav: SPEECH_WAV });
-    await onboarding.evaluate(() => window.goToStep(2));
-    await onboarding.waitForTimeout(300);
-    await onboarding.evaluate(() => window.goToStep(3));
+    await onboarding.click("#getStartedBtn");
 
-    const step = onboarding.locator("#step3");
-    await expect(onboarding.locator("#demoHearingLabel")).toBeVisible();
-    await expect(onboarding.locator("#step2")).not.toBeVisible();
-    await expect(onboarding.locator("#demoHearingLabel")).toHaveText(
-      "Hearing you",
+    const step = onboarding.locator('[data-panel="check"]');
+    await expect(onboarding.locator("#hearLabel")).toBeVisible();
+    await expect(onboarding.locator('[data-panel="ask"]')).not.toBeVisible();
+    await expect(onboarding.locator("#hearLabel")).toHaveText(
+      "Mic is responding",
       { timeout: 10000 },
     );
     await expect(step).toContainText(
-      "Next time you start, quietpls learns your normal voice from about 10 seconds of talking.",
+      "Next, talk normally for about 10 seconds to set your normal voice.",
     );
     await expect(step).not.toContainText(
       /nice and calm|sweet spot|too loud|getting loud/i,
@@ -537,8 +541,8 @@ test("onboarding step 3 says Hearing you / Waiting for your voice and never coac
     await shot(onboarding, "P1.S4.default");
 
     await onboarding.evaluate(() => window.__fakeMic.setLevelDb(null));
-    await expect(onboarding.locator("#demoHearingLabel")).toHaveText(
-      "Waiting for your voice…",
+    await expect(onboarding.locator("#hearLabel")).toHaveText(
+      "Waiting for input",
       { timeout: 5000 },
     );
     await shot(onboarding, "P1.S4.empty");
