@@ -83,7 +83,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   window.electronAPI.onMonitoringStatus((monitoring) => {
-    document.getElementById("liveLevelText").textContent = monitoring ? "Monitoring on" : "Monitoring off";
+    const status = monitoring ? "Monitoring on" : "Monitoring off";
+    document.getElementById("liveLevelText").textContent = status;
+    announceMonitoringState(status);
     if (!monitoring) document.getElementById("levelMarker").hidden = true;
   });
 
@@ -304,7 +306,8 @@ async function startMicTest() {
 
       // Raw signal check only: not calibrated, so no zone colours.
       fill.style.width = pct + "%";
-      label.textContent = pct > 2 ? "Signal" : "No signal";
+      const signal = pct > 2 ? "Signal" : "No signal";
+      if (label.textContent !== signal) label.textContent = signal;
       fill.className = "level-normal";
 
       micTestAnimFrame = requestAnimationFrame(drawLevel);
@@ -579,6 +582,7 @@ function updateLevelIndicator(update) {
   const marker = document.getElementById("levelMarker");
   const text = document.getElementById("liveLevelText");
   const speaking = update && typeof update.relDb === "number";
+  announceMonitoringState(update?.label || "Monitoring off");
   if (marker) {
     marker.hidden = !speaking;
     if (speaking) marker.style.left = bandPercent(update.relDb) + "%";
@@ -588,6 +592,11 @@ function updateLevelIndicator(update) {
       ? LL.formatRelative(update.relDb) + " · " + update.label
       : (update && update.label) || "Monitoring off";
   }
+}
+
+function announceMonitoringState(label) {
+  const announcement = document.getElementById("monitoringAnnouncement");
+  if (announcement.textContent !== label) announcement.textContent = label;
 }
 
 function updateMicTestFromMainLevel(update) {
