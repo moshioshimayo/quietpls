@@ -133,6 +133,20 @@ describe("recording pill (CAPB)", () => {
     h.assertRenderedCopy("CR-260", seen(amb.label));
     h.assertRenderedCopy("CR-261", seen(amb.detail));
   });
+
+  it("Open on a failure keeps the cause: it opens the Capture window's alert and doesn't dismiss", () => {
+    const calls = [];
+    const qpc = { openMain: (tab) => calls.push(`open:${tab}`), dismiss: () => calls.push("dismiss") };
+    const failed = load("indicator.js", qpc);
+    failed.show({ ...snap({ state: { phase: "error", error: "System audio is unavailable. Check Screen & System Audio Recording in System Settings, then try again." } }), elapsed: 0 });
+    failed.els["#open"].onclick();
+    expect(calls).toEqual(["open:settings"]);
+    calls.length = 0;
+    const saved = load("indicator.js", qpc);
+    saved.show({ ...snap({ state: { phase: "saved", file: "2026-11-24-0904-zoom.md" } }), elapsed: 0 });
+    saved.els["#open"].onclick();
+    expect(calls).toEqual(["open:calls", "dismiss"]);
+  });
 });
 
 describe("Capture window (CAPS)", () => {

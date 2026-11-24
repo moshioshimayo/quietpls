@@ -4,8 +4,11 @@
 const width = (rms) =>
   `${Math.round(Math.min(1, Math.max(0, (Math.log10(rms + 1e-5) + 3.2) / 2.6)) * 100)}%`;
 
+let shownPhase = null;
+
 function show(snap) {
   const { phase, file, error } = snap.state;
+  shownPhase = phase;
   $("#pill").className = `pill ${phase}`;
   $("#dot").className = `dot ${phase}`;
   const recording = phase === "recording";
@@ -57,6 +60,9 @@ window.qpc.on("levels", (l) => {
 window.qpc.snapshot().then(show);
 $("#stop").onclick = () => window.qpc.stop();
 $("#open").onclick = () => {
+  // A failure stays until it's resolved: open the Capture window, whose alert names the
+  // cause and its fix (Open System Settings), instead of dismissing it.
+  if (shownPhase === "error") return window.qpc.openMain("settings");
   window.qpc.openMain("calls");
   window.qpc.dismiss();
 };

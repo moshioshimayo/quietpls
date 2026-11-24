@@ -153,6 +153,12 @@ test.describe("Capture state truth", () => {
           r[key] = { captureWindowChip: await chip(main), captureWindowAlert: await alerts(main), indicator: await indicator.locator("body").innerText() };
           r[key].files = await shoot(app, "c-cant-start", { capture: main, indicator });
           expect(r[key].indicator).toMatch(/^Not recording/);
+          // Open on the failing pill keeps the error and its fix on screen.
+          await indicator.locator("#open").click();
+          await sleep(1000);
+          r[key].afterPillOpen = { captureWindowChip: await chip(main), captureWindowAlert: await alerts(main) };
+          expect(r[key].afterPillOpen.captureWindowChip).toBe("Not recording · Check recording");
+          expect(r[key].afterPillOpen.captureWindowAlert).toContain("Open System Settings");
           expect(r[key].captureWindowChip).not.toMatch(/^Recording/);
         }
       } finally {
