@@ -313,7 +313,7 @@ function setupHtml() {
       state: health.whisper ? "done" : "",
       what: "Install speech-to-text",
       why: health.whisper
-        ? `Installed · ${esc(health.whisper)}`
+        ? `<span title="${esc(health.whisper)}">Installed</span>`
         : `quietpls uses the free whisper-cpp tool to turn calls into text on this Mac. Install it once in Terminal with Homebrew:<br>${command("brew install whisper-cpp")}`,
       action: health.whisper
         ? ""

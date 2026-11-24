@@ -2749,7 +2749,11 @@
       "app"
     ],
     "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
-    "oldLiterals": []
+    "oldLiterals": [],
+    "variants": [
+      "Record a call in {app}?",
+      "Can’t record this call"
+    ]
   },
   {
     "id": "CR-235",
@@ -3776,14 +3780,10 @@
   {
     "id": "CR-319",
     "owner": "T4",
-    "expected": null,
+    "expected": "Installed",
     "old": "Found {path}",
     "action": "change",
     "location": "capture/renderer/main.js:302",
-    "template": "Installed · {path}",
-    "placeholders": [
-      "path"
-    ],
     "oldLiterals": []
   },
   {

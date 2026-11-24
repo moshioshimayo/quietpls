@@ -8,4 +8,4 @@ body { background: transparent; padding: 8px 24px 40px; }
 .warn { margin: 4px 0 0; color: var(--text-2); }
 .foot { flex-wrap: wrap; -webkit-app-region: no-drag; }
 /* "Never for {app}" gets its own line and never overflows the panel. */
-#never { flex-basis: 100%; max-width: 100%; text-align: left; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; padding: 2px 0 0; }
+#never { flex-basis: 100%; max-width: 100%; text-align: left; overflow: hidden; text-overflow: ellipsis; padding: 2px 0 0; }

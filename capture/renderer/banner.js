@@ -38,6 +38,8 @@ function show(snap) {
       : `Kept for ${settings.keepDays} days, then deleted`
     : "Deleted after transcript is saved";
   blocked = blocker(snap);
+  $("#ask").hidden = Boolean(blocked);
+  $("#cant").hidden = !blocked;
   $("#warn").hidden = !blocked;
   $("#warn").textContent = blocked || "";
   $("#facts").hidden = $("#private").hidden = Boolean(blocked);
