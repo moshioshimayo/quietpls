@@ -2,7 +2,8 @@
 body { background: var(--surface); display: flex; flex-direction: column; }
 
 /* header: traffic lights · Transcripts|Settings · status */
-.top { height: 46px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 12px 0 84px; border-bottom: 1px solid var(--line); -webkit-app-region: drag; }
+/* The segmented control lines up with the 540 px content column (setup, settings), clear of the traffic lights. */
+.top { height: 46px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 12px 0 max(84px, calc((100% - 540px) / 2 + 20px)); border-bottom: 1px solid var(--line); -webkit-app-region: drag; }
 .tabs { -webkit-app-region: no-drag; }
 .tabs button { box-shadow: none; }
 .cstatus { margin-left: auto; display: flex; align-items: center; gap: 8px; -webkit-app-region: no-drag; border-radius: var(--radius-pill); padding: 3px 4px 3px 12px; background: var(--surface-2); font-weight: 500; white-space: nowrap; }
