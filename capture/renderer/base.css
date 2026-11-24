@@ -2,6 +2,9 @@
    No colours are defined here; green/red stay only for recording states (K3). */
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
+/* glyphs.js prepends its symbol sprite with an inline style, which this CSP
+   (style-src 'self') blocks; without this it adds an 18 px line above the content. */
+body > svg[aria-hidden="true"]:first-child { position: absolute; width: 0; height: 0; }
 body {
   font: 13px/1.4 var(--font-text);
   color: var(--text);
