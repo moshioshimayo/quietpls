@@ -180,6 +180,10 @@ test.describe("Widget State Transitions", () => {
     await mainWindow.locator("#stopBtn").click();
 
     await expect(sessionCompletePanel).toBeVisible();
+    const session = await mainWindow.evaluate(async () => (await window.electronAPI.getSessions()).data[0]);
+    const shares = require("../../settings-history-logic").computeSessionZonePercentages(session);
+    await expect(mainWindow.locator("#sessionSplit")).toHaveAttribute("aria-label",
+      `Normal ${shares.normal}%, Getting loud ${shares.loud}%, Ease your voice ${shares.danger}%`);
     // Summary speaks in speaking-time terms, never acoustic dB
     await expect(mainWindow.locator("#insightList")).toContainText(
       /ease your voice|speaking time/i,

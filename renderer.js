@@ -1147,8 +1147,11 @@ if (typeof window !== "undefined") {
     // The summary shows the cue shares and peak; History retains the trend samples.
     populateSessionInsights(window.SessionInsights.generateInsights({ ...sessionData, volumeSamples: [] }),
       sessionData.duration, !sessionData.speakingTime);
-    const total = Math.max(1, sessionData.speakingTime || 0);
-    const shares = ["normal", "warning", "danger"].map(z => Math.max(0, sessionData.zoneTime?.[z] || 0) / total * 100);
+    const zones = sessionData.zoneTime || {};
+    const warning = zones.warning || 0, danger = zones.danger || 0;
+    const total = Math.max(sessionData.speakingTime || 0, (zones.normal || 0) + warning + danger);
+    // Match History: accepted talking before a cue counts in the normal share.
+    const shares = [total - warning - danger, warning, danger].map(n => n / (total || 1) * 100);
     [...$("sessionSplit").children].forEach((el, i) => { el.style.flex = shares[i]; el.hidden = shares[i] === 0; });
     $("sessionSplit").hidden = !sessionData.speakingTime;
     $("sessionSplit").setAttribute("aria-label", "Normal " + Math.round(shares[0]) + "%, Getting loud " + Math.round(shares[1]) + "%, Ease your voice " + Math.round(shares[2]) + "%");
