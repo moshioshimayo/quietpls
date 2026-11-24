@@ -26,7 +26,15 @@ const W = require("./lib/whisper");
 const repo = require("./lib/repo");
 const policy = require("./lib/audio-policy");
 const { finishCall, purgeScratch } = require("./lib/pipeline");
-const { parseMarkdown, clock } = require("./lib/transcript");
+const { parseMarkdown } = require("./lib/transcript");
+
+// Menu-bar timer in the recording pill's format: mm:ss, then h:mm:ss after an hour.
+function timer(total) {
+  const s = Math.max(0, Math.floor(total));
+  const h = Math.floor(s / 3600);
+  const mmss = [Math.floor(s / 60) % 60, s % 60].map((n) => String(n).padStart(2, "0")).join(":");
+  return h ? `${h}:${mmss}` : mmss;
+}
 const { dotBitmap } = require("./lib/tray-icon");
 const speakers = require("./lib/speakers");
 const ambient = require("./lib/ambient");
@@ -329,12 +337,12 @@ function createCaptureMode({
   function trayTitle(phase, elapsed) {
     return (
       {
-        recording: ` REC ${clock(elapsed)}`,
+        recording: ` REC ${timer(elapsed)}`,
         transcribing: " Transcribing…",
         asking: " Record call?",
         saved: " Saved",
         error: " Check recording",
-        ambient: ` ALWAYS ON ${capture ? clock(elapsed) : "· transcribing"}`,
+        ambient: ` ALWAYS ON ${capture ? timer(elapsed) : "· transcribing"}`,
       }[phase] || ""
     );
   }
