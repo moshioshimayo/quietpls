@@ -868,7 +868,8 @@ if (typeof window !== "undefined") {
     setGlyph("pillMark", permissionStatus === "denied" || permissionStatus === "restricted" ? "g-micoff" : p.mark);
     $("pillMark").style.setProperty("--progress", calib === "saved" ? 100 : shownProgress() * 100);
     $("pillWord").textContent = word;
-    const metered = isMonitoring && ["silent", "normal", "warning", "danger"].includes(decision.zone);
+    // No meter beside "Learning voice n%": the pill shows setup progress, not a level (and it wouldn't fit).
+    const metered = isMonitoring && ["silent", "normal", "warning", "danger"].includes(decision.zone) && !/%$/.test(word);
     $("miniMeter").hidden = !metered;
     $("miniFill").style.width = Math.round((decision.level || 0) / 10) * 10 + "%";
     const coarseWord = /%$/.test(word) ? "Learning voice" : word;
