@@ -175,6 +175,9 @@ if (typeof window !== "undefined") {
       else if (lastDecision) render(lastDecision);
     });
     window.electronAPI.onMicrophoneStatusChanged(onPermissionStatus);
+    navigator.mediaDevices.addEventListener("devicechange", () => {
+      if (!isMonitoring) refreshIdleVoiceState();
+    });
     $("calSecondaryBtn").addEventListener("click", () => {
       if (calib === "louder" || calib === "back") finishRehearsal(true); // Skip
       else if (calib === "done" || calib === "skipped" || calib === "saved") collapseAfterCalibration(); // Done

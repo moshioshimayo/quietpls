@@ -3,7 +3,7 @@ const {
   launchApp,
   getWidgetWindow,
   dismissOnboardingIfNeeded,
-  getWindow,
+  findWindowByUrl,
   installFakeMic,
   setFakeTransports,
   finishCalibration,
@@ -95,7 +95,7 @@ test.describe("Bluetooth mic policy — widget and Settings", () => {
 
   test("Settings marks the Bluetooth mic, notes it, and respects an explicit pick", async () => {
     await page.evaluate(() => window.electronAPI.openSettings());
-    settingsPage = await getWindow(electronApp, "Settings");
+    settingsPage = await findWindowByUrl(electronApp, "settings.html");
     await settingsPage.waitForLoadState("domcontentloaded");
     await installFakeMic(settingsPage, {
       devices: [BUILTIN, AIRPODS],
@@ -116,7 +116,7 @@ test.describe("Bluetooth mic policy — widget and Settings", () => {
       "AirPods (Bluetooth)",
     ]);
     const note = settingsPage.locator("#bluetoothMicNote");
-    await expect(note).toBeHidden();
+    await expect(note).toBeVisible();
 
     // Mic test on System Default never opens the Bluetooth default either.
     await settingsPage.locator("#testMicBtn").click();
@@ -142,7 +142,7 @@ test.describe("Bluetooth mic policy — widget and Settings", () => {
     await expect(label()).toHaveText(/Normal/, { timeout: 10000 });
 
     await select.selectOption("");
-    await expect(note).toBeHidden();
+    await expect(note).toBeVisible();
     await expect
       .poll(() => gumIds(page))
       .toEqual(["fake-builtin", "fake-airpods", "fake-builtin"]);

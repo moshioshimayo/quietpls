@@ -6,7 +6,7 @@ const {
   SPEECH_WAV,
   launchApp,
   getWidgetWindow,
-  getWindow,
+  findWindowByUrl,
   dismissOnboardingIfNeeded,
   installFakeMic,
   installObservers,
@@ -206,7 +206,7 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
     await shot(page, "P1.S2.E-3");
 
     await page.evaluate(() => window.electronAPI.openSettings());
-    const settings = await getWindow(app, "Monitoring");
+    const settings = await findWindowByUrl(app, "settings.html");
     await settings.waitForLoadState("domcontentloaded");
     await expect(settings.locator("#liveLevelText")).toHaveText(
       /dB above normal/,
@@ -356,7 +356,7 @@ test.describe("Loudness journey with recorded speech (2.4)", () => {
     await page.waitForTimeout(3000);
     const before = await sessionCount(page);
     await page.evaluate(() => window.electronAPI.openSettings());
-    const settings = await getWindow(app, "Monitoring");
+    const settings = await findWindowByUrl(app, "settings.html");
     await settings.waitForLoadState("domcontentloaded");
     await settings.evaluate(() =>
       window.electronAPI.updateSettings({
