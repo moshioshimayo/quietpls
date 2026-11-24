@@ -131,6 +131,11 @@ describe('formatTotalMinutes', () => {
     expect(formatTotalMinutes(125)).toBe('2h 5m');
   });
 
+  it('carries rounded minutes into the next hour', () => {
+    expect(formatTotalMinutes(119.75)).toBe('2h 0m');
+    expect(formatTotalMinutes(59.75)).toBe('1h 0m');
+  });
+
   it('formats zero', () => {
     expect(formatTotalMinutes(0)).toBe('0m');
   });

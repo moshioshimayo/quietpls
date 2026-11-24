@@ -72,9 +72,10 @@ function formatDuration(seconds) {
  */
 function formatTotalMinutes(minutes) {
   if (typeof minutes !== "number" || isNaN(minutes) || minutes < 0) return "—";
-  if (minutes < 60) return `${Math.round(minutes)}m`;
-  const h = Math.floor(minutes / 60);
-  const m = Math.round(minutes % 60);
+  const total = Math.round(minutes);
+  if (total < 60) return `${total}m`;
+  const h = Math.floor(total / 60);
+  const m = total % 60;
   return `${h}h ${m}m`;
 }
 
