@@ -171,8 +171,9 @@ async function bannerText(app) {
     accept: document.getElementById("accept").innerText,
   }));
 }
-// The detector polls every few seconds; wait for the banner to settle.
-async function settleBanner(app, visible, timeout = 12000) {
+// The detector polls every 2 s and smooths gaps under 8 s (one call); wait for the banner to settle.
+const CALL_END_MS = 12000;
+async function settleBanner(app, visible, timeout = 15000) {
   await expect.poll(async () => (await bannerState(app)).visible, { timeout }).toBe(visible);
 }
 const meeting = (app, detected, apps = ["Zoom"]) =>
@@ -255,7 +256,7 @@ test.describe("Evidence trace (judge pleasantness items)", () => {
   });
 
   test("Capture boundary: Never for an app, its reversal in Settings, and a mixed call", async () => {
-    test.setTimeout(120000);
+    test.setTimeout(240000);
     const { app, userData } = await captureLaunch();
     try {
       const r = {};
@@ -267,17 +268,19 @@ test.describe("Evidence trace (judge pleasantness items)", () => {
       await settleBanner(app, false);
       r.neverAppsAfterNever = readCaptureSettings(userData).neverApps;
       await setMicUsers(app, "");
-      await new Promise((res) => setTimeout(res, 5000));
-      await setMicUsers(app, ZOOM);
+      await new Promise((res) => setTimeout(res, CALL_END_MS)); // that call ended
+      await setMicUsers(app, ZOOM); // the next Zoom call
       await new Promise((res) => setTimeout(res, 8000));
       r.zoomCallAfterNever = await bannerState(app);
+      await setMicUsers(app, "");
+      await new Promise((res) => setTimeout(res, CALL_END_MS));
 
       // Mixed call: the Never app plus one that may be recorded.
       await setMicUsers(app, ZOOM + TEAMS);
       await settleBanner(app, true);
       r.mixedCall = await bannerText(app);
       await setMicUsers(app, "");
-      await settleBanner(app, false);
+      await settleBanner(app, false, CALL_END_MS + 5000);
 
       // Reversal: Capture settings → Zoom → Ask.
       await app.evaluate(({ ipcMain }) => ipcMain.emit("open-settings", {}));
