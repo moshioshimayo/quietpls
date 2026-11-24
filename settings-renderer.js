@@ -163,6 +163,7 @@ function setupDeviceHandlers() {
   const deviceSelect = document.getElementById("audioDeviceSelect");
   if (deviceSelect) {
     deviceSelect.addEventListener("change", (e) => {
+      stopMicTest();
       selectedDeviceId = e.target.value;
       updateBluetoothNote();
       refreshIdleMicrophone();
@@ -496,7 +497,9 @@ function resizeSettingsWindow() {
   // Measure the selected pane rather than the current window (which can shrink).
   requestAnimationFrame(() => {
     const pane = document.getElementById("tab-" + activeTab);
-    window.electronAPI.resizeSettings?.(Math.ceil(pane.offsetHeight + 48 + 14), activeTab);
+    const confirm = document.getElementById("deleteConfirmModal");
+    const height = Math.max(pane.offsetHeight, confirm.open ? Math.max(confirm.offsetHeight, confirm.scrollHeight + 2) : 0);
+    window.electronAPI.resizeSettings?.(Math.ceil(height + 48 + 14), activeTab);
   });
 }
 
@@ -780,12 +783,14 @@ function showDeleteConfirm(sessionId) {
   document.getElementById("deleteError").hidden = true;
   document.getElementById("deleteConfirmModal").showModal();
   document.getElementById("deleteCancelBtn").focus();
+  resizeSettingsWindow();
 }
 
 function closeDeleteModal() {
   pendingDeleteId = null;
   document.getElementById("deleteConfirmModal").close();
   if (deleteInvoker?.isConnected) deleteInvoker.focus();
+  resizeSettingsWindow();
 }
 
 async function confirmDeleteSession() {

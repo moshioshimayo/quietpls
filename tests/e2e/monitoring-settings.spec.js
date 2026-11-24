@@ -146,6 +146,7 @@ test.describe("Settings Monitoring and History", () => {
     await expect(settings.locator("#sessionModal")).toContainText("“Ease your voice” shown for 11% of talking time");
     await settings.getByRole("button", {name:"Delete session…",exact:true}).click();
     await expect(settings.getByRole("dialog")).toBeVisible();
+    expect(await settings.locator("#deleteConfirmModal").evaluate((dialog) => dialog.getBoundingClientRect().bottom <= innerHeight)).toBe(true);
     await expect(settings.getByRole("button", {name:"Cancel",exact:true})).toBeFocused();
     await settings.keyboard.press("Escape");
     await expect(settings.getByRole("button", {name:"Delete session…",exact:true})).toBeFocused();
