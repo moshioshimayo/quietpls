@@ -42,6 +42,6 @@ button { cursor:default; }
 #countdownFill { transition:width var(--duration-meter) linear; }
 #insightList { padding:0; margin:8px 0 0; list-style:none; }
 #insightList li { margin-top:6px; line-height:18px; }
-.tip { width:176px; padding:10px 12px; border-radius:var(--radius-group); background:var(--surface); color:var(--text-2); box-shadow:var(--shadow); font-size:12px; line-height:16px; }
+.tip { width:176px; padding:10px 12px; border:0; border-radius:var(--radius-group); background:var(--surface); color:var(--text-2); box-shadow:var(--shadow); font:12px/16px var(--font-text); text-align:left; }
 .sr-only { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { transition:none !important; animation:none !important; } }

@@ -162,6 +162,10 @@ test.describe("Widget State Transitions", () => {
     await compactPill.click();
     // Calibration and its rehearsal are not session time.
     await finishCalibration(mainWindow);
+    await expect(mainWindow.locator("#firstRunTip")).toBeVisible();
+    await mainWindow.locator("#firstRunTip").focus();
+    await mainWindow.keyboard.press("Enter");
+    await expect(mainWindow.locator("#firstRunTip")).not.toBeVisible();
     await expect(compactPill).toBeVisible({ timeout: 6000 }); // auto-collapse
     await expect(mainWindow.locator("#expandedPanel")).not.toBeVisible();
     await expect(mainWindow.locator("#pillWord")).toHaveText("Normal", {
