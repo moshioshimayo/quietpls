@@ -87,6 +87,18 @@ test.describe("Settings Monitoring and History", () => {
     await settings.locator("#audioDeviceSelect").selectOption("");
   });
 
+  test("a mic chosen in Setup is kept when an open Settings saves next", async () => {
+    // Setup's mic change (onboarding-renderer onMicChange sends only the mic).
+    await app.evaluate(({ ipcMain }) => ipcMain.emit("update-settings", {}, { audioDeviceId: "fake-headset" }));
+    await expect.poll(() => getSettingsStore(app)).toMatchObject({ audioDeviceId: "fake-headset" });
+    await settings.locator("#sensitivity").fill("2");
+    await settings.locator("#sensitivity").dispatchEvent("input");
+    await expect.poll(() => getSettingsStore(app)).toMatchObject({ sensitivity: 2, audioDeviceId: "fake-headset" });
+    await expect(settings.locator("#audioDeviceSelect")).toHaveValue("fake-headset");
+    await settings.getByRole("button", { name: "Reset sensitivity", exact: true }).click();
+    await settings.locator("#audioDeviceSelect").selectOption("");
+  });
+
   test("Test mic releases its stream when History opens, including a pending access request", async () => {
     await settings.getByRole("button", { name: "Test mic", exact: true }).click();
     await expect(settings.getByRole("button", { name: "Stop test", exact: true })).toBeVisible();

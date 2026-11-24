@@ -922,8 +922,12 @@ app.whenReady().then(async () => {
     settingsStore.set("sensitivity", sanitized.sensitivity);
     settingsStore.set("audioDeviceId", sanitized.audioDeviceId || null);
 
-    // Send to main window
-    mainWindow.webContents.send("settings-updated", sanitized);
+    // Every other window that holds these settings gets the canonical values, so none
+    // of them can later save a stale copy back (the widget and an open Settings). The
+    // sender already has them (and a slider being dragged must not be echoed).
+    for (const win of [mainWindow, settingsWindow])
+      if (win && !win.isDestroyed() && win.webContents !== event.sender)
+        win.webContents.send("settings-updated", sanitized);
   });
 
   // Onboarding window requests
