@@ -269,7 +269,9 @@ function createCaptureMode({
       alwaysOnTop: true,
       skipTaskbar: true,
       focusable: page === "banner",
-      hasShadow: true,
+      // The card draws its own CSS shadow inside the transparent margin; a native
+      // shadow would trace that margin as a second outline.
+      hasShadow: false,
       fullscreenable: false,
     });
     win.setAlwaysOnTop(true, "screen-saver");
