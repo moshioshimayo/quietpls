@@ -180,6 +180,7 @@ test.describe("Widget State Transitions", () => {
     await mainWindow.locator("#stopBtn").click();
 
     await expect(sessionCompletePanel).toBeVisible();
+    await expect.poll(() => mainWindow.evaluate(async () => (await window.electronAPI.getSessions()).data.length)).toBe(1);
     const session = await mainWindow.evaluate(async () => (await window.electronAPI.getSessions()).data[0]);
     const shares = require("../../settings-history-logic").computeSessionZonePercentages(session);
     await expect(mainWindow.locator("#sessionSplit")).toHaveAttribute("aria-label",
