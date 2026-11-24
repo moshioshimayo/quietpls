@@ -13,6 +13,7 @@ button { cursor:default; }
 #pillWord { flex:none; }
 #compactPill:has(.mm:not([hidden])) { gap:5px; padding-right:7px; }
 #miniFill { transition:width var(--duration-meter) var(--ease-out); }
+#miniMeter::after { left:var(--normal-notch,40%); }
 .pill.normal { --status-color:var(--normal); }
 .pill.rising { --status-color:var(--rising); }
 .pill.loud { --status-color:var(--white); }

@@ -917,6 +917,7 @@ if (typeof window !== "undefined") {
   function renderTicks() {
     const m = LL.marginsFor(config.sensitivity);
     const at = (db) => LL.relativeLevel(db) + "%";
+    $("miniMeter").style.setProperty("--normal-notch", at(0));
     const warn = LL.relativeLevel(m.warningDb), loud = LL.relativeLevel(m.dangerDb);
     $("normalZone").style.flex = warn;
     $("risingZone").style.flex = loud - warn;
