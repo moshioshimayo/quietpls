@@ -25,6 +25,7 @@ input[type=range] { width:100%; min-width:60px; margin:0; accent-color:var(--acc
 .meter { margin-top:6px; }
 .normal-notch { position:absolute; left:33.333%; top:-3px; width:1px; height:12px; background:var(--text-2); }
 .scale span:first-child { transform:none; }
+.scale span { white-space:nowrap; }
 .scale span:last-child { transform:translateX(-100%); }
 .live-level { margin-top:4px; text-align:center; }
 .mic-test-meter { width:76px; height:6px; border-radius:3px; background:var(--ctl-line); overflow:hidden; }
@@ -72,7 +73,7 @@ input[type=range] { width:100%; min-width:60px; margin:0; accent-color:var(--acc
 #detailDeleteBtn { color:var(--loud); }
 .delete-confirm-modal { position:fixed; top:48px; bottom:auto; width:280px; margin:0 auto; padding:20px; border:1px solid var(--line); border-radius:var(--radius-panel); box-shadow:var(--shadow); background:var(--surface); color:var(--text); text-align:center; }
 .delete-confirm-modal::backdrop { background:var(--ctl); }
-.delete-icon { width:40px; height:40px; color:var(--text-2); margin-bottom:8px; }
+.delete-icon { width:40px; height:40px; color:var(--text-2); fill:currentColor; margin-bottom:8px; }
 .delete-confirm-modal h2 { margin:0; }
 .delete-confirm-modal p { font-size:12px; line-height:16px; color:var(--text-2); margin:6px 0 16px; }
 .delete-confirm-actions { display:flex; flex-direction:column; gap:6px; }
