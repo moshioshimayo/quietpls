@@ -91,6 +91,7 @@ if (typeof window !== "undefined") {
 
   let permissionStatus = "granted";
   let resumeAfterPermission = false;
+  let resumeForCall = false; // the pending resume belongs to an automatic call (AC-I3)
   let pendingMic = null;
   let resetOnly = false;
   let rehearsalTimer = null;
@@ -274,6 +275,8 @@ if (typeof window !== "undefined") {
         const owned = autoStartedForMeeting;
         autoStartedForMeeting = false;
         manualStopDuringMeeting = false;
+        // A start this call was waiting on (access off) is no longer requested.
+        if (resumeForCall) resumeAfterPermission = resumeForCall = false;
         if (isMonitoring && owned) await finalizeAndShowSessionComplete();
       }
     }
@@ -452,6 +455,7 @@ if (typeof window !== "undefined") {
       }
       if (permissionStatus !== "granted") {
         resumeAfterPermission = permissionStatus !== "not-determined";
+        resumeForCall = resumeAfterPermission && automatic;
         if (resumeAfterPermission) showPermissionOff();
         else showDecision({ zone: "uncalibrated", label: "Set normal voice", level: 0, relDb: null });
         window.electronAPI.setMonitoring(false);
@@ -1145,6 +1149,7 @@ if (typeof window !== "undefined") {
     // A stop during a call holds until that call ends (no auto-restart).
     if (meetingDetected) manualStopDuringMeeting = true;
     autoStartedForMeeting = false;
+    resumeAfterPermission = resumeForCall = false; // a Stop is never overridden by a later grant
 
     const sessionData = saveSegment();
     stopMonitoring();
@@ -1223,14 +1228,18 @@ if (typeof window !== "undefined") {
     if (status === "denied" || status === "restricted") {
       if (isMonitoring) {
         resumeAfterPermission = true;
+        resumeForCall = autoStartedForMeeting;
         saveSegment();
         stopMonitoring();
         window.electronAPI.setMonitoring(false);
       }
       showPermissionOff();
     } else if (status === "granted" && resumeAfterPermission) {
-      resumeAfterPermission = false;
-      await startMonitoring();
+      // Resume only what is still requested; a call's run stays that call's run.
+      const forCall = resumeForCall;
+      resumeAfterPermission = resumeForCall = false;
+      if (forCall) autoStartedForMeeting = true;
+      await startMonitoring(forCall ? { automatic: true } : undefined);
     } else if (status === "granted" && captureStatus?.reason === "permission") {
       captureStatus = null;
       refreshIdleVoiceState();

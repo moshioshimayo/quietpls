@@ -343,6 +343,48 @@ test.describe("Evidence trace (judge pleasantness items)", () => {
     }
   });
 
+  test("access off during a call: the pending start ends with the call; a grant mid-call resumes that call's run", async () => {
+    test.setTimeout(120000);
+    const { app, userData } = await H.launchApp();
+    try {
+      const w = await H.getWidgetWindow(app, 10000);
+      await H.installFakeMic(w, { devices: [MIC], wav: H.SPEECH_WAV });
+      await w.locator("#compactPill").click();
+      await H.finishCalibration(w);
+      await H.stopFromWidget(w);
+      const access = async (status) => {
+        await H.setMicAccess(app, status);
+        await w.evaluate((s) => window.__fakeMic.setDenied(s !== "granted"), status);
+        await app.evaluate(({ app: a }) => a.emit("browser-window-focus")); // main re-broadcasts access
+      };
+      const r = {};
+      // 1) Denied automatic call; the call ends; access comes back later.
+      await access("denied");
+      await meeting(app, true);
+      await expect(w.locator("#pillWord")).toHaveText("Mic access off", { timeout: 10000 });
+      await meeting(app, false);
+      await w.waitForTimeout(1000);
+      await access("granted");
+      await w.waitForTimeout(3000);
+      r.grantAfterCallEnded = { monitoring: await monitoring(w) };
+      expect(r.grantAfterCallEnded.monitoring).toBe(false);
+      // 2) Denied automatic call; access comes back during the call: that call's run resumes and ends with it.
+      await access("denied");
+      await meeting(app, true);
+      await expect(w.locator("#pillWord")).toHaveText("Mic access off", { timeout: 10000 });
+      await access("granted");
+      await expect.poll(() => monitoring(w), { timeout: 10000 }).toBe(true);
+      r.grantDuringCall = { monitoring: true };
+      await meeting(app, false);
+      await expect.poll(() => monitoring(w), { timeout: 10000 }).toBe(false);
+      r.grantDuringCall.stoppedWithCall = true;
+      evidence.items.permissionResume = r;
+    } finally {
+      await H.closeApp(app);
+      fs.rmSync(userData, { recursive: true, force: true });
+    }
+  });
+
   test("a Capture settings change that can't be saved is visible", async () => {
     test.setTimeout(60000);
     const { app, userData } = await captureLaunch();
