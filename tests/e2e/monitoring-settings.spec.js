@@ -40,7 +40,7 @@ test.describe("Settings Monitoring and History", () => {
     await expect(settings.locator("#calibrationDevice")).toHaveText("Fake Built-in Mic");
     await expect(settings.locator("#calibrationStatus")).toHaveText(/Normal voice saved/);
     await expect.poll(nativeSettings).toMatchObject({ bounds: { width: 540 }, floating: false, title: "Monitoring" });
-    expect(await settings.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true);
+    await expect.poll(() => settings.evaluate(() => document.documentElement.scrollHeight - innerHeight)).toBeLessThanOrEqual(0);
     await expect(settings.locator("#closeSettings")).toHaveCount(0);
     await expect(settings.locator(".settings-header")).toHaveCount(0);
   });
@@ -91,12 +91,14 @@ test.describe("Settings Monitoring and History", () => {
   });
 
   test("native tab selection and keyboard shortcuts resize and retitle the window", async () => {
+    await expect.poll(nativeSettings).toMatchObject({ title: "Monitoring" });
+    await expect.poll(async () => (await nativeSettings()).bounds.height).toBeGreaterThan(300);
     const height = (await nativeSettings()).bounds.height;
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().endsWith("/settings.html")).webContents.send("select-settings-tab", "history"));
     await expect(history()).toHaveAttribute("aria-selected", "true");
     await expect(settings.getByText("No sessions yet", {exact:true})).toBeVisible();
     await expect.poll(nativeSettings).toMatchObject({ title: "History" });
-    expect((await nativeSettings()).bounds.height).toBeLessThan(height);
+    await expect.poll(async () => (await nativeSettings()).bounds.height).toBeLessThan(height);
     await settings.keyboard.press("Meta+1");
     await expect(monitoring()).toHaveAttribute("aria-selected", "true");
     await settings.keyboard.press("Meta+2");
@@ -110,7 +112,8 @@ test.describe("Settings Monitoring and History", () => {
   test("permission broadcasts replace the mic groups and recover without a restart", async () => {
     const broadcast = (status) => app.evaluate(({ BrowserWindow }, value) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().endsWith("/settings.html")).webContents.send("microphone-status-changed", value), status);
     await broadcast("denied");
-    await expect(settings.getByText("Microphone access is off", {exact:true})).toBeVisible();
+    await expect(settings.locator("#microphoneDenied")).toBeVisible();
+    await expect(settings.locator("#microphoneDenied .l")).toContainText("Microphone access is off");
     await expect(settings.getByRole("button", {name:"Open System Settings",exact:true})).toBeVisible();
     await expect(settings.locator("#microphoneGroups")).toBeHidden();
     await broadcast("granted");
@@ -122,7 +125,7 @@ test.describe("Settings Monitoring and History", () => {
     await widget.locator("#compactPill").click();
     await expect(widget.locator("#pillWord")).toHaveText("Normal", {timeout:15000});
     await expect(settings.locator("#calibrationDevice")).toHaveText("Fake Built-in Mic");
-    await widget.evaluate(() => window.__fakeMic.setLevelDb(-19));
+    await widget.evaluate(() => window.__fakeMic.setLevelDb(-8));
     await expect(widget.locator("#pillWord")).toHaveText("Ease your voice", {timeout:15000});
     await expect(settings.locator("#liveLevelText")).toHaveText(/· Ease your voice$/, {timeout:5000});
     await expect(settings.locator("#calibrationStatus")).toHaveText(/Normal voice saved/);

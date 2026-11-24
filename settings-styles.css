@@ -8,10 +8,10 @@ button,input,select { font-family:inherit; }
 .settings-titlebar { height:48px; display:flex; align-items:center; justify-content:center; border-bottom:1px solid var(--line); -webkit-app-region:drag; padding-left:64px; padding-right:64px; }
 .settings-tabs { -webkit-app-region:no-drag; }
 .settings-content { padding:0 18px 14px; }
+.tab-content { display:flow-root; }
 .h { margin:12px 2px 5px; align-items:center; }
 .h .link { font-size:11px; line-height:14px; }
-.frow { min-height:32px; padding:7px 10px; gap:8px; }
-.frow:has(small) { padding-top:6px; padding-bottom:6px; }
+.frow { min-height:32px; padding:5px 10px; gap:8px; }
 .l { min-width:0; }
 .l>span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:290px; }
 .help { margin:5px 10px 0; font:11px/14px var(--font-text); color:var(--text-2); }

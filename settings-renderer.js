@@ -481,7 +481,7 @@ function setupFooterHandlers() {
     config.sensitivity = 0;
     updateUI();
     // This action only changes sensitivity; the microphone and general settings stay intact.
-    window.electronAPI.updateSettings({ sensitivity: 0 });
+    saveSettings();
   });
   document.addEventListener("keydown", (event) => {
     if ((event.metaKey || event.ctrlKey) && ["1", "2"].includes(event.key)) {
