@@ -13,10 +13,21 @@ const electronPath = require("electron");
  * options.onboarding: start at first-run onboarding instead of past it.
  * options.args: extra command-line switches.
  * options.generalSettings: initial quietpls-general-settings.json contents.
+ * options.profile: a userData dir to start from (copied, never modified).
+ * options.files: { relativePath: string|object } written into userData.
+ * options.env: extra environment; options.recordVideo: Playwright recordVideo.
  */
 async function launchApp(options = {}) {
   // Fresh profile per launch: never reads or writes the real app's data.
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), "quietpls-e2e-"));
+  if (options.profile) fs.cpSync(options.profile, userData, { recursive: true });
+  for (const [rel, body] of Object.entries(options.files || {})) {
+    fs.mkdirSync(path.dirname(path.join(userData, rel)), { recursive: true });
+    fs.writeFileSync(
+      path.join(userData, rel),
+      typeof body === "string" ? body : JSON.stringify(body),
+    );
+  }
   // Past first-run onboarding, like a returning user.
   fs.writeFileSync(
     path.join(userData, "quietpls-app-state.json"),
@@ -30,13 +41,18 @@ async function launchApp(options = {}) {
   }
   const app = await electron.launch({
     executablePath: electronPath,
-    args: [path.join(APP_ROOT, "main.js"), ...(options.args || [])],
+    // The package directory, so app.getVersion() is the product version (About).
+    args: [APP_ROOT, ...(options.args || [])],
+    // Follow nativeTheme (setTheme) instead of Playwright's forced light media.
+    colorScheme: null,
     env: {
       ...process.env,
       QUIETPLS_E2E_TEST: "1",
       QUIETPLS_USER_DATA: userData,
       NODE_ENV: "test",
+      ...options.env,
     },
+    ...(options.recordVideo && { recordVideo: options.recordVideo }),
   });
 
   // The shipped runtime: the supported Electron line (spec A5).
@@ -46,7 +62,35 @@ async function launchApp(options = {}) {
   const window = await app.firstWindow();
   await window.waitForLoadState("domcontentloaded");
 
-  return { app, window };
+  return { app, window, userData };
+}
+
+/** Close the app; a native modal can block close(), so kill after 5 s. */
+async function closeApp(app) {
+  const closed = app.close().then(() => true, () => true);
+  const timedOut = new Promise((r) => setTimeout(() => r(false), 5000));
+  if (!(await Promise.race([closed, timedOut]))) app.process().kill("SIGKILL");
+}
+
+/** Follow light or dark like the system appearance would ("system" resets). */
+async function setTheme(app, theme) {
+  await app.evaluate(({ nativeTheme }, t) => {
+    nativeTheme.themeSource = t;
+  }, theme);
+}
+
+/**
+ * Make the main process report a microphone access state without touching
+ * the Mac's TCC database: granted | denied | restricted | not-determined.
+ * Pair "denied" with __fakeMic.setDenied(true) in the renderer.
+ */
+async function setMicAccess(app, status) {
+  await app.evaluate(({ ipcMain, systemPreferences }, s) => {
+    systemPreferences.getMediaAccessStatus = () => s;
+    systemPreferences.askForMediaAccess = async () => s === "granted";
+    ipcMain.removeHandler("get-microphone-status");
+    ipcMain.handle("get-microphone-status", () => s);
+  }, status);
 }
 
 /**
@@ -81,18 +125,11 @@ async function dismissOnboardingIfNeeded(electronApp, timeoutMs = 5000) {
   ).catch(() => null);
   if (!onboarding) return false;
 
-  const skip = onboarding.locator("#skipBtn");
-  const start = onboarding.locator("#startMonitoringBtn");
-  if (await skip.isVisible().catch(() => false)) {
-    await skip.click();
-  } else if (await start.isVisible().catch(() => false)) {
-    await start.click();
-  } else {
-    // Wait for the step to render its nav buttons, then retry once
-    await onboarding.waitForTimeout(1000);
-    if (await skip.isVisible().catch(() => false)) await skip.click();
-    else await start.click();
-  }
+  // 2.5.0: Set up later (Close when managed); 3abfe96: Skip or Start Monitoring.
+  await onboarding
+    .locator("[data-later]:visible, #skipBtn:visible, #startMonitoringBtn:visible")
+    .first()
+    .click({ timeout: 3000 });
 
   // Wait for the onboarding window to close
   const startWait = Date.now();
@@ -205,7 +242,8 @@ async function installFakeMic(page, options = {}) {
     lfo.frequency.value = 3.33;
     const lfoDepth = ctx.createGain();
     lfoDepth.gain.value = 0.5;
-    lfo.connect(lfoDepth).connect(syllables.gain);
+    // options.steady: a constant tone (fan/music-like), no syllables.
+    if (!opts.steady) lfo.connect(lfoDepth).connect(syllables.gain);
     const level = ctx.createGain();
     if (opts.wav) {
       const bytes = Uint8Array.from(atob(opts.wav), (c) => c.charCodeAt(0));
@@ -220,7 +258,7 @@ async function installFakeMic(page, options = {}) {
       lfo.start();
     }
 
-    const state = { gumCalls: [], tracks: [] };
+    const state = { gumCalls: [], tracks: [], denied: Boolean(opts.deny) };
     const setLevelDb = (db) => {
       level.gain.setValueAtTime(
         db === null ? 0 : Math.pow(10, db / 20),
@@ -229,17 +267,25 @@ async function installFakeMic(page, options = {}) {
     };
     setLevelDb(opts.wav ? 0 : -30);
 
-    navigator.mediaDevices.enumerateDevices = async () => [
-      {
-        kind: "audioinput",
-        deviceId: "default",
-        groupId: systemDefault().groupId,
-        label: "Default - " + systemDefault().label,
-      },
-      ...devices,
-    ];
+    navigator.mediaDevices.enumerateDevices = async () =>
+      devices.length
+        ? [
+            {
+              kind: "audioinput",
+              deviceId: "default",
+              groupId: systemDefault().groupId,
+              label: "Default - " + systemDefault().label,
+            },
+            ...devices,
+          ]
+        : [];
     navigator.mediaDevices.getUserMedia = async (constraints) => {
       state.gumCalls.push(JSON.parse(JSON.stringify(constraints)));
+      if (state.denied) {
+        const err = new Error("Permission denied");
+        err.name = "NotAllowedError";
+        throw err;
+      }
       const exact =
         constraints.audio &&
         constraints.audio.deviceId &&
@@ -268,9 +314,10 @@ async function installFakeMic(page, options = {}) {
 
     window.__fakeMic = {
       setLevelDb,
+      setDenied: (v) => (state.denied = Boolean(v)),
       setDevices: (next, nextDefault) => {
-        devices = next;
-        defaultId = nextDefault || next[0].deviceId;
+        devices = next; // [] = every mic unplugged
+        defaultId = nextDefault || (next[0] && next[0].deviceId);
         navigator.mediaDevices.dispatchEvent(new Event("devicechange"));
       },
       gumCalls: () => state.gumCalls,
@@ -279,6 +326,8 @@ async function installFakeMic(page, options = {}) {
         t.dispatchEvent(new Event("ended"));
       },
     };
+    // Like a hotplug: an idle widget (warm profile) re-resolves to the fake mic.
+    navigator.mediaDevices.dispatchEvent(new Event("devicechange"));
   }, opts);
 }
 
@@ -349,28 +398,59 @@ async function observations(app, page) {
 }
 
 /**
- * Wait until guided calibration has heard about 10 s of talking, Skip the
- * louder/normal rehearsal (the saved normal is already stored), then press
- * Done on "This is your normal" so the widget is compact again.
+ * Finish guided voice setup from its first panel: press Start when the
+ * 2.5.0 panel waits for it, wait until about 10 s of talking is saved and the
+ * louder check asks for a slightly louder voice, Skip check, then Done so the
+ * widget is compact again. Also drives the 3abfe96 flow (no Start; the
+ * rehearsal "a bit louder" -> Skip -> "This is your normal" -> Done).
  */
 async function finishCalibration(page, timeout = 45000) {
-  await expect(page.locator("#calTitle")).toHaveText(/a bit louder/, {
-    timeout,
-  });
-  await page.locator("#calSecondaryBtn").click(); // Skip
-  await expect(page.locator("#calTitle")).toHaveText("This is your normal");
-  await page.locator("#calSecondaryBtn").click(); // Done
-  await expect(page.locator("#compactPill")).toBeVisible();
+  const start = page.locator("#calPrimaryBtn").filter({ hasText: /^Start$/ });
+  if (await start.waitFor({ state: "visible", timeout: 2000 }).then(() => true, () => false))
+    await start.click();
+  const title = page.locator("#calTitle");
+  const secondary = page.locator("#calSecondaryBtn");
+  // The eight-second louder check may already have skipped itself (Done), or
+  // Reset can finish at Saved; 3abfe96 titles its rehearsal "... a bit louder".
+  await expect
+    .poll(
+      async () => {
+        const heading = await title.textContent();
+        const action = await secondary.textContent();
+        return /a bit louder/.test(heading) ||
+          (/Skip check|Done/.test(action) &&
+            /Normal voice saved|All set|That's the cue/.test(heading));
+      },
+      { timeout },
+    )
+    .toBe(true);
+
+  // The normal voice is saved for the mic in use, whichever way setup ends.
+  expect(await page.evaluate(async () => {
+    const calls = window.__fakeMic.gumCalls();
+    const id = calls[calls.length - 1]?.audio?.deviceId?.exact;
+    if (!id) return false;
+    const record = await window.electronAPI.getCalibration(id);
+    return window.CalibrationManager.isValidCalibrationRecord(record);
+  })).toBe(true);
+
+  if (/^Skip/.test(await secondary.textContent())) await secondary.click();
+  // "All set" closes itself after 3 s.
+  if (await page.locator("#expandedPanel").isVisible()) {
+    await page.getByRole("button", { name: /^Done$/ }).click();
+  }
+  // 2.5.0 keeps the pill visible beside the panel: compact = panel closed.
+  await expect(page.locator("#expandedPanel")).not.toBeVisible();
 }
 
 /** Stop from the widget: open details if compact, then press its Stop. */
 async function stopFromWidget(page) {
-  const pill = page.locator("#compactPill");
-  if (await pill.isVisible()) await pill.click();
-  await page
+  const stop = page
     .locator("#stopBtn:visible, #calSecondaryBtn:visible")
-    .filter({ hasText: /^Stop$/ })
-    .click();
+    .filter({ hasText: /^(Stop|Cancel)$/ }); // Cancel: 2.5.0 voice setup not started
+  // The pill stays visible beside an open panel (2.5.0): open details only if needed.
+  if (!(await stop.count())) await page.locator("#compactPill").click();
+  await stop.click();
   await expect(page.locator("#expandedPanel")).not.toBeVisible({
     timeout: 5000,
   });
@@ -404,9 +484,11 @@ async function getWindow(electronApp, titleSubstring, timeoutMs = 5000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const windows = electronApp.windows();
+    // "Settings" also matches settings.html: its title follows the open tab (2.5.0).
+    const page = `/${titleSubstring.toLowerCase()}.html`;
     for (const win of windows) {
-      const title = await win.title();
-      if (title.includes(titleSubstring)) {
+      const title = await win.title().catch(() => "");
+      if (title.includes(titleSubstring) || win.url().includes(page)) {
         return win;
       }
     }
@@ -427,6 +509,10 @@ module.exports = {
   widgetBounds,
   setFakeTransports,
   launchApp,
+  closeApp,
+  setTheme,
+  setMicAccess,
+  findWindowByUrl,
   getWidgetWindow,
   dismissOnboardingIfNeeded,
   setSettingsStore,
