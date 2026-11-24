@@ -141,6 +141,9 @@ test.describe("Capture state truth", () => {
           const indicator = await H.findWindowByUrl(app, "indicator.html", 10000);
           r[key] = { duringRecording: { captureWindowChip: await chip(main), captureWindowAlert: await alerts(main), indicator: await indicator.locator("body").innerText() } };
           r[key].files = await shoot(app, "c-mic-only", { capture: main, indicator });
+          expect(r[key].duringRecording.indicator).toMatch(/^Recording mic only/);
+          expect(r[key].duringRecording.indicator).not.toMatch(/them/);
+          expect(r[key].duringRecording.captureWindowChip).toMatch(/^Recording mic only/);
         } else {
           await expect(main.locator("#alerts")).toContainText("System audio is unavailable", { timeout: 10000 });
           // The indicator stays up to show the failure, never a running recording.

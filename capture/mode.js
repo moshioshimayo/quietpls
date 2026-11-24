@@ -167,6 +167,7 @@ function createCaptureMode({
         ready: fs.existsSync(W.modelPath(MODEL_DIR, m.id)),
       })),
       elapsed: capture ? (Date.now() - capture.start.getTime()) / 1000 : 0,
+      micOnly: Boolean(capture && capture.micOnly), // call audio lost: only the mic is recorded
     };
   }
 

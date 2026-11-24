@@ -47,7 +47,7 @@ function renderStatus() {
       : "";
   $("#status-text").textContent =
     phase === "recording"
-      ? `Recording ${clock(snap.elapsed)}${appText}`
+      ? `${snap.micOnly ? "Recording mic only" : "Recording"} ${clock(snap.elapsed)}${appText}`
       : text + appText;
   const btn = $("#status-action");
   btn.hidden = !action;

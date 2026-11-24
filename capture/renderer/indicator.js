@@ -27,7 +27,9 @@ function show(snap) {
   $("#detail").hidden = recording;
   $("#open").hidden = !(phase === "saved" || phase === "error");
   $("#detail").title = "";
-  if (recording) $("#label").textContent = `Recording ${clock(snap.elapsed)}`;
+  // Call audio lost: say so and drop the empty "them" meter.
+  document.querySelector(".chan.them").hidden = Boolean(snap.micOnly);
+  if (recording) $("#label").textContent = `${snap.micOnly ? "Recording mic only" : "Recording"} ${clock(snap.elapsed)}`;
   if (phase === "transcribing") {
     $("#label").textContent = "Transcribing…";
     $("#detail").textContent = "Creating transcript…";
