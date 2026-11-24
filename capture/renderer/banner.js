@@ -42,8 +42,8 @@ function show(snap) {
   $("#warn").textContent = blocked || "";
   $("#facts").hidden = $("#private").hidden = Boolean(blocked);
   $("#accept").textContent = blocked ? "Open settings" : "Record this call";
-  // Card plus the body's transparent margin (8 top + 32 bottom).
-  requestAnimationFrame(() => window.qpc.fit($(".card").offsetHeight + 40));
+  // Card plus the body's transparent margin (8 top + 40 bottom).
+  requestAnimationFrame(() => window.qpc.fit($(".card").offsetHeight + 48));
 }
 
 window.qpc.on("snapshot", show);

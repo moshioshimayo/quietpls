@@ -230,8 +230,9 @@ function createCaptureMode({
   // AC-X10: the call banner and recording pill stack under the pill and its open
   // details panel (an 8 pt gap), right edges aligned, never on top of them.
   // FLOAT_MARGIN is the transparent margin that holds the card's CSS shadow
-  // (tokens.css --shadow reaches 8 up, 20 sideways, 32 down; body padding matches).
-  const FLOAT_MARGIN = { top: 8, side: 20, bottom: 32 };
+  // (tokens.css --shadow reaches 8 up, 20 sideways, 32 down; sides and bottom keep
+  // headroom for the blur's tail; body padding matches).
+  const FLOAT_MARGIN = { top: 8, side: 24, bottom: 40 };
   const placed = new WeakSet();
   function place(win) {
     if (!win || win.isDestroyed()) return;
@@ -283,9 +284,9 @@ function createCaptureMode({
   // The banner and indicator only exist once capture has been turned on.
   function ensureFloating() {
     if (!banner || banner.isDestroyed())
-      banner = floating("banner", 390, 280, 8);
+      banner = floating("banner", 398, 288, 8);
     if (!indicator || indicator.isDestroyed())
-      indicator = floating("indicator", 400, 70, 8);
+      indicator = floating("indicator", 408, 78, 8);
   }
 
   function openMain(tab) {

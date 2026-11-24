@@ -299,22 +299,22 @@ describe("call banner placement (AC-X10)", () => {
       const card = banner.getBounds();
       // Visible card top (window y + 8 px shadow margin) is 8 px under the visible pill.
       expect(card.y + 8).toBe(323 + 8);
-      // Right edges line up (20 px transparent side margin) with the visible pill.
-      expect(card.x + card.width - 20).toBe(1406);
+      // Right edges line up (24 px transparent side margin) with the visible pill.
+      expect(card.x + card.width - 24).toBe(1406);
 
       // Details close: the pill window shrinks to 240 × 94 (right edge kept) and the
       // banner moves up with the visible 176 × 30 pill.
       Object.assign(pill.bounds, { x: 1198, width: 240, height: 94 });
       pill.events.resize();
       expect(banner.getBounds().y + 8).toBe(33 + 24 + 30 + 8);
-      expect(banner.getBounds().x + banner.getBounds().width - 20).toBe(1406);
+      expect(banner.getBounds().x + banner.getBounds().width - 24).toBe(1406);
 
       // Pill dragged to the bottom of the screen: the banner's visible card (window
-      // minus its 32 px bottom shadow margin) ends 8 px above the visible pill.
+      // minus its 40 px bottom shadow margin) ends 8 px above the visible pill.
       Object.assign(pill.bounds, { y: 806 });
       pill.events.move();
       const above = banner.getBounds();
-      expect(above.y + above.height - 32).toBe(806 + 24 - 8);
+      expect(above.y + above.height - 40).toBe(806 + 24 - 8);
       await t.handlers["set-enabled"]({}, false);
     } finally {
       windows.splice(windows.indexOf(pill), 1);

@@ -1,5 +1,5 @@
 /* Transparent margin keeps the panel shadow unclipped; mode.js places the window under the pill. */
-body { background: transparent; padding: 8px 20px 32px; }
+body { background: transparent; padding: 8px 24px 40px; }
 .card { width: 350px; -webkit-app-region: drag; }
 .card .row svg.g { color: var(--text-2); }
 .card .status { min-width: 0; overflow-wrap: anywhere; }
