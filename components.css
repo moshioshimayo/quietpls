@@ -1,6 +1,6 @@
 /* Shared Direction D components. Load after tokens.css, before surface styles. */
 svg.g { width:16px; height:16px; flex:none; }
-.rd { font-family:var(--font-rounded); }
+.rd { font-family:var(--font-rounded); font-weight:var(--weight-display); }
 .row { display:flex; align-items:center; gap:8px; }
 .sp { flex:1; }
 .sub,.small { color:var(--text-2); }
@@ -19,7 +19,7 @@ svg.g { width:16px; height:16px; flex:none; }
 .pill.loud .mm { color:var(--white); } .pill.loud .mm::after { background:var(--white); }
 .panel { box-sizing:border-box; width:304px; border-radius:var(--radius-panel); background:var(--surface); color:var(--text); padding:14px; box-shadow:var(--shadow),inset 0 1px 0 var(--hi); }
 .status { font:600 15px/20px var(--font-rounded); flex:1; }
-.read { font:700 20px/24px var(--font-rounded); }
+.read { font:var(--weight-display) 20px/24px var(--font-rounded); }
 .group,.form { background:var(--surface-2); border-radius:var(--radius-group); }
 .group { margin-top:12px; }
 .group .kv,.frow { box-sizing:border-box; display:flex; align-items:center; gap:12px; min-height:32px; padding:7px 10px; }

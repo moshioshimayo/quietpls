@@ -3,7 +3,10 @@
   color-scheme:light dark;
   --white:#ffffff;
   --font-text:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
-  --font-rounded:ui-rounded,"SF Pro Rounded",-apple-system,system-ui,sans-serif;
+  /* Electron 43 on macOS 26 does not resolve ui-rounded/SF Pro Rounded.
+     Use the reviewed SF Pro Text semibold fallback through the system font. */
+  --font-rounded:var(--font-text);
+  --weight-display:600;
   --font-command:"SF Mono",ui-monospace,Menlo,monospace;
   --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-5:20px; --space-6:24px;
   --radius-control:7px; --radius-group:10px; --radius-panel:14px; --radius-pill:9999px;
