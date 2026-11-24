@@ -157,8 +157,10 @@ test.describe("Capture (beta)", () => {
         );
       return [by("/index.html").getBounds(), by("/banner.html").getBounds()];
     });
-    expect(bannerBox.y + 6).toBeGreaterThanOrEqual(pillBox.y + pillBox.height);
-    expect(bannerBox.x + bannerBox.width - 16).toBe(pillBox.x + pillBox.width);
+    console.log(`AC-X10 bounds: pill ${JSON.stringify(pillBox)} banner ${JSON.stringify(bannerBox)}`);
+    // Visible pill = window minus its 32/24/40 shadow margins; visible card = banner minus 16/6.
+    expect(bannerBox.y + 6).toBe(pillBox.y + pillBox.height - 40 + 8);
+    expect(bannerBox.x + bannerBox.width - 16).toBe(pillBox.x + pillBox.width - 32);
     expect(audioFiles(userData)).toEqual([]);
 
     // Yes: recording, with the indicator up and the banner gone.

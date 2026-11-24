@@ -284,8 +284,10 @@ function renderBanner(snap) {
 
 describe("call banner placement (AC-X10)", () => {
   it("stacks under quietpls's pill and its open details panel, then follows it", async () => {
-    // quietpls's pill window with its details panel open (main.js owns it).
-    const pill = new FakeWindow({ x: 1100, y: 33, width: 330, height: 260 });
+    // quietpls's pill window with its details panel open (main.js owns it). The window
+    // is 368 × 330 with transparent margins (32 sides, 24 top, 40 bottom), so what you
+    // see is the 304 × 266 rect at (1102, 57): right edge 1406, bottom 323.
+    const pill = new FakeWindow({ x: 1070, y: 33, width: 368, height: 330 });
     pill.url = "file:///app/index.html";
     pill.visible = true;
     try {
@@ -295,21 +297,23 @@ describe("call banner placement (AC-X10)", () => {
       const banner = windows.findLast((w) => w.page === "banner");
       expect(banner.visible).toBe(true);
       const card = banner.getBounds();
-      // Visible card top (window y + 6 px shadow margin) is 8 px under the pill window.
-      expect(card.y + 6).toBe(33 + 260 + 8);
-      // Right edges line up (16 px transparent side margin) and stay on screen.
-      expect(card.x + card.width - 16).toBe(1100 + 330);
-      expect(card.x + card.width - 16).toBeLessThanOrEqual(1440);
+      // Visible card top (window y + 6 px shadow margin) is 8 px under the visible pill.
+      expect(card.y + 6).toBe(323 + 8);
+      // Right edges line up (16 px transparent side margin) with the visible pill.
+      expect(card.x + card.width - 16).toBe(1406);
 
-      // Details close: the pill window shrinks and the banner moves up with it.
-      pill.bounds.height = 40;
+      // Details close: the pill window shrinks to 240 × 94 (right edge kept) and the
+      // banner moves up with the visible 176 × 30 pill.
+      Object.assign(pill.bounds, { x: 1198, width: 240, height: 94 });
       pill.events.resize();
-      expect(banner.getBounds().y + 6).toBe(33 + 40 + 8);
+      expect(banner.getBounds().y + 6).toBe(33 + 24 + 30 + 8);
+      expect(banner.getBounds().x + banner.getBounds().width - 16).toBe(1406);
 
-      // Pill dragged to the bottom of the screen: the banner goes above it instead.
-      Object.assign(pill.bounds, { y: 850, height: 40 });
+      // Pill dragged to the bottom of the screen: the banner goes above the visible pill.
+      Object.assign(pill.bounds, { y: 806 });
       pill.events.move();
-      expect(banner.getBounds().y + banner.getBounds().height).toBeLessThanOrEqual(850);
+      const above = banner.getBounds();
+      expect(above.y + above.height - 6).toBe(806 + 24 - 8);
       await t.handlers["set-enabled"]({}, false);
     } finally {
       windows.splice(windows.indexOf(pill), 1);

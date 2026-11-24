@@ -215,6 +215,19 @@ function createCaptureMode({
     );
   }
 
+  // The pill window reserves transparent shadow margins around what you see: main.js
+  // sizes it from widget-animator.js STATE_BOUNDS (240 × 94 around a 176 × 30 pill) and
+  // styles.css centres `.container` with `margin: 24px auto 40px`.
+  const PILL_MARGIN = { top: 24, side: 32, bottom: 40 };
+  function visiblePill(b) {
+    return {
+      x: b.x + PILL_MARGIN.side,
+      y: b.y + PILL_MARGIN.top,
+      width: b.width - 2 * PILL_MARGIN.side,
+      height: b.height - PILL_MARGIN.top - PILL_MARGIN.bottom,
+    };
+  }
+
   // AC-X10: the call banner and recording pill stack under the pill and its open
   // details panel (an 8 pt gap), right edges aligned, never on top of them.
   // FLOAT_MARGIN is the transparent shadow margin around their content.
@@ -224,7 +237,7 @@ function createCaptureMode({
     if (!win || win.isDestroyed()) return;
     const [w, h] = win.getSize();
     const pill = pillWindow();
-    const b = pill && pill.isVisible() ? pill.getBounds() : null;
+    const b = pill && pill.isVisible() ? visiblePill(pill.getBounds()) : null;
     if (!b) return win.setPosition(...Object.values(topRight(w, 8)));
     if (!placed.has(pill)) {
       placed.add(pill);
