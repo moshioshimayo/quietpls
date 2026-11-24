@@ -791,12 +791,19 @@ if (typeof window !== "undefined") {
     });
   }
 
+  // Calibration progress as shown everywhere (pill %, bar, "n of 10 seconds"):
+  // whole seconds of accepted talking, so all three always agree.
+  function shownProgress() {
+    const p = calibrationManager ? calibrationManager.getProgress() : 0;
+    return Math.floor(p * CALIBRATION_SECONDS) / CALIBRATION_SECONDS;
+  }
+
   function pillWord(decision) {
     if (calib === "saved" && (!resetOnly || !sessionTracker)) return "Learning voice 100%";
     if (decision.zone === "calibrating" && calibrationManager) {
       return (
         "Learning voice " +
-        Math.round(calibrationManager.getProgress() * 100) +
+        Math.round(shownProgress() * 100) +
         "%"
       );
     }
@@ -861,7 +868,7 @@ if (typeof window !== "undefined") {
     compactPill.className = ["pill", p.cls, isMonitoring ? "monitoring" : ""].join(" ");
     compactPill.setAttribute("aria-label", "quietpls: " + word + ". Show details");
     setGlyph("pillMark", permissionStatus === "denied" || permissionStatus === "restricted" ? "g-micoff" : p.mark);
-    $("pillMark").style.setProperty("--progress", calib === "saved" ? 100 : calibrationManager ? calibrationManager.getProgress() * 100 : 0);
+    $("pillMark").style.setProperty("--progress", calib === "saved" ? 100 : shownProgress() * 100);
     $("pillWord").textContent = word;
     const metered = isMonitoring && ["silent", "normal", "warning", "danger"].includes(decision.zone);
     $("miniMeter").hidden = !metered;
@@ -976,10 +983,10 @@ if (typeof window !== "undefined") {
         t.text = "Talk the way you would on a call for about 10 seconds. Pauses are fine.";
         t.primary = "Start";
       } else {
-        const progress = calibrationManager ? calibrationManager.getProgress() : 0;
+        const progress = shownProgress();
         const details = calibrationManager?.getProgressDetails?.() || {};
         t.progress = progress;
-        t.text = Math.floor(progress * CALIBRATION_SECONDS) + " of 10 seconds heard · " + micLabel;
+        t.text = Math.round(progress * CALIBRATION_SECONDS) + " of 10 seconds heard · " + micLabel;
         hint = details.hint === "too-strong" ? "Mic input is too strong. Move a little farther from the mic."
           : details.hint === "noise" ? "Hearing steady noise, not talking. Move away from fans or music, or talk a little closer."
           : "";
@@ -1042,7 +1049,7 @@ if (typeof window !== "undefined") {
     $("calProgressFill").style.width = (t.progress || 0) * 100 + "%";
     $("calProgress").setAttribute(
       "aria-valuenow",
-      String(Math.floor((t.progress || 0) * CALIBRATION_SECONDS)),
+      String(Math.round((t.progress || 0) * CALIBRATION_SECONDS)),
     );
     $("calText").textContent = t.text;
     $("calText").hidden = !t.text;
