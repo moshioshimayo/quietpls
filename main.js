@@ -217,6 +217,20 @@ function checkOnboarding() {
   }
 }
 
+function broadcastMicrophoneStatus() {
+  const status = permissionManager.getStatus();
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send("microphone-status-changed", status);
+  }
+}
+
+function resizeContentWindow(win, event, width, height) {
+  if (!win || win.isDestroyed() || event.sender !== win.webContents ||
+      !Number.isFinite(height)) return;
+  const display = screen.getDisplayMatching(win.getBounds());
+  win.setContentSize(width, Math.round(Math.max(200, Math.min(height, display.workArea.height - 48))));
+}
+
 function createOnboardingWindow() {
   if (onboardingWindow) {
     onboardingWindow.focus();
@@ -226,16 +240,18 @@ function createOnboardingWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
   onboardingWindow = new BrowserWindow({
-    width: 400,
+    width: 580,
+    useContentSize: true,
+    titleBarStyle: "hiddenInset",
     height: 500,
-    x: Math.round((width - 400) / 2),
+    x: Math.round((width - 580) / 2),
     y: Math.round((height - 500) / 2),
     frame: true,
     resizable: false,
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     title: "Welcome to quietpls",
     webPreferences: {
       nodeIntegration: false,
@@ -271,17 +287,19 @@ function createSettingsWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
   settingsWindow = new BrowserWindow({
-    width: 420,
+    width: 540,
+    useContentSize: true,
+    titleBarStyle: "hiddenInset",
     height: 680,
-    x: Math.round((width - 420) / 2),
+    x: Math.round((width - 540) / 2),
     y: Math.round((height - 680) / 2),
     frame: true,
     resizable: false,
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
-    alwaysOnTop: true,
-    title: "Settings - quietpls",
+    alwaysOnTop: false,
+    title: "Monitoring",
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -620,15 +638,31 @@ app.whenReady().then(async () => {
     if (settingsStore.has(key)) settingsStore.delete(key);
   }
 
-  // Check and request microphone access (centralized in PermissionManager)
-  await permissionManager.checkAndRequestPermission();
-
   // Register permission IPC handlers (get-microphone-status, microphone-track-ended)
   permissionManager.registerIPC(() => mainWindow);
 
   // Onboarding: request microphone access from renderer (US-019)
   ipcMain.handle("request-microphone-access", async () => {
-    return permissionManager.checkAndRequestPermission();
+    const granted = await permissionManager.request();
+    broadcastMicrophoneStatus();
+    return granted;
+  });
+
+  // Checking access never opens the macOS permission prompt.
+  app.on("browser-window-focus", broadcastMicrophoneStatus);
+
+  ipcMain.on("setup-resize", (event, height) => {
+    resizeContentWindow(onboardingWindow, event, 580, height);
+  });
+  ipcMain.on("settings-resize", (event, height, tab) => {
+    if (height && typeof height === "object") {
+      tab = height.tab;
+      height = height.height;
+    }
+    resizeContentWindow(settingsWindow, event, 540, height);
+    if (settingsWindow && event.sender === settingsWindow.webContents) {
+      settingsWindow.setTitle(tab === "history" ? "History" : "Monitoring");
+    }
   });
 
   // Onboarding: open System Settings for mic permission (US-019)
