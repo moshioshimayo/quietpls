@@ -92,6 +92,7 @@ test.describe("Widget State Transitions", () => {
       /Talk the way you would on a call/,
     );
     await expect(mainWindow.locator("#calSecondaryBtn")).toHaveText("Cancel");
+    await expect(mainWindow.locator("#calPrimaryBtn")).toBeFocused();
     await expect
       .poll(() => widgetBounds(electronApp))
       .toMatchObject({ width: 368 });

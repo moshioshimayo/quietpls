@@ -474,6 +474,7 @@ if (typeof window !== "undefined") {
         $("detailsView").hidden = true;
         $("newMicView").hidden = false;
         await showDetails();
+        $("newMicSetup").focus({ preventScroll: true });
         return false;
       },
       getTransports: () =>
@@ -924,6 +925,10 @@ if (typeof window !== "undefined") {
     if (pendingMic) $("detailsView").hidden = true;
     if (lastDecision) render(lastDecision);
     else if (phase) renderCalibration(IDLE, "", PILL.idle);
+    if (phase && expandedPanel.style.display !== "none") {
+      const focus = phase === "ready" || phase === "failed" ? $("calPrimaryBtn") : $("calSecondaryBtn");
+      if (!focus.hidden) focus.focus({ preventScroll: true });
+    }
   }
 
   function renderCalibration(decision, word, p) {
