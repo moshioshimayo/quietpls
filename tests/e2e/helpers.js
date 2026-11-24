@@ -400,28 +400,48 @@ async function observations(app, page) {
 }
 
 /**
- * Wait until guided calibration has heard about 10 s of talking, Skip the
- * louder/normal rehearsal (the saved normal is already stored), then press
- * Done on "This is your normal" so the widget is compact again.
+ * Finish guided voice setup from its first panel: press Start when the
+ * 2.5.0 panel waits for it, wait until about 10 s of talking is saved and the
+ * louder check asks for a slightly louder voice, Skip check, then Done so the
+ * widget is compact again. Also drives the 3abfe96 flow (no Start; the
+ * rehearsal "a bit louder" -> Skip -> "This is your normal" -> Done).
  */
 async function finishCalibration(page, timeout = 45000) {
-  await expect(page.locator("#calTitle")).toHaveText(/a bit louder/, {
-    timeout,
-  });
-  await page.locator("#calSecondaryBtn").click(); // Skip
-  await expect(page.locator("#calTitle")).toHaveText("This is your normal");
-  await page.locator("#calSecondaryBtn").click(); // Done
+  const start = page.locator("#calPrimaryBtn").filter({ hasText: /^Start$/ });
+  if (await start.waitFor({ state: "visible", timeout: 2000 }).then(() => true, () => false))
+    await start.click();
+  const title = page.locator("#calTitle");
+  const text = page.locator("#calText");
+  // 2.5.0: text "Try a slightly louder voice."; 3abfe96: title "... a bit louder".
+  await expect
+    .poll(
+      async () =>
+        /^Try a slightly louder voice\./.test(await text.innerText()) ||
+        /a bit louder/.test(await title.innerText()),
+      { timeout },
+    )
+    .toBe(true);
+  const legacy = /a bit louder/.test(await title.innerText());
+  if (!legacy) await expect(title).toHaveText("Normal voice saved");
+  await page.locator("#calSecondaryBtn").click(); // Skip check
+  if (legacy) {
+    await expect(title).toHaveText("This is your normal");
+  } else {
+    await expect(title).toHaveText("Normal voice saved");
+    await expect(text).toHaveText(/^Louder check skipped/);
+  }
+  await page.getByRole("button", { name: /^Done$/ }).click();
   await expect(page.locator("#compactPill")).toBeVisible();
 }
 
 /** Stop from the widget: open details if compact, then press its Stop. */
 async function stopFromWidget(page) {
-  const pill = page.locator("#compactPill");
-  if (await pill.isVisible()) await pill.click();
-  await page
+  const stop = page
     .locator("#stopBtn:visible, #calSecondaryBtn:visible")
-    .filter({ hasText: /^Stop$/ })
-    .click();
+    .filter({ hasText: /^Stop$/ });
+  // The pill stays visible beside an open panel (2.5.0): open details only if needed.
+  if (!(await stop.count())) await page.locator("#compactPill").click();
+  await stop.click();
   await expect(page.locator("#expandedPanel")).not.toBeVisible({
     timeout: 5000,
   });
