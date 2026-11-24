@@ -651,11 +651,14 @@ describe('approved app capture contract', () => {
     vm.createContext(ctx);
     vm.runInContext(fs.readFileSync(new URL('../../../capture/renderer/main.js', import.meta.url), 'utf8'), ctx);
     const notices = vm.runInContext('snap = inputSnap; alerts()', ctx);
-    expect(notices).toContainEqual({ kind: 'warn', text: 'Call audio unavailable for Zoom. Only your microphone was recorded.' });
+    // Still recording: present tense.
+    expect(notices).toContainEqual({ kind: 'warn', text: 'Call audio isn’t available for Zoom. Recording your microphone only.' });
     expect(notices.some((notice) => notice.text.includes('No call audio was captured'))).toBe(false);
     savedMic(t);
     await t.child.opts.onExit(0);
     expect(snapOf(t).health.lastCallSilent).not.toContain('them');
+    ctx.inputSnap = snapOf(t); // saved: what was recorded
+    expect(vm.runInContext('snap = inputSnap; alerts()', ctx)).toContainEqual({ kind: 'warn', text: 'Call audio unavailable for Zoom. Only your microphone was recorded.' });
     await t.handlers['set-enabled']({}, false);
   });
 
