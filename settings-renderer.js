@@ -776,7 +776,8 @@ function showSessionDetail(session) {
     summary.appendChild(talking);
   }
   body.append(header, summary);
-  for (const [label, value] of [["Date", SHL.formatDate(session.startTime)], ["Time", SHL.formatTime(session.startTime) + (session.endTime ? " – " + SHL.formatTime(session.endTime) : "")], ["Monitored time", SHL.formatDuration(session.duration)]]) {
+  // The header already gives the date and monitored time; the rows add only the time span.
+  for (const [label, value] of [["Time", SHL.formatTime(session.startTime) + (session.endTime ? " – " + SHL.formatTime(session.endTime) : "")]]) {
     const row = document.createElement("div");
     row.className = "detail-row";
     row.innerHTML = `<span class="detail-label">${label}</span><span class="num">${value}</span>`;

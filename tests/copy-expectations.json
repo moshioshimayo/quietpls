@@ -2166,13 +2166,14 @@
   {
     "id": "CR-189",
     "owner": "T3",
-    "expected": "Date",
+    "expected": null,
     "old": "Date",
-    "action": "retain",
+    "action": "retire",
     "location": "settings-renderer.js:744",
     "oldLiterals": [
       "Date"
-    ]
+    ],
+    "reason": "Session details: the header already shows the date and monitored time (post-judging F5)"
   },
   {
     "id": "CR-190",
@@ -2188,13 +2189,14 @@
   {
     "id": "CR-191",
     "owner": "T3",
-    "expected": "Monitored time",
+    "expected": null,
     "old": "Duration",
-    "action": "change",
+    "action": "retire",
     "location": "settings-renderer.js:752",
     "oldLiterals": [
       "Duration"
-    ]
+    ],
+    "reason": "Session details: the header already shows the date and monitored time (post-judging F5)"
   },
   {
     "id": "CR-192",
