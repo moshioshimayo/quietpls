@@ -12,13 +12,10 @@ function average(arr) {
   return arr.reduce((a, b) => a + b, 0) / arr.length;
 }
 
-function formatTimeSinceStart(timestamp, startTime) {
-  const start = new Date(startTime).getTime();
-  const peak = new Date(timestamp).getTime();
-  const totalSeconds = Math.max(0, Math.floor((peak - start) / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+// Whole minutes into the session (at least 1), so it never reads as a clock time.
+function minutesSinceStart(timestamp, startTime) {
+  const ms = new Date(timestamp).getTime() - new Date(startTime).getTime();
+  return Math.max(1, Math.round(ms / 60000));
 }
 
 const TREND_DB = 2; // half-to-half change that counts as a trend
@@ -72,9 +69,9 @@ function generateInsights(sessionData) {
     s.startTime &&
     peaks[0].value >= 1
   ) {
-    const at = formatTimeSinceStart(peaks[0].timestamp, s.startTime);
+    const minutes = minutesSinceStart(peaks[0].timestamp, s.startTime);
     insights.push(
-      `Peak at ${at} · +${Math.round(peaks[0].value)} dB above normal`,
+      `Peak ${minutes} min in · +${Math.round(peaks[0].value)} dB above normal`,
     );
   }
 

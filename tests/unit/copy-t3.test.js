@@ -76,7 +76,7 @@ describe("T3 copy contract", () => {
     const result = insights.generateInsights(data);
     assertRenderedCopy("CR-198", result[0], { pct: 10 });
     assertRenderedCopy("CR-200", result[1], { pct: 20 });
-    assertRenderedCopy("CR-204", result[2], { time: "2:05", n: 12 });
+    assertRenderedCopy("CR-204", result[2], { minutes: 2, n: 12 });
     const messages = [...result, ...insights.generateInsights({}), ...insights.generateInsights({ speakingTime: 100, zoneTime:{normal:100},volumeSamples:Array(30).fill(0) })];
     const html = fs.readFileSync(new URL("../../settings.html", import.meta.url), "utf8");
     messages.push(text(html));

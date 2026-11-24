@@ -66,7 +66,7 @@ describe("session insights (speaking-time denominators)", () => {
       zoneTime: { silent: 0, normal: 100, warning: 0, danger: 0 },
       peakMoments: [{ timestamp: "2026-10-25T12:02:05.000Z", value: 11.6 }],
     });
-    expect(out).toContain("Peak at 2:05 · +12 dB above normal");
+    expect(out).toContain("Peak 2 min in · +12 dB above normal");
   });
 
   it("never uses acoustic comparisons or absolute dB", () => {

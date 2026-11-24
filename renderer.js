@@ -1108,7 +1108,7 @@ if (typeof window !== "undefined") {
     const listEl = $("insightList");
     listEl.innerHTML = "";
     for (const text of insights) {
-      if (/^Peak at /.test(text)) continue;
+      if (/^Peak /.test(text)) continue;
       const li = document.createElement("li");
       li.className = noTalking ? "summary-empty status" : "row";
       if (!noTalking) {
@@ -1128,7 +1128,7 @@ if (typeof window !== "undefined") {
       li.appendChild(label);
       listEl.appendChild(li);
     }
-    const peak = insights.find(text => /^Peak at /.test(text));
+    const peak = insights.find(text => /^Peak /.test(text));
     $("summaryPeak").textContent = peak || "";
     $("summaryPeak").hidden = !peak;
     const minutes = Math.max(1, Math.round(durationSec / 60));

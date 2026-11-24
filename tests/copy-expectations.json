@@ -2385,10 +2385,10 @@
     "old": "Loudest at {time}: +{n} dB above your normal",
     "action": "change",
     "location": "session-insights.js:77",
-    "template": "Peak at {time} · +{n} dB above normal",
+    "template": "Peak {minutes} min in · +{n} dB above normal",
     "placeholders": [
-      "n",
-      "time"
+      "minutes",
+      "n"
     ],
     "oldLiterals": []
   },
