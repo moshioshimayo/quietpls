@@ -3,6 +3,8 @@
 // Test doubles for the Playwright capture spec (QUIETPLS_E2E_TEST=1 and
 // QUIETPLS_CAPTURE_FAKES=1, unpackaged only). No mic, no system audio, no whisper:
 //   globalThis.__quietplsFakeMicUsers  mic-users output ("<pid>\t<bundle id>\n"), set by the test
+//   globalThis.__quietplsFakeCapture   { notice: "mic-only" } or { error: "<code>" }: the capture helper's own
+//                                      messages when system audio is lost (mic only) or capture can't start
 //   startCapture                       writes a synthetic stereo WAV when stopped
 //   transcribe                         returns one line per side
 const fs = require("fs");
@@ -17,7 +19,18 @@ function tone(seconds, rate, amplitude) {
 
 function startCapture({ output, onMessage, onExit }) {
   let done = false;
-  setTimeout(() => onMessage({ type: "started" }), 10);
+  const fault = globalThis.__quietplsFakeCapture || {};
+  setTimeout(() => {
+    if (fault.error) {
+      done = true;
+      clearInterval(levels);
+      onMessage({ type: "error", code: fault.error });
+      setTimeout(() => onExit(1), 10);
+      return;
+    }
+    onMessage({ type: "started" });
+    if (fault.notice) onMessage({ type: "notice", code: fault.notice });
+  }, 10);
   const levels = setInterval(
     () => onMessage({ type: "level", you: 0.4, them: 0.6 }),
     120,
