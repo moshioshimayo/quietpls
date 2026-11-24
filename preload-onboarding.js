@@ -11,6 +11,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.send("request-recalibration");
   },
   getMicrophoneStatus: () => ipcRenderer.invoke("get-microphone-status"),
+  // AC-I7: step 3 reflects a saved normal voice and whether monitoring runs.
+  getCalibration: (deviceId) => ipcRenderer.invoke("get-calibration", deviceId),
+  getMonitoringStatus: () =>
+    new Promise((resolve) => {
+      ipcRenderer.once("monitoring-status", (_event, status) => resolve(status));
+      ipcRenderer.send("request-monitoring-status");
+    }),
   // The only call that can show the macOS prompt (while undetermined).
   requestMicrophoneAccess: () => ipcRenderer.invoke("request-microphone-access"),
   onMicrophoneStatusChanged: (callback) => {

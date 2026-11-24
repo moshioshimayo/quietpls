@@ -102,8 +102,20 @@ function updateHearing(volume, now, lastHeardAt) {
   };
 }
 
+/**
+ * Step 3's action for this mic (AC-I7): a saved normal voice is never silently redone.
+ * Idle → Start monitoring with it; monitoring → Reset normal voice (only if chosen); none → Set normal voice.
+ */
+function voiceAction(saved, monitoring) {
+  if (!saved) return { act: "set", label: "Set normal voice", text: "Next, talk normally for about 10 seconds to set your normal voice." };
+  return monitoring
+    ? { act: "reset", label: "Reset normal voice", text: "Reset it after moving the mic or changing its input level." }
+    : { act: "start", label: "Start monitoring", text: "Your normal voice for this mic is saved." };
+}
+
 if (typeof globalThis !== "undefined") {
   globalThis.__onboardingHelpers = {
+    voiceAction,
     panelForStatus,
     resolveInitialPanel,
     statusAnnouncement,
@@ -245,6 +257,21 @@ if (typeof document === "undefined") {
     $("levelFill").parentElement.setAttribute("aria-valuenow", String(Math.round(volume)));
   }
 
+  // Step 3's button follows this mic's saved normal voice and whether monitoring runs.
+  let voiceAct = "set";
+  async function showVoiceAction(deviceId) {
+    if (!api.getCalibration || !api.getMonitoringStatus) return;
+    const CM = window.CalibrationManager;
+    const [record, monitoring] = await Promise.all([
+      deviceId ? api.getCalibration(deviceId) : null,
+      api.getMonitoringStatus(),
+    ]);
+    const a = voiceAction(!!(CM && CM.isValidCalibrationRecord(record)), monitoring);
+    voiceAct = a.act;
+    $("setVoiceBtn").textContent = a.label;
+    $("checkText").textContent = a.text;
+  }
+
   async function startLevel() {
     stopLevel();
     const token = (level = {});
@@ -267,6 +294,7 @@ if (typeof document === "undefined") {
       }
       const track = stream.getAudioTracks()[0];
       $("micName").textContent = (track && track.label) || choice.label || "Unnamed mic";
+      showVoiceAction(track && track.getSettings ? track.getSettings().deviceId : choice.deviceId);
       const note = micNote(choice, devices);
       $("micNote").textContent = note;
       $("micNote").hidden = !note;
@@ -325,7 +353,8 @@ if (typeof document === "undefined") {
     $("continueBtn").addEventListener("click", onContinue);
     $("setVoiceBtn").addEventListener("click", () => {
       stopLevel();
-      if (api.setNormalVoice) api.setNormalVoice();
+      if (voiceAct === "start") close({ startMonitoring: true });
+      else if (api.setNormalVoice) api.setNormalVoice();
     });
     $("micSelect").addEventListener("change", onMicChange);
     document.querySelectorAll("[data-back]").forEach((b) =>

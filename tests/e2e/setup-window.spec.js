@@ -89,6 +89,36 @@ test.describe("Setup window (S5)", () => {
     }
   });
 
+  test("a saved normal voice is kept: step 3 offers Start monitoring and starts with it (AC-I7)", async () => {
+    const { app, win } = await start("granted");
+    try {
+      const { CALIBRATION_VERSION } = require("../../calibration-manager");
+      // A valid saved normal voice for whichever mic is in use.
+      await app.evaluate(({ ipcMain }, version) => {
+        globalThis.__recalibrations = 0;
+        ipcMain.removeHandler("get-calibration");
+        ipcMain.handle("get-calibration", () => ({ version, baselineDb: -30, calibratedAt: Date.now() }));
+        ipcMain.on("request-recalibration", () => globalThis.__recalibrations++);
+      }, CALIBRATION_VERSION);
+      await win.getByRole("button", { name: "Get started" }).click();
+      await expect(heading(win)).toHaveText("Say a few words.");
+      const action = win.locator("#setVoiceBtn");
+      await expect(action).toHaveText("Start monitoring");
+      await expect(win.locator("#checkText")).toHaveText("Your normal voice for this mic is saved.");
+      await action.click();
+      await expect.poll(async () => {
+        for (const w of app.windows()) if ((await w.url()).includes("onboarding.html")) return false;
+        return true;
+      }).toBe(true);
+      const widget = app.windows().find((w) => w.url().includes("index.html"));
+      await expect(widget.locator("#compactPill")).toHaveClass(/monitoring/, { timeout: 10000 });
+      await expect(widget.locator("#calibrationView")).toBeHidden();
+      expect(await app.evaluate(() => globalThis.__recalibrations)).toBe(0);
+    } finally {
+      await app.close();
+    }
+  });
+
   test("access off recovers when quietpls regains focus, without a restart", async () => {
     const { app, win } = await start("denied");
     try {

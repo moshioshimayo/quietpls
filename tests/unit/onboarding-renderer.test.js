@@ -7,8 +7,17 @@ require('../../onboarding-renderer.js');
 
 const {
   panelForStatus, resolveInitialPanel, statusAnnouncement, micNote,
-  computeRmsVolume, updateHearing,
+  computeRmsVolume, updateHearing, voiceAction,
 } = globalThis.__onboardingHelpers;
+
+describe('voiceAction (AC-I7)', () => {
+  it('never redoes a saved normal voice: Start monitoring when idle, Reset normal voice while running', () => {
+    expect(voiceAction(true, false)).toMatchObject({ act: 'start', label: 'Start monitoring' });
+    expect(voiceAction(true, true)).toMatchObject({ act: 'reset', label: 'Reset normal voice' });
+    expect(voiceAction(false, false)).toMatchObject({ act: 'set', label: 'Set normal voice' });
+    expect(voiceAction(false, true)).toMatchObject({ act: 'set', label: 'Set normal voice' });
+  });
+});
 
 describe('resolveInitialPanel (B3)', () => {
   it('a real first run always starts at Welcome, even with access granted', () => {
