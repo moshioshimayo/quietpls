@@ -1,23 +1,35 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("electronAPI", {
+  // Close setup. Set up later / Close: { startMonitoring: false }.
   onboardingComplete: (data) => {
     ipcRenderer.send("onboarding-complete", data);
   },
-  getAppVersion: () => {
-    return ipcRenderer.invoke("get-app-version");
+  // "Set normal voice": close setup and open voice setup in the panel.
+  setNormalVoice: () => {
+    ipcRenderer.send("onboarding-complete", { startMonitoring: false });
+    ipcRenderer.send("request-recalibration");
   },
-  getMicrophoneStatus: () => {
-    return ipcRenderer.invoke("get-microphone-status");
-  },
-  requestMicrophoneAccess: () => {
-    return ipcRenderer.invoke("request-microphone-access");
-  },
-  getInputTransports: () => {
-    return ipcRenderer.invoke("get-input-transports");
+  getMicrophoneStatus: () => ipcRenderer.invoke("get-microphone-status"),
+  // The only call that can show the macOS prompt (while undetermined).
+  requestMicrophoneAccess: () => ipcRenderer.invoke("request-microphone-access"),
+  onMicrophoneStatusChanged: (callback) => {
+    ipcRenderer.on("microphone-status-changed", (_event, status) => callback(status));
   },
   openSystemSettings: () => {
     ipcRenderer.send("open-system-settings");
+  },
+  getInputTransports: () => ipcRenderer.invoke("get-input-transports"),
+  getSettings: () =>
+    new Promise((resolve) => {
+      ipcRenderer.once("settings-data", (_event, settings) => resolve(settings));
+      ipcRenderer.send("request-settings");
+    }),
+  updateSettings: (settings) => {
+    ipcRenderer.send("update-settings", settings);
+  },
+  setupResize: (height) => {
+    ipcRenderer.send("setup-resize", height);
   },
   onCloseWindow: (callback) => {
     ipcRenderer.on("close-window", () => {

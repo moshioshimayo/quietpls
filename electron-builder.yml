@@ -49,8 +49,8 @@ mac:
   entitlementsInherit: assets/entitlements.mac.plist
   notarize: false
   extendInfo:
-    NSMicrophoneUsageDescription: quietpls needs access to your microphone to monitor audio levels in real-time. Monitoring never records or transmits audio. If you turn on Capture (beta), calls you approve are recorded and transcribed on this Mac.
-    NSAudioCaptureUsageDescription: Capture (beta) records the other side of calls you approve, so they can be transcribed on this Mac.
+    NSMicrophoneUsageDescription: "quietpls uses your mic to monitor your voice level. Monitoring doesn’t save audio. Optional Capture records audio and transcribes it on this Mac."
+    NSAudioCaptureUsageDescription: "Optional Capture records call audio for transcripts on this Mac. Always-on recording separately records system audio beyond calls."
   target:
     - target: dmg
       arch:

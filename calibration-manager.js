@@ -16,11 +16,20 @@
  * minModulationDb) is rejected as "no-speech", even if the gate let it through
  * (e.g. a stationary noise that just got louder, before the floor adapts).
  *
+ * Near miss (2.5): if the input window ends with at least nearMissMs of
+ * talking, it extends once by extendMs; talking heard so far is kept.
+ *
  *   start()          fresh attempt (clears every sample and status)
  *   addFrame(frame)  → null while listening, or the finished result:
  *     { status: "ok", baselineDb, speechMs, frames }
- *     { status: "no-speech", speechMs }   (not enough speech before timeout)
- *     { status: "clipping", speechMs }    (input distorts; move back / lower gain)
+ *     { status: "no-speech", speechMs, reason: "no-talking" | "stationary" }
+ *     { status: "clipping", speechMs, reason: "clipping" }
+ *   getProgress()        0–1 share of the required talking
+ *   getProgressDetails() { speechMs, listenedMs, extended, hint } where hint is
+ *     advisory while listening (never an acceptance rule):
+ *     "too-strong"  > hintClipRatio of voiced frames clipped in the last hintClipMs
+ *     "noise"       steady input (≥ noiseDb) and no talking for the last noiseMs
+ *     null          otherwise
  *
  * The baseline is the duration-weighted mean power of voiced frames.
  *
@@ -33,6 +42,12 @@ const DEFAULTS = Object.freeze({
   timeoutMs: 40000, // valid input audio time
   maxClipRatio: 0.1,
   minModulationDb: 3, // speech: 5-18 dB measured; stationary tone: ~0.5 dB
+  nearMissMs: 7000, // talking heard at timeoutMs that earns one extension
+  extendMs: 20000,
+  noiseMs: 5000,
+  noiseDb: -50, // quiet speech over a -65 room still calibrates; rooms sit below this
+  hintClipMs: 2000,
+  hintClipRatio: 0.2,
 });
 
 function stdDev(values) {
@@ -52,6 +67,9 @@ function createCalibrationManager(options) {
   let speechMs = 0;
   let listenedMs = 0;
   let clipFrames = 0;
+  let limitMs = opts.timeoutMs;
+  let recent = []; // last noiseMs of frames, for the live hints
+  let recentMs = 0;
   let result = null;
 
   function start() {
@@ -63,7 +81,31 @@ function createCalibrationManager(options) {
     speechMs = 0;
     listenedMs = 0;
     clipFrames = 0;
+    limitMs = opts.timeoutMs;
+    recent = [];
+    recentMs = 0;
     result = null;
+  }
+
+  function hint() {
+    let ms = 0;
+    let voiced = 0;
+    let clipped = 0;
+    let steadyMs = 0;
+    let talked = false;
+    for (let i = recent.length - 1; i >= 0; i--) {
+      const f = recent[i];
+      if (ms < opts.hintClipMs && f.voiced) {
+        voiced++;
+        if (f.clip) clipped++;
+      }
+      ms += f.ms;
+      if (f.talked) talked = true;
+      if (f.loud) steadyMs += f.ms;
+    }
+    if (voiced > 0 && clipped / voiced > opts.hintClipRatio) return "too-strong";
+    if (!talked && ms >= opts.noiseMs && steadyMs >= ms * 0.8) return "noise";
+    return null;
   }
 
   function finish(r) {
@@ -86,11 +128,15 @@ function createCalibrationManager(options) {
       voicedMs += ms;
       if (frame.clip) clipFrames++;
     }
-    if (voiced || (frame.speech === true && voicedFrames > 0)) speechMs += ms;
+    const talked = voiced || (frame.speech === true && voicedFrames > 0);
+    if (talked) speechMs += ms;
+    recent.push({ ms, talked, voiced, clip: voiced && !!frame.clip, loud: frame.dbfs >= opts.noiseDb });
+    recentMs += ms;
+    while (recentMs - recent[0].ms >= opts.noiseMs) recentMs -= recent.shift().ms;
 
     if (speechMs >= opts.minSpeechMs) {
       if (clipFrames / voicedFrames > opts.maxClipRatio) {
-        return finish({ status: "clipping", speechMs });
+        return finish({ status: "clipping", speechMs, reason: "clipping" });
       }
       if (bandLevels.length > 0 && stdDev(bandLevels) < opts.minModulationDb) {
         return finish({ status: "no-speech", speechMs, reason: "stationary" });
@@ -102,8 +148,13 @@ function createCalibrationManager(options) {
         frames: voicedFrames,
       });
     }
-    if (listenedMs >= opts.timeoutMs) {
-      return finish({ status: "no-speech", speechMs });
+    if (listenedMs >= limitMs) {
+      if (limitMs === opts.timeoutMs && speechMs >= opts.nearMissMs) {
+        limitMs += opts.extendMs;
+        return null;
+      }
+      const reason = hint() === "noise" ? "stationary" : "no-talking";
+      return finish({ status: "no-speech", speechMs, reason });
     }
     return null;
   }
@@ -116,6 +167,12 @@ function createCalibrationManager(options) {
     getResult: () => result,
     /** 0–1 share of the required speech heard so far. */
     getProgress: () => Math.min(1, speechMs / opts.minSpeechMs),
+    getProgressDetails: () => ({
+      speechMs,
+      listenedMs,
+      extended: limitMs > opts.timeoutMs,
+      hint: status === "calibrating" ? hint() : null,
+    }),
   };
 }
 
