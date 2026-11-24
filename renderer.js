@@ -308,7 +308,7 @@ if (typeof window !== "undefined") {
     if (!expanded) userOpened = false;
     if (!complete) { clearTimeout(summaryTimer); summaryTimer = null; }
     // The success panel is shown once; the next open shows details.
-    if (!expanded && (calib === "done" || calib === "skipped")) setCalib(null);
+    if (!expanded && (calib === "done" || calib === "skipped" || (calib === "saved" && resetOnly))) setCalib(null);
     if (expanded) {
       $("firstRunTip").hidden = true;
       const focus = calib === "ready" || calib === "failed" ? $("calPrimaryBtn") : calib ? $("calSecondaryBtn") : $("hideBtn");
@@ -788,7 +788,7 @@ if (typeof window !== "undefined") {
   }
 
   function pillWord(decision) {
-    if (calib === "saved") return "Learning voice 100%";
+    if (calib === "saved" && (!resetOnly || !sessionTracker)) return "Learning voice 100%";
     if (decision.zone === "calibrating" && calibrationManager) {
       return (
         "Learning voice " +
@@ -853,7 +853,7 @@ if (typeof window !== "undefined") {
 
   function render(decision) {
     const word = pillWord(decision);
-    const p = calib === "saved" ? PILL.calibrating : PILL[decision.zone] || PILL.idle;
+    const p = calib === "saved" && (!resetOnly || !sessionTracker) ? PILL.calibrating : PILL[decision.zone] || PILL.idle;
     compactPill.className = ["pill", p.cls, isMonitoring ? "monitoring" : ""].join(" ");
     compactPill.setAttribute("aria-label", "quietpls: " + word + ". Show details");
     setGlyph("pillMark", permissionStatus === "denied" || permissionStatus === "restricted" ? "g-micoff" : p.mark);

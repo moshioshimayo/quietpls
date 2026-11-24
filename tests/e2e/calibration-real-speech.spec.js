@@ -52,8 +52,11 @@ test.describe("Set your normal voice with real nonstop speech", () => {
         await page.locator("#calSecondaryBtn").click();
         await expect(page.locator("#calText")).toContainText("Louder check skipped");
       }
-      await page.locator("#calSecondaryBtn").click(); // Done
+      if (i > 0) await page.keyboard.press("Escape");
+      else await page.locator("#calSecondaryBtn").click(); // Done
+      await expect(page.locator("#calibrationView")).not.toBeVisible();
       await expect(page.locator("#compactPill")).toBeVisible();
+      await expect(page.locator("#pillWord")).toHaveText(/Listening|Normal/, { timeout: 10000 });
     });
   }
 });
