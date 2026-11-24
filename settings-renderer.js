@@ -447,13 +447,19 @@ function renderCaptureStatus(s) {
     statusEl.textContent = "Reconnecting to mic…";
   } else if (status.calibrating) {
     statusEl.textContent = "Learning your normal voice…";
-  } else if (status.calibration) {
-    const when = new Date(status.calibration.calibratedAt);
-    statusEl.textContent = "Normal voice saved " +
-      (isNaN(when.getTime()) ? "" : when.toLocaleDateString());
   } else {
-    statusEl.textContent = "Normal voice not set";
+    showNormalVoice(status.calibration);
   }
+}
+
+// Saved or not, the status and the button agree: Set when none, Reset when saved.
+function showNormalVoice(record) {
+  const when = record ? new Date(record.calibratedAt) : null;
+  document.getElementById("calibrationStatus").textContent = record
+    ? "Normal voice saved " + (isNaN(when.getTime()) ? "" : when.toLocaleDateString())
+    : "Normal voice not set";
+  const btn = document.getElementById("recalibrateBtn");
+  if (btn) btn.textContent = record ? "Reset normal voice" : "Set normal voice";
 }
 
 // Read the selected mic's saved normal without opening its audio stream.
@@ -465,10 +471,7 @@ async function refreshIdleMicrophone() {
     const record = choice.deviceId ? await window.electronAPI.getCalibration(choice.deviceId) : null;
     if (generation !== idleMicGeneration) return;
     document.getElementById("calibrationDevice").textContent = choice.label || "Unnamed mic";
-    const when = record ? new Date(record.calibratedAt) : null;
-    document.getElementById("calibrationStatus").textContent = record
-      ? "Normal voice saved " + (isNaN(when.getTime()) ? "" : when.toLocaleDateString())
-      : "Normal voice not set";
+    showNormalVoice(record);
   } catch (error) { console.error("Could not read saved normal voice:", error); }
 }
 
