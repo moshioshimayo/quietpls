@@ -175,7 +175,7 @@ describe("Capture window (CAPS)", () => {
   });
 
   it("transcript list, empty states and reader", async () => {
-    const m = load("main.js", { transcripts: async () => [], transcript: async () => ({ meta: { title: "Weekly product sync", start: "2026-11-24T09:04:00Z", duration: "00:24:10", apps: ["Zoom"], audio: "deleted" }, notes: [], lines: [{ at: "00:00:01", who: "them", speaker: "Speaker 1", text: "Morning." }, { at: "00:00:03", who: "you", text: "Hi." }] }) });
+    const m = load("main.js", { transcripts: async () => [], transcript: async () => ({ meta: { title: "Weekly product sync", start: "2026-11-24T09:04:00Z", duration: "00:24:10", apps: ["Zoom"], audio: "deleted" }, notes: [], lines: [{ at: "00:00:01", who: "them", speaker: "Speaker 1", text: "Morning." }, { at: "00:00:03", who: "you", text: "Hi." }, { at: "00:00:05", who: "them", text: "Shall we start?" }] }) });
     m.run(`snap = ${JSON.stringify(snap())}; calls = []; renderCalls()`);
     h.assertRenderedCopy("CR-304", seen(text(m.els["#rows"].innerHTML)));
     contains("CR-305", seen(m.els["#reader"].innerHTML));
@@ -219,8 +219,8 @@ describe("Capture window (CAPS)", () => {
     contains("CR-316", seen(ready), {}, 0);
     contains("CR-319", ready, { path: "/opt/homebrew/bin/whisper-cli" });
     contains("CR-331", ready);
-    const failed = setup(snap({ health: { modelReady: false, download: { id: "base.en", error: "Speech model download failed. Try again. Details: HTTP 503." } } }));
-    contains("CR-322", failed, { "diagnostic detail": "Speech model download failed. Try again. Details: HTTP 503." });
+    const failed = setup(snap({ health: { modelReady: false, download: { id: "base.en", error: "Details: HTTP 503." } } }));
+    contains("CR-322", failed, { "diagnostic detail": "Details: HTTP 503." });
     contains("CR-327", setup(snap({ health: { folder: { ok: false, reason: "has-remote", remotes: [{ name: "origin" }] } } })));
   });
 
@@ -232,10 +232,10 @@ describe("Capture window (CAPS)", () => {
     contains("CR-361", on, { path: "/opt/homebrew/bin/whisper-cli" });
     contains("CR-358", on, { label: "Fast · English", id: "base.en", size: "142 MB" });
     contains("CR-366", on.replace(/<input type="number"[^>]*>/, "7"), { days: 7 });
-    const off = settings(snap({ settings: { enabled: false, folder: null, seenApps: [] }, health: { mic: "unknown", uv: null, whisper: null, speakerModelReady: false, speakerError: "uv exited 1", download: { id: "small.en", error: "Speech model download failed. Try again. Details: HTTP 503." } } }));
+    const off = settings(snap({ settings: { enabled: false, folder: null, seenApps: [] }, health: { mic: "unknown", uv: null, whisper: null, speakerModelReady: false, speakerError: "uv exited 1", download: { id: "small.en", error: "Details: HTTP 503." } } }));
     for (const id of ["CR-342", "CR-350", "CR-352", "CR-362", "CR-370", "CR-376", "CR-335"]) contains(id, seen(off));
     contains("CR-354", off, { "specific detail": "uv exited 1" });
-    contains("CR-360", off, { "diagnostic detail": "Speech model download failed. Try again. Details: HTTP 503." });
+    contains("CR-360", off, { "diagnostic detail": "Details: HTTP 503." });
     const remote = settings(snap({ health: { mic: "denied", folder: { ok: false, reason: "has-remote", remotes: [{ name: "origin" }] } } }));
     contains("CR-337", seen(remote), { names: "origin" });
     contains("CR-375", remote);
