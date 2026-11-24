@@ -326,6 +326,8 @@ async function installFakeMic(page, options = {}) {
         t.dispatchEvent(new Event("ended"));
       },
     };
+    // Like a hotplug: an idle widget (warm profile) re-resolves to the fake mic.
+    navigator.mediaDevices.dispatchEvent(new Event("devicechange"));
   }, opts);
 }
 
@@ -482,9 +484,11 @@ async function getWindow(electronApp, titleSubstring, timeoutMs = 5000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const windows = electronApp.windows();
+    // "Settings" also matches settings.html: its title follows the open tab (2.5.0).
+    const page = `/${titleSubstring.toLowerCase()}.html`;
     for (const win of windows) {
-      const title = await win.title();
-      if (title.includes(titleSubstring)) {
+      const title = await win.title().catch(() => "");
+      if (title.includes(titleSubstring) || win.url().includes(page)) {
         return win;
       }
     }
