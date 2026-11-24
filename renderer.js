@@ -302,6 +302,9 @@ if (typeof window !== "undefined") {
   function applyWidgetState(state) {
     const expanded = state === "expanded";
     const complete = state === "sessionComplete";
+    // Return focus to the pill only from a closing panel (keyboard users);
+    // never focus it at rest, where :focus-visible would ring a status pill.
+    const panelHadFocus = [expandedPanel, sessionCompletePanel].some((p) => p.contains(document.activeElement));
     compactPill.style.display = "";
     expandedPanel.style.display = expanded ? "" : "none";
     sessionCompletePanel.style.display = complete ? "" : "none";
@@ -314,7 +317,7 @@ if (typeof window !== "undefined") {
       const focus = calib === "ready" || calib === "failed" ? $("calPrimaryBtn") : calib ? $("calSecondaryBtn") : $("hideBtn");
       focus.focus({ preventScroll: true });
     } else if (!complete) {
-      compactPill.focus({ preventScroll: true });
+      if (panelHadFocus) compactPill.focus({ preventScroll: true });
       if (setupTipPending) {
         setupTipPending = false;
         localStorage.setItem("voiceSetupTipShown", "1");
