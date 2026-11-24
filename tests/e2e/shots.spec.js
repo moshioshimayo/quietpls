@@ -118,7 +118,13 @@ async function open(c, opts = {}) {
   if (opts.onboarding) return c;
   c.w = await H.getWidgetWindow(c.app, 10000);
   await c.w.waitForLoadState("domcontentloaded");
-  if (opts.mic !== false) await H.installFakeMic(c.w, { devices: [MIC], ...opts.mic });
+  if (opts.mic !== false) {
+    await H.installFakeMic(c.w, { devices: [MIC], ...opts.mic });
+    // The launch-time idle check may still be reading the VM's real inputs and
+    // land after the fake mic's: re-resolve once on the fake devices.
+    await sleep(500);
+    await c.w.evaluate(() => navigator.mediaDevices.dispatchEvent(new Event("devicechange")));
+  }
   await sleep(500);
   return c;
 }
@@ -940,7 +946,7 @@ const CELLS = [
       await open(c, captureOpts({ remote: true }));
       await setMicUsers(c, ZOOM);
       const b = await H.findWindowByUrl(c.app, "banner.html", 15000);
-      await reach(c, b, /remote/i);
+      await reach(c, b, /online code repository|remote/i);
       await shoot(c, b);
     },
   },
