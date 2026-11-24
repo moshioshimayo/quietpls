@@ -579,6 +579,13 @@ function updateZoneBand() {
   if (zoneNormal) zoneNormal.style.flex = m.warningDb - BAND_MIN_DB;
   if (zoneLoud) zoneLoud.style.flex = m.dangerDb - m.warningDb;
   if (zoneDanger) zoneDanger.style.flex = BAND_MAX_DB - m.dangerDb;
+  // Label both thresholds where the zones change, like the details meter.
+  for (const [id, db] of [["scaleWarn", m.warningDb], ["scaleDanger", m.dangerDb]]) {
+    const label = document.getElementById(id);
+    if (!label) continue;
+    label.style.left = ((db - BAND_MIN_DB) / (BAND_MAX_DB - BAND_MIN_DB)) * 100 + "%";
+    label.textContent = "+" + db;
+  }
 }
 
 function updateLevelIndicator(update) {
