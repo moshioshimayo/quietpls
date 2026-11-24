@@ -201,3 +201,100 @@ describe("calibration clocks and power weighting", () => {
     expect(cal.getProgress()).toBe(1);
   });
 });
+
+// 2.5 B6/B7: one near-miss extension and live hints, from synthetic frames.
+const talk = (ms, extra = {}) =>
+  Array.from({ length: ms / 20 }, () => ({ dbfs: -30, bandDb: -30, speech: true, voiced: true, frameMs: 20, ...extra }));
+const quiet = (ms, dbfs = -65) =>
+  Array.from({ length: ms / 20 }, () => ({ dbfs, bandDb: dbfs, speech: false, voiced: false, frameMs: 20 }));
+// Alternate levels so the stationary-speech rejection never applies.
+const varied = frames => frames.map((f, i) => ({ ...f, bandDb: f.bandDb + (i % 2 ? 0 : -12) }));
+
+describe("near-miss extension (B6)", () => {
+  it("extends once at 40 s with 8 s heard, keeps progress and can still succeed", () => {
+    const cal = createCalibrationManager();
+    cal.start();
+    expect(run(cal, [...varied(talk(8000)), ...quiet(32000)])).toBeNull();
+    expect(cal.getProgress()).toBe(0.8);
+    expect(cal.getProgressDetails()).toMatchObject({ speechMs: 8000, listenedMs: 40000, extended: true });
+    const r = run(cal, varied(talk(2000)));
+    expect(r.status).toBe("ok");
+    expect(cal.getProgressDetails().listenedMs).toBe(42000);
+  });
+
+  it("does not extend below 7 s heard", () => {
+    const cal = createCalibrationManager();
+    cal.start();
+    const r = run(cal, [...varied(talk(6980)), ...quiet(40000)]);
+    expect(r).toMatchObject({ status: "no-speech", reason: "no-talking" });
+    expect(cal.getProgressDetails()).toMatchObject({ listenedMs: 40000, extended: false, hint: null });
+  });
+
+  it("extends only once: still short at 60 s ends with no talking", () => {
+    const cal = createCalibrationManager();
+    cal.start();
+    const r = run(cal, [...varied(talk(7000)), ...quiet(60000)]);
+    expect(r).toMatchObject({ status: "no-speech", speechMs: 7000, reason: "no-talking" });
+    expect(cal.getProgressDetails()).toMatchObject({ listenedMs: 60000, extended: true });
+  });
+
+  it("no-input gaps count toward neither clock", () => {
+    const cal = createCalibrationManager();
+    cal.start();
+    run(cal, [...varied(talk(8000)), ...Array.from({ length: 5000 }, () => ({ noInput: true, frameMs: 20 }))]);
+    expect(cal.getProgressDetails()).toMatchObject({ speechMs: 8000, listenedMs: 8000, extended: false });
+  });
+});
+
+describe("live hints (B7)", () => {
+  it("steady input with no talking for 5 s shows the noise hint; talking clears it", () => {
+    const cal = createCalibrationManager();
+    cal.start();
+    run(cal, quiet(4900, -40));
+    expect(cal.getProgressDetails().hint).toBeNull();
+    run(cal, quiet(200, -40));
+    expect(cal.getProgressDetails().hint).toBe("noise");
+    run(cal, varied(talk(200)));
+    expect(cal.getProgressDetails().hint).toBeNull();
+  });
+
+  it("a quiet room never shows the noise hint, and a noisy timeout names steady noise", () => {
+    const silent = createCalibrationManager();
+    silent.start();
+    run(silent, quiet(20000));
+    expect(silent.getProgressDetails().hint).toBeNull();
+    const noisy = createCalibrationManager();
+    noisy.start();
+    expect(run(noisy, quiet(40000, -40))).toMatchObject({ status: "no-speech", reason: "stationary" });
+    expect(noisy.getProgressDetails().hint).toBeNull(); // finished
+  });
+
+  it("real worklet noise (fan-like) shows the noise hint once the gate adapts", () => {
+    const w = h.createWorklet(48000);
+    w.feed(h.roomTone(3000, -65));
+    const cal = createCalibrationManager();
+    cal.start();
+    run(cal, w.feed(h.noise(12000, -40, 48000, 9)));
+    expect(cal.isCalibrating()).toBe(true);
+    expect(cal.getProgressDetails().hint).toBe("noise");
+  });
+
+  it("clipping on more than 20% of recent voiced frames says too strong while listening", () => {
+    const cal = createCalibrationManager();
+    cal.start();
+    const frames = varied(talk(2000)).map((f, i) => ({ ...f, clip: i % 4 === 0 })); // 25%
+    expect(run(cal, frames)).toBeNull();
+    expect(cal.getProgressDetails().hint).toBe("too-strong");
+    run(cal, varied(talk(2000))); // clean talking pushes it out of the 2 s window
+    expect(cal.getProgressDetails().hint).toBeNull();
+  });
+
+  it("10% clipping stays below the hint, and the final clip rule is unchanged", () => {
+    const cal = createCalibrationManager();
+    cal.start();
+    run(cal, varied(talk(2000)).map((f, i) => ({ ...f, clip: i % 10 === 0 })));
+    expect(cal.getProgressDetails().hint).toBeNull();
+    const r = run(cal, varied(talk(8000)).map((f, i) => ({ ...f, clip: i % 5 === 0 })));
+    expect(r).toMatchObject({ status: "clipping", reason: "clipping" });
+  });
+});

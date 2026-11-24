@@ -94,66 +94,49 @@ describe('PermissionManager', () => {
     });
   });
 
-  // ---- checkAndRequestPermission ----
+  // ---- request / recheck (B2, B4) ----
 
-  describe('checkAndRequestPermission', () => {
-    it('returns true immediately when already granted', async () => {
-      mockMediaAccessStatus = 'granted';
-      const pm = new PermissionManager();
-      const result = await pm.checkAndRequestPermission();
-      expect(result).toBe(true);
+  describe('request', () => {
+    it('never prompts when access is already decided', async () => {
+      for (const status of ['granted', 'denied', 'restricted']) {
+        mockMediaAccessStatus = status;
+        const pm = new PermissionManager();
+        expect(await pm.request()).toBe(status);
+      }
       expect(mockAskForMediaAccess).not.toHaveBeenCalled();
+      expect(mockShowMessageBoxSync).not.toHaveBeenCalled();
     });
 
-    it('requests access when not-determined and returns true if user grants', async () => {
+    it('prompts only while undetermined and resolves to the new status', async () => {
       mockMediaAccessStatus = 'not-determined';
-      mockAskForMediaAccess.mockResolvedValue(true);
+      mockAskForMediaAccess.mockImplementation(async () => {
+        mockMediaAccessStatus = 'denied';
+        return false;
+      });
       const pm = new PermissionManager();
-      const result = await pm.checkAndRequestPermission();
-      expect(result).toBe(true);
+      expect(await pm.request()).toBe('denied');
       expect(mockAskForMediaAccess).toHaveBeenCalledWith('microphone');
     });
+  });
 
-    it('requests access when not-determined and returns false if user denies', async () => {
-      mockMediaAccessStatus = 'not-determined';
-      mockAskForMediaAccess.mockResolvedValue(false);
+  describe('showAccessOffDialog', () => {
+    it('explains a managed mic and opens System Settings on request', () => {
+      mockShowMessageBoxSync.mockReturnValue(0);
       const pm = new PermissionManager();
-      const result = await pm.checkAndRequestPermission();
-      expect(result).toBe(false);
-    });
-
-    it('shows dialog when denied and returns false', async () => {
-      mockMediaAccessStatus = 'denied';
-      const pm = new PermissionManager();
-      const result = await pm.checkAndRequestPermission();
-      expect(result).toBe(false);
-      expect(mockShowMessageBoxSync).toHaveBeenCalled();
-      expect(mockAskForMediaAccess).not.toHaveBeenCalled();
-    });
-
-    it('shows dialog when restricted and returns false', async () => {
-      mockMediaAccessStatus = 'restricted';
-      const pm = new PermissionManager();
-      const result = await pm.checkAndRequestPermission();
-      expect(result).toBe(false);
-      expect(mockShowMessageBoxSync).toHaveBeenCalled();
-    });
-
-    it('opens System Settings when user clicks "Open System Settings" on denied', async () => {
-      mockMediaAccessStatus = 'denied';
-      mockShowMessageBoxSync.mockReturnValue(0); // 0 = "Open System Settings"
-      const pm = new PermissionManager();
-      await pm.checkAndRequestPermission();
+      pm.showAccessOffDialog('restricted');
+      expect(mockShowMessageBoxSync).toHaveBeenCalledWith(expect.objectContaining({
+        title: 'Microphone Access Is Off',
+        detail: expect.stringContaining('Your organization manages microphone access'),
+        buttons: ['Open System Settings', 'OK'],
+      }));
       expect(mockOpenExternal).toHaveBeenCalledWith(
         'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'
       );
     });
 
-    it('does not open System Settings when user clicks OK on denied', async () => {
-      mockMediaAccessStatus = 'denied';
-      mockShowMessageBoxSync.mockReturnValue(1); // 1 = "OK"
-      const pm = new PermissionManager();
-      await pm.checkAndRequestPermission();
+    it('does not open System Settings on OK', () => {
+      mockShowMessageBoxSync.mockReturnValue(1);
+      new PermissionManager().showAccessOffDialog('denied');
       expect(mockOpenExternal).not.toHaveBeenCalled();
     });
   });
@@ -161,32 +144,25 @@ describe('PermissionManager', () => {
   // ---- registerIPC ----
 
   describe('registerIPC', () => {
-    it('registers get-microphone-status handler', () => {
+    it('registers status and track-ended handlers; main.js owns request/open/focus channels', () => {
       const pm = new PermissionManager();
       pm.registerIPC(() => null);
-      const electron = require('electron');
-      expect(electron.ipcMain.handle).toHaveBeenCalledWith(
-        'get-microphone-status',
-        expect.any(Function)
-      );
+      expect(Object.keys(mockIpcHandlers)).toEqual(['get-microphone-status']);
+      expect(Object.keys(mockIpcOnHandlers)).toEqual(['microphone-track-ended']);
     });
 
-    it('registers microphone-track-ended handler', () => {
-      const pm = new PermissionManager();
-      pm.registerIPC(() => null);
-      const electron = require('electron');
-      expect(electron.ipcMain.on).toHaveBeenCalledWith(
-        'microphone-track-ended',
-        expect.any(Function)
-      );
+    it('reading the status never prompts', () => {
+      mockMediaAccessStatus = 'not-determined';
+      new PermissionManager().registerIPC(() => null);
+      expect(mockIpcHandlers['get-microphone-status']()).toBe('not-determined');
+      expect(mockAskForMediaAccess).not.toHaveBeenCalled();
     });
 
     it('get-microphone-status handler returns current status', () => {
       mockMediaAccessStatus = 'denied';
       const pm = new PermissionManager();
       pm.registerIPC(() => null);
-      const result = mockIpcHandlers['get-microphone-status']();
-      expect(result).toBe('denied');
+      expect(mockIpcHandlers['get-microphone-status']()).toBe('denied');
     });
 
     it('does not register handlers twice', () => {
@@ -232,7 +208,7 @@ describe('PermissionManager', () => {
         mockWin,
         expect.objectContaining({
           type: 'warning',
-          title: 'Microphone Access Lost',
+          title: 'Voice Monitoring Stopped',
         })
       );
     });
@@ -247,7 +223,7 @@ describe('PermissionManager', () => {
       expect(mockShowMessageBoxSync).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'warning',
-          title: 'Microphone Access Lost',
+          title: 'Voice Monitoring Stopped',
         })
       );
     });
@@ -283,7 +259,7 @@ describe('PermissionManager', () => {
       expect(mockShowMessageBox).toHaveBeenCalledWith(
         mockWin,
         expect.objectContaining({
-          detail: expect.stringContaining('disconnected'),
+          detail: 'Check the mic connection, then try again.',
         })
       );
     });
