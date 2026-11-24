@@ -817,7 +817,7 @@ function createCaptureMode({
       // The change applies for now; say it wasn't kept (the Capture window's alert).
       log(`settings not saved: ${e.message}`);
       if (!capture && !processing && !ambientActive && state.phase !== "asking")
-        dispatch({ type: "failed", error: `Couldn’t save Capture settings. They apply until quietpls quits. Try again. ${e.code || e.message}` });
+        dispatch({ type: "failed", error: "Couldn’t save Capture settings. They apply until quietpls quits. Try again." });
     }
     applyDetection();
     dispatch({ type: "settings" });
