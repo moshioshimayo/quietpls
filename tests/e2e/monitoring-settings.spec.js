@@ -156,6 +156,12 @@ test.describe("Settings Monitoring and History", () => {
     await expect(settings.getByRole("button", {name:"Cancel",exact:true})).toBeFocused();
     await settings.keyboard.press("Escape");
     await expect(settings.getByRole("button", {name:"Delete session…",exact:true})).toBeFocused();
+    // Return activates the default, Cancel: nothing is deleted (AC-H4).
+    await settings.getByRole("button", {name:"Delete session…",exact:true}).click();
+    await expect(settings.getByRole("button", {name:"Cancel",exact:true})).toBeFocused();
+    await settings.keyboard.press("Enter");
+    await expect(settings.getByRole("alertdialog")).toBeHidden();
+    expect((await settings.evaluate(() => window.electronAPI.getSession("modern"))).data).toBeTruthy();
     await settings.getByRole("button", {name:"Delete session…",exact:true}).click();
     const historyFile = path.join(profile, "sessions.json");
     const originalHistory = fs.readFileSync(historyFile, "utf8");
