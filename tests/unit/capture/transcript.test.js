@@ -155,9 +155,9 @@ describe("transcript markdown", () => {
       silent: ["them"],
     });
     expect(md).toContain(
-      "_No sound was heard from the other side (system audio)._",
+      "_No call audio was captured._",
     );
-    expect(md).toContain("_No speech was recognized in this call._");
+    expect(md).toContain("_No speech was recognized in this recording._");
     expect(md).toMatch(/^audio: kept$/m);
   });
 });

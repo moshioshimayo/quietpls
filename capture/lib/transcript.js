@@ -49,7 +49,7 @@ function refineStarts(lines, samples, sampleRate) {
 
 // Any script's letters and digits (Chinese, Cyrillic, ...), not just ASCII.
 const words = (t) =>
-  new Set(t.toLowerCase().match(/[\p{L}\p{N}\p{M}']+/gu) || []);
+  new Set(t.toLowerCase().match(/[\p{L}\p{N}\p{M}\x27]+/gu) || []);
 
 /**
  * On laptop speakers the mic also hears the other side. Drop a "you" line only when
@@ -136,10 +136,10 @@ function toMarkdown({
   const body = [`# ${title} — ${day}`, ""];
   for (const who of silent)
     body.push(
-      `_No sound was heard from ${who === "you" ? "your microphone" : "the other side (system audio)"}._`,
+      `_${who === "you" ? "No audio was captured from the microphone." : "No call audio was captured."}_`,
       "",
     );
-  if (!lines.length) body.push("_No speech was recognized in this call._");
+  if (!lines.length) body.push("_No speech was recognized in this recording._");
   for (const l of lines)
     body.push(
       `[${clock(l.at)}] [${l.who}]${l.speaker ? ` (${l.speaker})` : ""} ${l.text}`,
@@ -176,7 +176,7 @@ function parseMarkdown(text) {
         v = v
           .replace(/^\[|\]$/g, "")
           .split(",")
-          .map((s) => s.trim().replace(/^"|"$/g, ""))
+          .map((s) => s.trim().replace(/^\x22|\x22$/g, ""))
           .filter(Boolean);
       meta[line.slice(0, i).trim()] = v;
     }

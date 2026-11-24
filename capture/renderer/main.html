@@ -8,17 +8,18 @@
 <link rel="stylesheet" href="../../components.css">
 <link rel="stylesheet" href="base.css">
 <link rel="stylesheet" href="main.css">
+<script defer src="../../glyphs.js"></script>
 </head>
 <body>
   <header class="top">
-    <nav class="tabs" role="tablist">
-      <button role="tab" data-tab="calls" aria-selected="true">Calls</button>
-      <button role="tab" data-tab="settings">Settings</button>
+    <nav class="seg2 tabs" role="tablist">
+      <button role="tab" data-tab="calls" aria-selected="true">Transcripts</button>
+      <button role="tab" data-tab="settings" aria-selected="false">Settings</button>
     </nav>
-    <div class="status" id="status">
+    <div class="cstatus" id="status">
       <span class="dot" id="status-dot"></span>
-      <span id="status-text" class="num">Off</span>
-      <button id="status-action" hidden></button>
+      <span id="status-text" class="num">Call prompts off</span>
+      <button id="status-action" class="sm" hidden></button>
     </div>
   </header>
 
@@ -26,7 +27,7 @@
 
   <main id="calls" class="calls">
     <aside class="list">
-      <input id="search" type="search" placeholder="Search calls" aria-label="Search calls">
+      <input id="search" type="search" placeholder="Search transcripts" aria-label="Search transcripts">
       <ol id="rows"></ol>
     </aside>
     <section class="reader" id="reader"></section>

@@ -1,22 +1,20 @@
 "use strict";
 
-// Why recording can't start right now, in plain words (null = it can).
+// Why recording can't start right now, as one line (null = it can).
 function blocker({ state, settings, health }) {
   const never = state.apps.filter((a) =>
     (settings.neverApps || []).includes(a),
   );
   if (never.length)
-    return `Can't record: ${never.join(" and ")} ${never.length === 1 ? "is" : "are"} set to Never record, and recording would capture ${never.length === 1 ? "it" : "them"} too.`;
+    return `Recording blocked. ${never.join(" and ")} ${never.length === 1 ? "is" : "are"} set to Never.`;
   if (health.folder.reason === "has-remote")
-    return "Can't record: your transcript folder's git repo has a remote, so calls could be pushed.";
-  if (!health.folder.ok)
-    return "Can't record yet: choose a transcript folder first.";
+    return "Choose a transcript folder with no git remote in Settings.";
+  if (!health.folder.ok) return "Choose a transcript folder in Settings first.";
   if (!health.whisper)
-    return "Can't record yet: speech-to-text isn't installed.";
-  if (!health.modelReady)
-    return "Can't record yet: the speech model isn't downloaded.";
+    return "Install speech-to-text in Capture settings first.";
+  if (!health.modelReady) return "Download a speech model in Settings first.";
   if (health.mic === "denied")
-    return "Can't record: microphone access is off for this app.";
+    return "Turn on quietpls microphone access in System Settings.";
   return null;
 }
 
@@ -31,16 +29,20 @@ function show(snap) {
   );
   $("#app2").textContent = askable.length === 1 ? askable[0] : "these apps";
   $("#where").textContent = settings.folder
-    ? `text to ${tilde(settings.folder, home)} (git, this Mac only)`
-    : "nowhere yet — choose a folder first";
+    ? `${tilde(settings.folder, home)} · local git folder`
+    : "Choose a transcript folder first";
   $("#audio").textContent = settings.keepAudio
-    ? `kept for ${settings.keepDays} day${settings.keepDays === 1 ? "" : "s"}, then deleted`
-    : "deleted once the text is saved";
+    ? settings.keepDays === 1
+      ? "Kept for 1 day, then deleted"
+      : `Kept for ${settings.keepDays} days, then deleted`
+    : "Deleted after transcript is saved";
   blocked = blocker(snap);
   $("#warn").hidden = !blocked;
   $("#warn").textContent = blocked || "";
-  $("#accept").textContent = blocked ? "Fix in Settings" : "Record this call";
-  requestAnimationFrame(() => window.qpc.fit($(".card").offsetHeight + 12));
+  $("#facts").hidden = $("#private").hidden = Boolean(blocked);
+  $("#accept").textContent = blocked ? "Open settings" : "Record this call";
+  // Card plus the body's transparent margin (6 top + 22 bottom).
+  requestAnimationFrame(() => window.qpc.fit($(".card").offsetHeight + 28));
 }
 
 window.qpc.on("snapshot", show);

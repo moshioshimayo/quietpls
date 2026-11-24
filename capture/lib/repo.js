@@ -80,8 +80,8 @@ async function saveTranscript(dir, name, markdown, message) {
   if (!check.ok) {
     const err = new Error(
       check.reason === "has-remote"
-        ? `The transcript folder's git repo has a remote (${check.remotes.map((r) => r.name).join(", ")}), so nothing was written there.`
-        : "Choose a transcript folder first.",
+        ? `Transcript wasn’t written because the folder has a git remote (${check.remotes.map((r) => r.name).join(", ")}). Choose another folder.`
+        : "Choose a transcript folder in Capture settings first.",
     );
     err.code = check.reason;
     throw err;
@@ -112,15 +112,15 @@ async function saveAmbient(dir, name, markdown) {
   if (!check.ok) {
     const err = new Error(
       check.reason === "has-remote"
-        ? "The transcript folder's git repo has a remote, so nothing was written there."
-        : "Choose a transcript folder first.",
+        ? "Transcript wasn’t written because the folder has a git remote. Choose another folder."
+        : "Choose a transcript folder in Capture settings first.",
     );
     err.code = check.reason;
     throw err;
   }
   if ((await git(dir, ["ls-files", "--", "ambient/"])).trim())
     throw new Error(
-      "Ambient folder already has tracked files; choose another transcript folder.",
+      "Always-on transcripts are already tracked by git in this folder. Choose another transcript folder.",
     );
   const prefix = (await git(dir, ["rev-parse", "--show-prefix"])).trim();
   const ignore = `/${prefix}ambient/`;
@@ -144,7 +144,7 @@ async function saveAmbient(dir, name, markdown) {
     await git(dir, ["check-ignore", "-q", "--", `ambient/${name}`]);
   } catch {
     throw new Error(
-      "Couldn't keep the ambient folder out of git; nothing was written.",
+      "Couldn’t save outside git history. No transcript was written. Choose another transcript folder.",
     );
   }
   fs.mkdirSync(path.join(dir, "ambient"), { recursive: true });

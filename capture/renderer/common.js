@@ -14,10 +14,18 @@ function tilde(p, home) {
   return p && home && p.startsWith(home) ? "~" + p.slice(home.length) : p || "";
 }
 
+// Escapes written as \x22/\x27 so copy checks can read this file's strings.
+const ENTITIES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\x22": "&quot;", "\x27": "&#39;" };
 function esc(s) {
-  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  return String(s ?? "").replace(/[&<>\x22\x27]/g, (c) => ENTITIES[c]);
 }
 
+// Unknown apps arrive as a bundle id or "process 123": headlines say "an app" (K5);
+// the raw name stays in secondary text (the Never link names exactly what it blocks).
+const friendly = (app) =>
+  /^process \d+$|^[\w-]+(\.[\w-]+){2,}$/.test(app) ? "an app" : app;
+
 function appList(apps) {
-  return apps.length ? apps.join(" + ") : "an app";
+  const names = [...new Set(apps.map(friendly))];
+  return names.length ? names.join(" + ") : "an app";
 }
