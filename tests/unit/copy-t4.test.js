@@ -181,6 +181,8 @@ describe("Capture window (CAPS)", () => {
     h.assertRenderedCopy("CR-296", seen(alerts(snap({ health: { mic: "denied" } }))[0].text));
     h.assertRenderedCopy("CR-298", seen(alerts(snap({ health: { whisper: null } }))[0].text));
     h.assertRenderedCopy("CR-300", seen(alerts(snap({ health: { lastCallMicOnly: "FaceTime" } }))[0].text), { app: "FaceTime" });
+    // While that call is still recording, the same alert speaks in the present.
+    contains("CR-300", alerts({ ...snap({ health: { lastCallMicOnly: "FaceTime" }, state: { phase: "recording", apps: ["FaceTime"] } }), micOnly: true })[0].text, { app: "FaceTime" }, 1);
     h.assertRenderedCopy("CR-301", seen(alerts(snap({ health: { lastCallSilent: ["them"] } }))[0].text));
     const failed = alerts(snap({ state: { phase: "error", error: "No mic found. Connect or select a mic, then try again." } }));
     h.assertRenderedCopy("CR-402", failed[0].text);

@@ -89,11 +89,13 @@ test.describe("Capture state truth", () => {
         captureWindowAction: await main.locator("#status-action").innerText(),
         indicator: await indicator.locator("body").innerText(),
         indicatorVisible: await visible(app, "/indicator.html"),
+        alwaysOnCard: await main.locator("#ambient").innerText(),
       };
       r.files = await shoot(app, "a-always-on", { capture: main, indicator });
       evidence.items.alwaysOn = r;
       expect(r.indicatorVisible).toBe(true);
       expect(r.captureWindowAction).toBe("Stop");
+      expect(r.alwaysOnCard).toBe("Stop always-on recording");
       await main.locator("#status-action").click();
     } finally {
       await H.closeApp(app);
@@ -137,7 +139,7 @@ test.describe("Capture state truth", () => {
         await expect.poll(() => visible(app, "/banner.html"), { timeout: 15000 }).toBe(true);
         await banner.locator("#accept").click();
         if (key === "micOnly") {
-          await expect(main.locator("#alerts")).toContainText("Only your microphone was recorded", { timeout: 10000 });
+          await expect(main.locator("#alerts")).toContainText("Recording your microphone only", { timeout: 10000 });
           const indicator = await H.findWindowByUrl(app, "indicator.html", 10000);
           r[key] = { duringRecording: { captureWindowChip: await chip(main), captureWindowAlert: await alerts(main), indicator: await indicator.locator("body").innerText() } };
           r[key].files = await shoot(app, "c-mic-only", { capture: main, indicator });
@@ -160,6 +162,41 @@ test.describe("Capture state truth", () => {
     }
     r.note = "Faults injected through the e2e capture helper fake (__quietplsFakeCapture), which sends the real helper's messages: notice mic-only, error system-audio-unavailable. The VM has no working system-audio tap to revoke.";
     evidence.items.systemAudio = r;
+  });
+
+  test("(e) always-on recording with call prompts off: no call prompt, always-on stays truthful", async () => {
+    test.setTimeout(120000);
+    const { app, userData } = await launch({ enabled: false });
+    try {
+      const { settings, main } = await captureWindow(app);
+      await main.locator("#ambient").click();
+      const consent = await H.findWindowByUrl(app, "ambient-consent.html", 10000);
+      await consent.locator("#confirmation").fill("ALWAYS ON");
+      await consent.locator("#start").click();
+      await expect(main.locator("#status-text")).toContainText("ALWAYS ON", { timeout: 15000 });
+      await setMicUsers(app, ZOOM); // a call starts
+      await sleep(8000); // four detector polls
+      const indicator = await H.findWindowByUrl(app, "indicator.html", 10000);
+      const r = {
+        bannerVisible: await visible(app, "/banner.html"),
+        captureWindowChip: await chip(main),
+        alwaysOnCard: await main.locator("#ambient").innerText(),
+        callPromptsSwitch: await main.locator("#enabled").isChecked(),
+        indicator: await indicator.locator("body").innerText(),
+        settingsCaptureSubtitle: await settings.locator("#captureDescription").innerText(),
+      };
+      r.files = await shoot(app, "e-always-on-prompts-off", { capture: main, indicator, settings });
+      evidence.items.alwaysOnWithPromptsOff = r;
+      expect(r.bannerVisible).toBe(false);
+      expect(r.captureWindowChip).toMatch(/^ALWAYS ON/);
+      expect(r.alwaysOnCard).toBe("Stop always-on recording");
+      expect(r.callPromptsSwitch).toBe(false);
+      expect(r.indicator).toMatch(/^ALWAYS ON/);
+      await main.locator("#status-action").click();
+    } finally {
+      await H.closeApp(app);
+      fs.rmSync(userData, { recursive: true, force: true });
+    }
   });
 
   test("(d) setup incomplete: the status says Set up transcripts, not Waiting for a call", async () => {

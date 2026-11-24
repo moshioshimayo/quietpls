@@ -338,7 +338,7 @@ function createCaptureMode({
   function trayTitle(phase, elapsed) {
     return (
       {
-        recording: ` REC ${timer(elapsed)}`,
+        recording: capture && capture.micOnly ? ` REC mic only ${timer(elapsed)}` : ` REC ${timer(elapsed)}`,
         transcribing: " Transcribing…",
         asking: " Record call?",
         saved: " Saved",

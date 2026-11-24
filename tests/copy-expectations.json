@@ -3550,7 +3550,11 @@
     "placeholders": [
       "app"
     ],
-    "oldLiterals": []
+    "oldLiterals": [],
+    "variants": [
+      "Call audio unavailable for {app}. Only your microphone was recorded.",
+      "Call audio isn’t available for {app}. Recording your microphone only."
+    ]
   },
   {
     "id": "CR-301",

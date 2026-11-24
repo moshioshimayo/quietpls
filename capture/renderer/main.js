@@ -115,7 +115,10 @@ function alerts() {
   if (health.lastCallMicOnly)
     out.push({
       kind: "warn",
-      text: `Call audio unavailable for ${health.lastCallMicOnly}. Only your microphone was recorded.`,
+      // Present tense while that call is still recording.
+      text: snap.micOnly
+        ? `Call audio isn’t available for ${health.lastCallMicOnly}. Recording your microphone only.`
+        : `Call audio unavailable for ${health.lastCallMicOnly}. Only your microphone was recorded.`,
     });
   else if ((health.lastCallSilent || []).includes("them"))
     out.push({
