@@ -1,0 +1,34 @@
+/* Direction D: shared design tokens. System appearance is the default. */
+:root {
+  color-scheme:light dark;
+  --white:#ffffff;
+  --font-text:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+  --font-rounded:ui-rounded,"SF Pro Rounded",-apple-system,system-ui,sans-serif;
+  --font-command:"SF Mono",ui-monospace,Menlo,monospace;
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-5:20px; --space-6:24px;
+  --radius-control:7px; --radius-group:10px; --radius-panel:14px; --radius-pill:9999px;
+  --duration-state:160ms; --duration-fill:220ms; --duration-meter:120ms; --duration-check:240ms; --duration-panel:180ms;
+  --ease-out:cubic-bezier(0,0,.2,1);
+--surface:#ffffff;--surface-2:#f6f6f8;--text:#1b1b1f;--text-2:#6b6b72;--line:rgba(0,0,0,.10);--ctl:rgba(0,0,0,.055);--ctl-line:rgba(0,0,0,.14);
+  --accent:#cf2277;--accent-fill:#cf2277;--accent-soft:rgba(207,34,119,.10);--rising-edge:#946200;--hi:rgba(255,255,255,.9);
+  --shadow:0 0 0 .5px rgba(0,0,0,.12),0 1px 1px rgba(0,0,0,.06),0 4px 10px rgba(0,0,0,.07),0 16px 36px rgba(0,0,0,.14);
+  --normal:#00798c; --rising:#946200; --rising-fill:#ffcc00; --loud:#d70015; --loud-fill:#d92d20;
+}
+@media (prefers-color-scheme:dark) {
+  :root {--surface:#1c1c1f;--surface-2:#26262a;--text:#f4f4f6;--text-2:#a0a0a8;--line:rgba(255,255,255,.09);--ctl:rgba(255,255,255,.08);--ctl-line:rgba(255,255,255,.16);
+  --accent:#ff85bd;--accent-fill:#cf2277;--accent-soft:rgba(255,133,189,.14);--rising-edge:transparent;--hi:rgba(255,255,255,.08);
+  --shadow:0 0 0 .5px rgba(255,255,255,.17),0 1px 1px rgba(0,0,0,.4),0 4px 10px rgba(0,0,0,.3),0 16px 36px rgba(0,0,0,.55);
+  --normal:#40c8e0; --rising:#ffd60a; --rising-fill:#ffd60a; --loud:#ff6961; --loud-fill:#d92d20;
+  }
+}
+
+.light { color-scheme:light;--surface:#ffffff;--surface-2:#f6f6f8;--text:#1b1b1f;--text-2:#6b6b72;--line:rgba(0,0,0,.10);--ctl:rgba(0,0,0,.055);--ctl-line:rgba(0,0,0,.14);
+  --accent:#cf2277;--accent-fill:#cf2277;--accent-soft:rgba(207,34,119,.10);--rising-edge:#946200;--hi:rgba(255,255,255,.9);
+  --shadow:0 0 0 .5px rgba(0,0,0,.12),0 1px 1px rgba(0,0,0,.06),0 4px 10px rgba(0,0,0,.07),0 16px 36px rgba(0,0,0,.14);
+  --normal:#00798c; --rising:#946200; --rising-fill:#ffcc00; --loud:#d70015; --loud-fill:#d92d20;
+}
+.dark { color-scheme:dark;--surface:#1c1c1f;--surface-2:#26262a;--text:#f4f4f6;--text-2:#a0a0a8;--line:rgba(255,255,255,.09);--ctl:rgba(255,255,255,.08);--ctl-line:rgba(255,255,255,.16);
+  --accent:#ff85bd;--accent-fill:#cf2277;--accent-soft:rgba(255,133,189,.14);--rising-edge:transparent;--hi:rgba(255,255,255,.08);
+  --shadow:0 0 0 .5px rgba(255,255,255,.17),0 1px 1px rgba(0,0,0,.4),0 4px 10px rgba(0,0,0,.3),0 16px 36px rgba(0,0,0,.55);
+  --normal:#40c8e0; --rising:#ffd60a; --rising-fill:#ffd60a; --loud:#ff6961; --loud-fill:#d92d20;
+}
