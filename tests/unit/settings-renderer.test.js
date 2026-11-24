@@ -2,12 +2,41 @@ import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
+const vm = require('node:vm');
+const fs = require('node:fs');
 const {
   clampThreshold,
   validateThresholds,
   filterAudioInputDevices,
   getZoneForVolume
 } = require('../../settings-logic');
+
+describe('Capture entry routing', () => {
+  it('opens the checklist until setup is complete, then opens settings', async () => {
+    const events = {};
+    const elements = Object.fromEntries(['captureEnabled', 'captureDescription', 'captureActions', 'captureSettingsBtn'].map(id => [id, { addEventListener(name, callback) { events[name] = callback; } }]));
+    const opened = [];
+    let summary = { enabled: true, setupDone: false };
+    const context = vm.createContext({
+      document: { getElementById: id => elements[id] }, Event: class {},
+      window: { addEventListener(name, callback) { events[name] = callback; }, dispatchEvent() {}, electronAPI: {
+        captureSummary: async () => summary,
+        setCaptureEnabled: async () => summary,
+        openTranscripts: tab => opened.push(tab),
+      } },
+    });
+    vm.runInContext(fs.readFileSync(new URL('../../capture/settings-section.js', import.meta.url), 'utf8'), context);
+    await Promise.resolve();
+    elements.captureSettingsBtn.onclick();
+    expect(opened).toEqual(['calls']);
+    await events.change();
+    expect(opened).toEqual(['calls', 'calls']);
+    summary = { enabled: true, setupDone: true };
+    await events.focus();
+    elements.captureSettingsBtn.onclick();
+    expect(opened).toEqual(['calls', 'calls', 'settings']);
+  });
+});
 
 // ============================================================
 // clampThreshold
@@ -151,7 +180,7 @@ describe('filterAudioInputDevices', () => {
     ];
     const result = filterAudioInputDevices(devices);
     expect(result).toHaveLength(1);
-    expect(result[0].label).toBe('Microphone (abcdefgh)');
+    expect(result[0].label).toBe('Unnamed mic (abcdefgh)');
   });
 
   it('returns empty array for non-array input', () => {

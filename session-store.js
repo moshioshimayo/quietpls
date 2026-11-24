@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
+const { speakingZones, isLegacySession } = require('./settings-history-logic');
 
 /**
  * Session storage module (US-012).
@@ -70,9 +71,12 @@ function createSessionStore(storePath) {
     try {
       const raw = fs.readFileSync(filePath, 'utf8');
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (_e) {
-      return [];
+      if (!Array.isArray(parsed)) throw new Error('Invalid session history');
+      return parsed;
+    } catch (error) {
+      if (error.code === 'ENOENT') return [];
+      // Keep unreadable history intact and let the UI offer a retry.
+      throw error;
     }
   }
 
@@ -189,9 +193,17 @@ function createSessionStore(storePath) {
   function getStats() {
     const sessions = readSessions();
     const totalSessions = sessions.length;
+    const zoneTime = { normal: 0, warning: 0, danger: 0 };
+    let speakingTime = 0;
+    for (const session of sessions) {
+      if (isLegacySession(session)) continue;
+      const zones = speakingZones(session);
+      speakingTime += zones.speaking;
+      for (const key of Object.keys(zoneTime)) zoneTime[key] += zones[key];
+    }
 
     if (totalSessions === 0) {
-      return { totalSessions: 0, totalMinutes: 0, avgSessionMinutes: 0, avgVolume: 0 };
+      return { totalSessions: 0, totalMinutes: 0, avgSessionMinutes: 0, avgVolume: 0, zoneTime, speakingTime };
     }
 
     let totalDurationSec = 0;
@@ -213,7 +225,7 @@ function createSessionStore(storePath) {
     const avgSessionMinutes = Math.round((totalDurationSec / 60 / totalSessions) * 100) / 100;
     const avgVolume = volumeCount > 0 ? Math.round((volumeSum / volumeCount) * 100) / 100 : 0;
 
-    return { totalSessions, totalMinutes, avgSessionMinutes, avgVolume };
+    return { totalSessions, totalMinutes, avgSessionMinutes, avgVolume, zoneTime, speakingTime };
   }
 
   return {

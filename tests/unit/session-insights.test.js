@@ -15,8 +15,8 @@ const base = {
 describe("session insights (speaking-time denominators)", () => {
   it("reports too-loud share of speaking time, not of all time", () => {
     const out = generateInsights(base);
-    expect(out[0]).toBe("Ease your voice for 10% of your speaking time");
-    expect(out[1]).toBe("Getting loud for 10% of your speaking time");
+    expect(out[0]).toBe("“Ease your voice” shown for 10% of talking time");
+    expect(out[1]).toBe("“Getting loud” shown for 10% of talking time");
   });
 
   it("silence does not dilute the result", () => {
@@ -24,7 +24,7 @@ describe("session insights (speaking-time denominators)", () => {
       ...base,
       zoneTime: { ...base.zoneTime, silent: 100000 },
     });
-    expect(quiet[0]).toBe("Ease your voice for 10% of your speaking time");
+    expect(quiet[0]).toBe("“Ease your voice” shown for 10% of talking time");
   });
 
   it("says so when red was never reached", () => {
@@ -32,7 +32,7 @@ describe("session insights (speaking-time denominators)", () => {
       ...base,
       zoneTime: { silent: 10, normal: 100, warning: 0, danger: 0 },
     });
-    expect(out[0]).toBe("You never needed to ease your voice");
+    expect(out[0]).toBe("“Ease your voice” shown for under 1% of talking time");
   });
 
   it("handles a session with no speech", () => {
@@ -41,7 +41,7 @@ describe("session insights (speaking-time denominators)", () => {
         ...base,
         zoneTime: { silent: 120, normal: 0, warning: 0, danger: 0 },
       }),
-    ).toEqual(["No speech detected this session"]);
+    ).toEqual(["No talking detected this session"]);
   });
 
   it("detects a dB trend between halves", () => {
@@ -51,13 +51,13 @@ describe("session insights (speaking-time denominators)", () => {
       zoneTime: zt,
       volumeSamples: [...Array(20).fill(0), ...Array(20).fill(4)],
     });
-    expect(louder).toContain("You got louder in the second half");
+    expect(louder).toContain("Voice level was higher in the second half");
     const steady = generateInsights({
       ...base,
       zoneTime: zt,
       volumeSamples: Array(40).fill(1),
     });
-    expect(steady).toContain("Your level was consistent throughout");
+    expect(steady).toContain("Average voice level was similar in both halves");
   });
 
   it("names the loudest moment relative to normal", () => {
@@ -66,7 +66,7 @@ describe("session insights (speaking-time denominators)", () => {
       zoneTime: { silent: 0, normal: 100, warning: 0, danger: 0 },
       peakMoments: [{ timestamp: "2026-10-25T12:02:05.000Z", value: 11.6 }],
     });
-    expect(out).toContain("Loudest at 2:05: +12 dB above your normal");
+    expect(out).toContain("Peak at 2:05 · +12 dB above normal");
   });
 
   it("never uses acoustic comparisons or absolute dB", () => {
@@ -75,7 +75,7 @@ describe("session insights (speaking-time denominators)", () => {
       volumeSamples: Array.from({ length: 40 }, (_, i) => i / 4),
       peakMoments: [{ timestamp: "2026-10-25T12:00:30.000Z", value: 14 }],
     }).join(" ");
-    expect(out).not.toMatch(/lawn|mower|\b\d+ dB\b(?! above your normal)/);
+    expect(out).not.toMatch(/lawn|mower|\b\d+ dB\b(?! above normal)/);
   });
 
   it("returns at most 3 insights", () => {

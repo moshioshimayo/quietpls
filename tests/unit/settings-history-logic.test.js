@@ -31,19 +31,19 @@ describe('formatDate', () => {
   });
 
   it('returns -- for null', () => {
-    expect(formatDate(null)).toBe('--');
+    expect(formatDate(null)).toBe('—');
   });
 
   it('returns -- for undefined', () => {
-    expect(formatDate(undefined)).toBe('--');
+    expect(formatDate(undefined)).toBe('—');
   });
 
   it('returns -- for empty string', () => {
-    expect(formatDate('')).toBe('--');
+    expect(formatDate('')).toBe('—');
   });
 
   it('returns -- for invalid date string', () => {
-    expect(formatDate('not-a-date')).toBe('--');
+    expect(formatDate('not-a-date')).toBe('—');
   });
 });
 
@@ -68,11 +68,11 @@ describe('formatTime', () => {
   });
 
   it('returns -- for null', () => {
-    expect(formatTime(null)).toBe('--');
+    expect(formatTime(null)).toBe('—');
   });
 
   it('returns -- for invalid date', () => {
-    expect(formatTime('garbage')).toBe('--');
+    expect(formatTime('garbage')).toBe('—');
   });
 });
 
@@ -102,19 +102,19 @@ describe('formatDuration', () => {
   });
 
   it('returns -- for negative numbers', () => {
-    expect(formatDuration(-10)).toBe('--');
+    expect(formatDuration(-10)).toBe('—');
   });
 
   it('returns -- for NaN', () => {
-    expect(formatDuration(NaN)).toBe('--');
+    expect(formatDuration(NaN)).toBe('—');
   });
 
   it('returns -- for non-number', () => {
-    expect(formatDuration('abc')).toBe('--');
+    expect(formatDuration('abc')).toBe('—');
   });
 
   it('returns -- for undefined', () => {
-    expect(formatDuration(undefined)).toBe('--');
+    expect(formatDuration(undefined)).toBe('—');
   });
 });
 
@@ -131,16 +131,21 @@ describe('formatTotalMinutes', () => {
     expect(formatTotalMinutes(125)).toBe('2h 5m');
   });
 
+  it('carries rounded minutes into the next hour', () => {
+    expect(formatTotalMinutes(119.75)).toBe('2h 0m');
+    expect(formatTotalMinutes(59.75)).toBe('1h 0m');
+  });
+
   it('formats zero', () => {
     expect(formatTotalMinutes(0)).toBe('0m');
   });
 
   it('returns -- for negative', () => {
-    expect(formatTotalMinutes(-5)).toBe('--');
+    expect(formatTotalMinutes(-5)).toBe('—');
   });
 
   it('returns -- for NaN', () => {
-    expect(formatTotalMinutes(NaN)).toBe('--');
+    expect(formatTotalMinutes(NaN)).toBe('—');
   });
 });
 
@@ -183,13 +188,13 @@ describe('computeGrade', () => {
 
   it('returns -- for null zoneTime', () => {
     const result = computeGrade(null);
-    expect(result.letter).toBe('--');
+    expect(result.letter).toBe('—');
     expect(result.color).toBe('tertiary');
   });
 
   it('returns -- for empty zoneTime (all zeros)', () => {
     const result = computeGrade({ quiet: 0, normal: 0, loud: 0, danger: 0 });
-    expect(result.letter).toBe('--');
+    expect(result.letter).toBe('—');
   });
 
   it('handles C grade range', () => {
@@ -248,11 +253,11 @@ describe('computeAverageGrade', () => {
   });
 
   it('returns -- for empty array', () => {
-    expect(computeAverageGrade([])).toBe('--');
+    expect(computeAverageGrade([])).toBe('—');
   });
 
   it('returns -- for non-array', () => {
-    expect(computeAverageGrade(null)).toBe('--');
+    expect(computeAverageGrade(null)).toBe('—');
   });
 
   it('skips sessions with no valid zoneTime', () => {
@@ -285,7 +290,7 @@ describe('2.1 sessions vs pre-2.1 history', () => {
     // Long silence must not inflate the grade
     expect(SHL.computeSessionGrade(v2({ silent: 10000, normal: 30, warning: 0, danger: 70 })).letter).toBe('F');
     expect(SHL.computeSessionGrade(v2({ silent: 0, normal: 100, warning: 0, danger: 0 })).letter).toBe('A');
-    expect(SHL.computeSessionGrade(v2({ silent: 60, normal: 0, warning: 0, danger: 0 })).letter).toBe('--');
+    expect(SHL.computeSessionGrade(v2({ silent: 60, normal: 0, warning: 0, danger: 0 })).letter).toBe('—');
   });
 
   it('keeps legacy sessions on their own (pre-2.1) grade', () => {

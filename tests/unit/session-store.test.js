@@ -344,6 +344,17 @@ describe('session-store', () => {
       expect(stats.avgVolume).toBe(50);
     });
 
+    it('weights the overview by detected talking and excludes legacy scoring', () => {
+      store.saveSession(makeSession({ id: 'legacy', duration: 600, zoneTime: { quiet: 600 } }));
+      store.saveSession(makeSession({ id: 'short', algorithmVersion: 4, speakingTime: 10, zoneTime: { silent: 900, normal: 7, warning: 2, danger: 1 } }));
+      store.saveSession(makeSession({ id: 'long', algorithmVersion: 4, speakingTime: 90, zoneTime: { normal: 81, warning: 6, danger: 3 } }));
+      const stats = store.getStats();
+      expect(stats.totalSessions).toBe(3);
+      expect(stats.speakingTime).toBe(100);
+      expect(stats.zoneTime).toEqual({ normal: 88, warning: 8, danger: 4 });
+      expect(store.getSession('legacy').zoneTime).toEqual({ quiet: 600 });
+    });
+
     it('should handle sessions without volumeSamples', () => {
       store.saveSession(makeSession({
         id: 'no-samples',
@@ -362,14 +373,16 @@ describe('session-store', () => {
   // Edge cases
   // ----------------------------------------------------------------
   describe('edge cases', () => {
-    it('should handle corrupted JSON file gracefully', () => {
+    it('surfaces unreadable history and never overwrites its bytes', () => {
       // Write garbage to the sessions file
       const filePath = path.join(tmpDir, 'sessions.json');
       fs.writeFileSync(filePath, 'not valid json!!!', 'utf8');
 
-      // Should not throw, should treat as empty
-      const sessions = store.getSessions();
-      expect(sessions).toEqual([]);
+      expect(() => store.getSessions()).toThrow();
+      expect(() => store.getStats()).toThrow();
+      expect(() => store.saveSession(makeSession())).toThrow();
+      expect(() => store.deleteSession('any')).toThrow();
+      expect(fs.readFileSync(filePath, 'utf8')).toBe('not valid json!!!');
     });
 
     it('should handle missing sessions file gracefully', () => {

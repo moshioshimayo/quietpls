@@ -185,3 +185,12 @@ describe("accepted speech and session provenance", () => {
     expect(t.finalize({ sessionBaselineDb: -35, reanchorDb: -5 })).toMatchObject({ storedBaselineDb: -30, sessionBaselineDb: -35, reanchorDb: -5 });
   });
 });
+
+
+describe("setup-only activity and legitimate short monitoring", () => {
+  it("retains short and silent actual monitoring without a duration/speech filter", () => {
+    const tracker = createSessionTracker();
+    tracker.recordFrame({ zone: "silent", speaking: false }, 20);
+    expect(tracker.finalize()).toMatchObject({ coveredTime: 0.02, speakingTime: 0 });
+  });
+});
