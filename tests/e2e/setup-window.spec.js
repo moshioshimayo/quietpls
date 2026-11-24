@@ -3,7 +3,7 @@
 // access state is reachable without touching the guest's privacy settings.
 const path = require("path");
 const { test, expect } = require("@playwright/test");
-const { launchApp } = require("./helpers");
+const { launchApp, getSettingsStore } = require("./helpers");
 
 const FAKE_MEDIA = ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"];
 
@@ -114,6 +114,23 @@ test.describe("Setup window (S5)", () => {
       await expect(widget.locator("#compactPill")).toHaveClass(/monitoring/, { timeout: 10000 });
       await expect(widget.locator("#calibrationView")).toBeHidden();
       expect(await app.evaluate(() => globalThis.__recalibrations)).toBe(0);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test("changing the mic in setup keeps a sensitivity changed elsewhere", async () => {
+    const { app, win } = await start("granted");
+    try {
+      await win.getByRole("button", { name: "Get started" }).click();
+      await expect(heading(win)).toHaveText("Say a few words.");
+      // Settings saved sensitivity 3 after setup loaded its own copy.
+      await app.evaluate(({ ipcMain }) => ipcMain.emit("update-settings", {}, { sensitivity: 3, audioDeviceId: "" }));
+      const select = win.locator("#micSelect");
+      await expect(select.locator("option")).not.toHaveCount(1);
+      await select.selectOption({ index: 1 });
+      const chosen = await select.inputValue();
+      await expect.poll(() => getSettingsStore(app)).toMatchObject({ sensitivity: 3, audioDeviceId: chosen });
     } finally {
       await app.close();
     }

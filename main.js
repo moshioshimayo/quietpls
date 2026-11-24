@@ -906,12 +906,14 @@ app.whenReady().then(async () => {
   ipcMain.on("update-settings", async (event, settings) => {
     // Validate and sanitize renderer-supplied settings
     if (!settings || typeof settings !== "object") return;
+    // Only the fields this window sent change, so no window writes a stale value back.
     const sanitized = {
-      sensitivity: clampSensitivity(settings.sensitivity),
-      audioDeviceId:
-        typeof settings.audioDeviceId === "string"
-          ? settings.audioDeviceId
-          : "",
+      sensitivity: "sensitivity" in settings
+        ? clampSensitivity(settings.sensitivity)
+        : currentSettings.sensitivity,
+      audioDeviceId: "audioDeviceId" in settings
+        ? (typeof settings.audioDeviceId === "string" ? settings.audioDeviceId : "")
+        : currentSettings.audioDeviceId,
     };
     currentSettings = sanitized;
 

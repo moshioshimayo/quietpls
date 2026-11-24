@@ -341,7 +341,7 @@ if (typeof document === "undefined") {
     const audioDeviceId = $("micSelect").value;
     settings = Object.assign({}, settings, { audioDeviceId });
     if (api.updateSettings) {
-      api.updateSettings({ sensitivity: settings.sensitivity, audioDeviceId });
+      api.updateSettings({ audioDeviceId }); // only the mic: never a cached sensitivity
     }
     startLevel();
   }
