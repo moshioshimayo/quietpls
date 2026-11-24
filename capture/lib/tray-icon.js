@@ -11,7 +11,7 @@ const COLORS = {
   ambient: [255, 59, 48],
   transcribing: [255, 159, 10],
   saved: [52, 199, 89],
-  error: [255, 59, 48],
+  error: [255, 159, 10], // needs attention; red means recording
 };
 
 function dotBitmap(phase, size = 36) {

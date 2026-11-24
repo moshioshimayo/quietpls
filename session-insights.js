@@ -12,13 +12,10 @@ function average(arr) {
   return arr.reduce((a, b) => a + b, 0) / arr.length;
 }
 
-function formatTimeSinceStart(timestamp, startTime) {
-  const start = new Date(startTime).getTime();
-  const peak = new Date(timestamp).getTime();
-  const totalSeconds = Math.max(0, Math.floor((peak - start) / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+// Whole minutes into the session (at least 1), so it never reads as a clock time.
+function minutesSinceStart(timestamp, startTime) {
+  const ms = new Date(timestamp).getTime() - new Date(startTime).getTime();
+  return Math.max(1, Math.round(ms / 60000));
 }
 
 const TREND_DB = 2; // half-to-half change that counts as a trend
@@ -35,21 +32,21 @@ function generateInsights(sessionData) {
   );
 
   if (speaking <= 0) {
-    return ["No speech detected this session"];
+    return ["No talking detected this session"];
   }
 
   // 1. Ease your voice (red) share of speaking time
   const redPct = Math.round(((zoneTime.danger || 0) / speaking) * 100);
   const yellowPct = Math.round(((zoneTime.warning || 0) / speaking) * 100);
   if (redPct > 0) {
-    insights.push(`Ease your voice for ${redPct}% of your speaking time`);
+    insights.push(`“Ease your voice” shown for ${redPct}% of talking time`);
   } else {
-    insights.push("You never needed to ease your voice");
+    insights.push("“Ease your voice” shown for under 1% of talking time");
   }
 
   // 2. Getting loud (yellow) share, if any
   if (yellowPct > 0) {
-    insights.push(`Getting loud for ${yellowPct}% of your speaking time`);
+    insights.push(`“Getting loud” shown for ${yellowPct}% of talking time`);
   }
 
   // 3. Trend: first half vs second half of speech, in dB
@@ -57,10 +54,10 @@ function generateInsights(sessionData) {
   if (insights.length < 3 && samples && samples.length > 20) {
     const mid = Math.floor(samples.length / 2);
     const change = average(samples.slice(mid)) - average(samples.slice(0, mid));
-    if (change > TREND_DB) insights.push("You got louder in the second half");
+    if (change > TREND_DB) insights.push("Voice level was higher in the second half");
     else if (change < -TREND_DB)
-      insights.push("You got quieter toward the end");
-    else insights.push("Your level was consistent throughout");
+      insights.push("Voice level was lower in the second half");
+    else insights.push("Average voice level was similar in both halves");
   }
 
   // 4. Loudest moment
@@ -72,9 +69,9 @@ function generateInsights(sessionData) {
     s.startTime &&
     peaks[0].value >= 1
   ) {
-    const at = formatTimeSinceStart(peaks[0].timestamp, s.startTime);
+    const minutes = minutesSinceStart(peaks[0].timestamp, s.startTime);
     insights.push(
-      `Loudest at ${at}: +${Math.round(peaks[0].value)} dB above your normal`,
+      `Peak ${minutes} min in · +${Math.round(peaks[0].value)} dB above normal`,
     );
   }
 

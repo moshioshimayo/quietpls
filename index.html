@@ -4,84 +4,94 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>quietpls</title>
-  <link rel="stylesheet" href="design-system.css">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="components.css">
   <link rel="stylesheet" href="styles.css">
+  <script src="glyphs.js" defer></script>
 </head>
 <body>
   <div class="container">
-    <!-- Compact pill: one status word and mark; click or Enter opens details -->
-    <button type="button" class="qp-pill zone-off is-off" id="compactPill" aria-label="quietpls: Start monitoring. Show details">
-      <span class="qp-mark" id="pillMark" aria-hidden="true">○</span>
+    <button type="button" class="pill off" id="compactPill" aria-label="quietpls: Start monitoring. Show details">
+      <svg class="g" id="pillMark" aria-hidden="true"><use href="#g-off"/></svg>
       <span id="pillWord">Start monitoring</span>
+      <span class="mm" id="miniMeter" aria-hidden="true" hidden><i id="miniFill"></i></span>
     </button>
     <div class="sr-only" id="liveRegion" aria-live="polite"></div>
+    <button type="button" class="tip" id="firstRunTip" aria-label="Dismiss tip" aria-describedby="firstRunTipText" hidden><span id="firstRunTipText">Starts when another app uses your mic. Click the pill for controls.</span></button>
 
-    <!-- Details and "set your normal voice": fixed 320x240 -->
-    <section class="qp-panel zone-off" id="expandedPanel" aria-label="quietpls details" style="display:none;">
-      <div class="qp-view" id="detailsView">
-        <div class="qp-row">
-          <span class="qp-mark" id="detailsMark" aria-hidden="true">○</span>
-          <span class="qp-status" id="zoneLabel">Start monitoring</span>
-          <button type="button" class="qp-btn" id="hideBtn" aria-keyshortcuts="Escape">Hide</button>
+    <section class="panel" id="expandedPanel" aria-label="Voice monitoring details" style="display:none;">
+      <div id="detailsView">
+        <div class="row status-row">
+          <svg class="g" id="detailsMark" aria-hidden="true"><use href="#g-off"/></svg>
+          <span class="status" id="zoneLabel">Start monitoring</span>
+          <span class="read" id="dbReadout"></span>
         </div>
-        <div class="qp-amount" id="dbReadout"></div>
+        <div class="small read-caption" id="dbCaption" hidden>above normal</div>
+        <div class="sub" id="decisionNote" hidden></div>
+        <div class="sub" id="stateNote" hidden></div>
         <div id="relBar">
-          <div class="qp-bar" id="relBarTrack" role="img" aria-label="No level">
-            <div class="qp-bar-fill" id="relFill"></div>
-            <div class="qp-tick warn" id="tickWarn"></div>
-            <div class="qp-tick danger" id="tickDanger"></div>
+          <div class="meter" id="relBarTrack" role="img" aria-label="No voice reading">
+            <i class="z1" id="normalZone"></i><i class="z2" id="risingZone"></i><i class="z3" id="loudZone"></i>
+            <span class="normal-notch" id="normalNotch"></span>
+            <b id="relFill"></b>
+            <span class="threshold" id="tickWarn"></span><span class="threshold" id="tickDanger"></span>
           </div>
-          <div class="qp-scale" aria-hidden="true">
-            <span id="scaleNormal">normal</span><span id="scaleWarn">+6</span><span id="scaleDanger">+10</span>
-          </div>
+          <div class="scale" aria-hidden="true"><span id="scaleNormal">normal</span><span id="scaleWarn">+6</span><span id="scaleDanger">+10</span></div>
         </div>
-        <div class="qp-mic" id="micLine">Mic: <b id="micLabel">—</b></div>
-        <div class="qp-sub" id="micNote" hidden></div>
-        <div class="qp-sub" id="reanchorLine" hidden></div>
-        <div class="qp-actions">
-          <button type="button" class="qp-link" id="recalibrateBtn">Set normal voice again</button>
-          <button type="button" class="qp-btn primary" id="retryBtn" hidden>Retry</button>
-          <span class="qp-spacer"></span>
-          <button type="button" class="qp-btn" id="stopBtn">Stop</button>
+        <div class="group" id="deviceGroup">
+          <div class="kv" id="micLine"><span aria-label="Mic:">Mic</span><span class="mic-name" id="micLabel">—</span></div>
+          <div class="kv" id="normalRow"><span>Normal voice</span><span class="row saved-normal"><span id="normalSaved">Not set</span><button type="button" class="btn sm" id="recalibrateBtn" aria-label="Reset normal voice">Reset</button></span></div>
+        </div>
+        <div class="small" id="micNote" hidden></div>
+        <div class="small" id="reanchorLine" hidden></div>
+        <div class="foot" id="detailsFooter">
+          <button type="button" class="btn" id="settingsBtn">Settings…</button><span class="sp"></span>
+          <button type="button" class="btn" id="hideBtn" aria-label="Hide details" aria-keyshortcuts="Escape">Hide<span class="kbd">esc</span></button>
+          <button type="button" class="btn" id="stopBtn">Stop</button>
+        </div>
+        <div class="foot recovery-actions" id="recoveryActions" hidden>
+          <button type="button" class="link" id="checkAccessBtn">Check again</button><span class="sp"></span>
+          <button type="button" class="btn primary" id="accessBtn">Open System Settings</button>
+          <button type="button" class="btn primary" id="retryBtn" hidden>Try again</button>
         </div>
       </div>
 
-      <div class="qp-view" id="calibrationView" hidden>
-        <div class="qp-step" id="calStep"></div>
-        <div class="qp-row">
-          <span class="qp-mark cal-mark" id="calMark" aria-hidden="true" hidden>✓</span>
-          <span class="qp-status" id="calTitle"></span>
+      <div id="newMicView" hidden>
+        <div class="status" id="newMicTitle"></div>
+        <div class="sub">It needs its own normal voice. About 10 seconds.</div>
+        <div class="group"><div class="kv"><span>Still using</span><span class="mic-name" id="previousMic"></span></div></div>
+        <div class="foot"><span class="sp"></span><button class="btn" id="newMicLater">Later</button><button class="btn primary" id="newMicSetup">Set up</button></div>
+      </div>
+
+      <div id="calibrationView" hidden>
+        <div class="small" id="calStep"></div>
+        <div class="row cal-heading"><svg class="g" id="calMark" aria-hidden="true" hidden><use href="#g-ok"/></svg><span class="status" id="calTitle"></span></div>
+        <div class="bar" id="calProgress" role="progressbar" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><i id="calProgressFill"></i></div>
+        <div class="sub" id="calText"></div>
+        <div class="group" id="calMicGroup"><div class="kv"><span>Mic</span><span class="mic-name" id="calMicName"></span></div></div>
+        <div class="note" id="calHint" hidden></div>
+        <div class="row" id="calLive" hidden>
+          <span class="pill off" id="calLivePill"><svg class="g" id="calLiveMark" aria-hidden="true"><use href="#g-listen"/></svg><span id="calLiveWord"></span></span><span class="small">Live feedback</span>
         </div>
-        <div class="qp-progress" id="calProgress" role="progressbar" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><div id="calProgressFill"></div></div>
-        <div class="qp-amount" id="calText"></div>
-        <div class="qp-row" id="calLive" hidden>
-          <span class="qp-amount">quietpls shows:</span>
-          <span class="qp-pill zone-off is-off" id="calLivePill"><span class="qp-mark" id="calLiveMark" aria-hidden="true"></span><span id="calLiveWord"></span></span>
-        </div>
-        <div class="qp-actions">
-          <span class="qp-sub" id="calNote"></span>
-          <button type="button" class="qp-btn primary" id="calPrimaryBtn" hidden></button>
-          <span class="qp-spacer"></span>
-          <button type="button" class="qp-btn" id="calSecondaryBtn"></button>
+        <div id="rehearsalCountdown" hidden><div class="bar"><i id="countdownFill"></i></div><div class="small num" id="countdownText"></div></div>
+        <div class="foot">
+          <button type="button" class="btn sm" id="changeMicBtn">Change mic</button>
+          <span class="small" id="calNote"></span><span class="sp"></span>
+          <button type="button" class="btn" id="calSecondaryBtn"></button>
+          <button type="button" class="btn primary" id="calPrimaryBtn" hidden></button>
         </div>
       </div>
     </section>
 
-    <!-- Session summary, shown only after Stop -->
-    <div class="session-complete-panel glass-panel" id="sessionCompletePanel" style="display:none;">
-      <div class="session-complete__header">
-        <span class="session-complete__duration" id="sessionDuration">0m</span>
-        <button class="session-complete__btn session-complete__btn--close" id="sessionCloseBtn" title="Done">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          </svg>
-        </button>
-      </div>
-      <ul class="session-complete__insight-list" id="insightList">
-      </ul>
-    </div>
+    <section class="panel session-complete-panel" id="sessionCompletePanel" aria-label="Session summary" style="display:none;">
+      <div class="row"><span class="status num" id="sessionDuration">0m</span><span class="sub">Session summary</span></div>
+      <div class="split" id="sessionSplit" role="img" aria-label="Talking time"><i class="a"></i><i class="b"></i><i class="c"></i></div>
+      <ul id="insightList"></ul>
+      <div class="sub" id="summaryEmptyDetail" hidden></div>
+      <div class="small num" id="summaryPeak" hidden></div>
+      <div class="foot"><button class="link" id="historyBtn">View history</button><span class="sp"></span><button class="btn primary" id="summaryDoneBtn">Done</button></div>
+    </section>
   </div>
-  <script src="session-animations.js"></script>
   <script src="session-tracker.js"></script>
   <script src="session-insights.js"></script>
   <script src="level-logic.js"></script>

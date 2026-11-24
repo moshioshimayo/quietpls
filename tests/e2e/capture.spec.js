@@ -107,9 +107,11 @@ test.describe("Capture (beta)", () => {
     await setMicUsers(app, ZOOM);
     await app.evaluate(({ ipcMain }) => ipcMain.emit("open-settings"));
     const settings = await windowByUrl(app, "settings.html");
-    await expect(settings.locator("#captureSection h4")).toHaveText(
-      "Capture (beta)",
-    );
+    await expect(
+      settings
+        .locator("#captureSection")
+        .getByRole("heading", { name: "Capture (beta)", exact: true }),
+    ).toBeVisible();
     await expect(settings.locator("#captureEnabled")).not.toBeChecked();
     await expect(settings.locator("#captureActions")).toBeHidden();
     await settings.waitForTimeout(4000); // two detector polls, if it were running
@@ -135,8 +137,9 @@ test.describe("Capture (beta)", () => {
     await settings.locator("#captureEnabled").evaluate((el) => el.click());
     await expect(settings.locator("#captureEnabled")).toBeChecked();
     await expect(settings.locator("#captureActions")).toBeVisible();
+    // T3 owns this text: 2.4.3 wording or its reviewed CR-142 replacement.
     await expect(settings.locator("#captureDescription")).toContainText(
-      "asked before any call is recorded",
+      /asked before any call is recorded|Call prompts on\. Choose which calls to record\./,
     );
 
     // A call starts: the consent banner asks; nothing is recorded yet.
@@ -145,7 +148,21 @@ test.describe("Capture (beta)", () => {
     await expect.poll(() => isVisible(app, "banner.html")).toBe(true);
     await expect(banner.locator("#app")).toHaveText("Zoom");
     await expect(banner.locator("#accept")).toHaveText("Record this call");
+    await expect(banner.locator("#skip")).toHaveText("Skip this call");
+    await expect(banner.locator("#never")).toHaveText("Never for Zoom");
     expect(await phase(banner)).toBe("asking");
+    // AC-X10: the banner stacks under quietpls's pill window, never over it.
+    const [pillBox, bannerBox] = await app.evaluate(({ BrowserWindow }) => {
+      const by = (p) =>
+        BrowserWindow.getAllWindows().find((w) =>
+          w.webContents.getURL().endsWith(p),
+        );
+      return [by("/index.html").getBounds(), by("/banner.html").getBounds()];
+    });
+    console.log(`AC-X10 bounds: pill ${JSON.stringify(pillBox)} banner ${JSON.stringify(bannerBox)}`);
+    // Visible pill = window minus its 32/24/40 shadow margins; visible card = banner minus 24/8.
+    expect(bannerBox.y + 8).toBe(pillBox.y + pillBox.height - 40 + 8);
+    expect(bannerBox.x + bannerBox.width - 24).toBe(pillBox.x + pillBox.width - 32);
     expect(audioFiles(userData)).toEqual([]);
 
     // Yes: recording, with the indicator up and the banner gone.
@@ -153,13 +170,13 @@ test.describe("Capture (beta)", () => {
     await expect.poll(() => phase(banner)).toBe("recording");
     const indicator = await windowByUrl(app, "indicator.html");
     await expect.poll(() => isVisible(app, "indicator.html")).toBe(true);
-    await expect(indicator.locator("#label")).toContainText("REC");
+    await expect(indicator.locator("#label")).toHaveText(/^Recording \d\d:\d\d$/);
     await expect.poll(() => isVisible(app, "banner.html")).toBe(false);
 
     // The call ends: after the grace period the call is transcribed and committed.
     await setMicUsers(app, "");
     await expect.poll(() => phase(banner), { timeout: 30000 }).toBe("saved");
-    await expect(indicator.locator("#label")).toHaveText("Saved");
+    await expect(indicator.locator("#label")).toHaveText("Transcript saved");
     expect(commits(notes)).toBe(1);
     const [file] = mdFiles(notes);
     const md = fs.readFileSync(path.join(notes, file), "utf8");
@@ -179,7 +196,7 @@ test.describe("Capture (beta)", () => {
     // Back to idle once "saved" is dismissed (8 s).
     await expect.poll(() => phase(banner), { timeout: 15000 }).toBe("idle");
 
-    // Next call, "Not now": nothing recorded, no new commit.
+    // Next call, "Skip this call": nothing recorded, no new commit.
     await setMicUsers(app, ZOOM);
     await expect.poll(() => phase(banner)).toBe("asking");
     await banner.locator("#skip").click();
@@ -199,8 +216,10 @@ test.describe("Capture (beta)", () => {
     ]);
     await setMicUsers(app, ZOOM);
     await expect.poll(() => phase(banner)).toBe("asking");
-    await expect(banner.locator("#warn")).toContainText("has a remote");
-    await expect(banner.locator("#accept")).toHaveText("Fix in Settings");
+    await expect(banner.locator("#warn")).toHaveText(
+      "Your transcript folder syncs to an online code repository. Choose another folder in Settings.",
+    );
+    await expect(banner.locator("#accept")).toHaveText("Open settings");
     await banner.evaluate(() => window.qpc.accept());
     await banner.waitForTimeout(1000);
     expect(await phase(banner)).not.toBe("recording");

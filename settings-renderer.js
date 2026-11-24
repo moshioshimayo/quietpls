@@ -1,4 +1,4 @@
-// Settings window renderer — quietpls 2.1
+// Settings window renderer
 // Dependencies loaded via <script> tags: LevelLogic, SettingsLogic, SettingsHistoryLogic
 // Access via LL / SL / SHL to avoid redeclaration with script-loaded globals
 const LL = window.LevelLogic || {};
@@ -23,7 +23,14 @@ let generalSettings = {
 };
 
 // Tab state
-let activeTab = "thresholds";
+let activeTab = "monitoring";
+let lastCaptureStatus = null;
+let idleMicGeneration = 0;
+let microphoneStatus = null;
+let micTestGeneration = 0;
+let detailSession = null;
+let deleteInvoker = null;
+let detailInvoker = null;
 let sessionsLoaded = false;
 let pendingDeleteId = null;
 
@@ -40,6 +47,7 @@ let isMicTesting = false;
 
 document.addEventListener("DOMContentLoaded", () => {
   setupTabNavigation();
+  document.title = "Monitoring";
   loadSettings();
   setupSensitivityHandlers();
   setupDeviceHandlers();
@@ -48,6 +56,15 @@ document.addEventListener("DOMContentLoaded", () => {
   setupSessionHandlers();
   setupCalibrationHandlers();
   enumerateAudioDevices();
+  setupMicrophonePermission();
+  window.electronAPI.onSelectSettingsTab?.(switchTab);
+  resizeSettingsWindow();
+  window.addEventListener("settings-content-changed", resizeSettingsWindow);
+  window.addEventListener("beforeunload", stopMicTest);
+  window.addEventListener("focus", () => {
+    refreshMicrophonePermission();
+    if (activeTab === "history" && !detailSession) loadSessionHistory();
+  });
 
   // Device change listener
   if (
@@ -61,23 +78,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Live zone decisions from the widget (the same ones the pill shows)
   window.electronAPI.onLevelUpdate((update) => {
-    updateCurrentLevel(update);
     updateLevelIndicator(update);
     updateMicTestFromMainLevel(update);
+  });
+
+  window.electronAPI.onMonitoringStatus((monitoring) => {
+    const status = monitoring ? "Monitoring on" : "Monitoring off";
+    document.getElementById("liveLevelText").textContent = status;
+    announceMonitoringState(status);
+    if (!monitoring) document.getElementById("levelMarker").hidden = true;
   });
 
   // Actual captured mic + its calibration
   window.electronAPI.getCaptureStatus().then(renderCaptureStatus);
   window.electronAPI.onCaptureStatus(renderCaptureStatus);
-
-  // Monitoring status
-  window.electronAPI.onMonitoringStatus((isMonitoring) => {
-    const statusEl = document.getElementById("settingsStatus");
-    if (statusEl) {
-      statusEl.textContent = isMonitoring ? "Active" : "Inactive";
-      statusEl.className = "status-label" + (isMonitoring ? " active" : "");
-    }
-  });
 
   // Load general settings from main process
   if (window.electronAPI.getGeneralSettings) {
@@ -95,8 +109,9 @@ document.addEventListener("DOMContentLoaded", () => {
 // ============================================================
 
 function loadSettings() {
-  window.electronAPI.requestSettings();
-  window.electronAPI.onSettingsData((settings) => {
+  // The first load and every later change from elsewhere (the widget's mic menu), so a
+  // save from here never writes a stale mic back.
+  const apply = (settings) => {
     if (settings) {
       config.sensitivity = LL.clampSensitivity(settings.sensitivity);
       if (settings.audioDeviceId !== undefined) {
@@ -106,8 +121,12 @@ function loadSettings() {
         updateBluetoothNote();
       }
       updateUI();
+      refreshIdleMicrophone();
     }
-  });
+  };
+  window.electronAPI.onSettingsData(apply);
+  if (window.electronAPI.onSettingsUpdated) window.electronAPI.onSettingsUpdated(apply);
+  window.electronAPI.requestSettings();
 }
 
 function saveSettings() {
@@ -139,7 +158,7 @@ function setupSensitivityHandlers() {
 
 function describeSensitivity(s) {
   if (s === 0) return "Default";
-  return s > 0 ? s + " dB sooner" : -s + " dB later";
+  return s > 0 ? s + " dB lower" : -s + " dB higher";
 }
 
 // ============================================================
@@ -150,8 +169,10 @@ function setupDeviceHandlers() {
   const deviceSelect = document.getElementById("audioDeviceSelect");
   if (deviceSelect) {
     deviceSelect.addEventListener("change", (e) => {
+      stopMicTest();
       selectedDeviceId = e.target.value;
       updateBluetoothNote();
+      refreshIdleMicrophone();
       saveSettings();
     });
   }
@@ -183,7 +204,7 @@ async function enumerateAudioDevices() {
     );
 
     select.innerHTML =
-      '<option value="">System Default (skips Bluetooth mics)</option>';
+      '<option value="">Automatic (prefers non-Bluetooth)</option>';
 
     for (const device of audioInputs) {
       const option = document.createElement("option");
@@ -201,13 +222,14 @@ async function enumerateAudioDevices() {
       select.value = selectedDeviceId;
     } else if (selectedDeviceId) {
       console.warn(
-        "Previously selected audio device no longer available, falling back to System Default",
+        "Previously selected audio device no longer available, falling back to Automatic",
       );
       selectedDeviceId = "";
       select.value = "";
       saveSettings();
     }
     updateBluetoothNote();
+    refreshIdleMicrophone();
   } catch (error) {
     console.error("Failed to enumerate audio devices:", error);
   }
@@ -230,7 +252,8 @@ function updateBluetoothNote() {
   if (!note) return;
   note.hidden = selectedDeviceId
     ? !bluetoothDeviceIds.has(selectedDeviceId)
-    : !capturedBluetooth;
+    : !(capturedBluetooth || bluetoothDeviceIds.size > 0);
+  resizeSettingsWindow();
 }
 
 // ============================================================
@@ -242,6 +265,8 @@ async function startMicTest() {
   const fill = document.getElementById("micTestFill");
   const label = document.getElementById("micTestLabel");
 
+  const generation = ++micTestGeneration;
+  btn.disabled = true;
   try {
     // Same mic choice as monitoring: never open a Bluetooth default.
     const choice = await MP.resolveChoice(
@@ -252,7 +277,12 @@ async function startMicTest() {
     const constraints = {
       audio: choice.deviceId ? MP.audioConstraints(choice) : true,
     };
-    micTestStream = await navigator.mediaDevices.getUserMedia(constraints);
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    if (generation !== micTestGeneration || activeTab !== "monitoring") {
+      stream.getTracks().forEach((track) => track.stop());
+      return;
+    }
+    micTestStream = stream;
     micTestAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const source = micTestAudioCtx.createMediaStreamSource(micTestStream);
     micTestAnalyser = micTestAudioCtx.createAnalyser();
@@ -262,7 +292,7 @@ async function startMicTest() {
 
     isMicTesting = true;
     btn.classList.add("active");
-    btn.textContent = "Stop";
+    btn.textContent = "Stop test";
 
     const dataArray = new Uint8Array(micTestAnalyser.frequencyBinCount);
 
@@ -280,8 +310,9 @@ async function startMicTest() {
 
       // Raw signal check only: not calibrated, so no zone colours.
       fill.style.width = pct + "%";
-      label.textContent = pct > 2 ? "Signal" : "No signal";
-      fill.className = "mic-test-fill level-normal";
+      const signal = pct > 2 ? "Signal" : "No signal";
+      if (label.textContent !== signal) label.textContent = signal;
+      fill.className = "level-normal";
 
       micTestAnimFrame = requestAnimationFrame(drawLevel);
     }
@@ -289,11 +320,17 @@ async function startMicTest() {
     drawLevel();
   } catch (err) {
     console.error("Mic test failed:", err);
-    if (label) label.textContent = "Error";
+    if (generation === micTestGeneration) {
+      stopMicTest();
+      if (label) label.textContent = "Mic unavailable";
+    }
+  } finally {
+    if (generation === micTestGeneration) btn.disabled = false;
   }
 }
 
 function stopMicTest() {
+  micTestGeneration++;
   isMicTesting = false;
   const btn = document.getElementById("testMicBtn");
   const fill = document.getElementById("micTestFill");
@@ -301,10 +338,11 @@ function stopMicTest() {
 
   if (btn) {
     btn.classList.remove("active");
-    btn.textContent = "Test Mic";
+    btn.textContent = "Test mic";
+    btn.disabled = false;
   }
   if (fill) fill.style.width = "0";
-  if (label) label.textContent = "--";
+  if (label) label.textContent = "—";
 
   if (micTestAnimFrame) cancelAnimationFrame(micTestAnimFrame);
   if (micTestStream) {
@@ -369,12 +407,12 @@ function updateGeneralUI() {
 function setupCalibrationHandlers() {
   const btn = document.getElementById("recalibrateBtn");
   if (btn) {
-    // Same live operation as the pill's context-menu "Recalibrate": starts
-    // monitoring if needed and asks you to talk normally for ~5 s.
+    // The same guided voice setup used by the pill.
     btn.addEventListener("click", () => {
+      stopMicTest();
       window.electronAPI.requestRecalibration();
       const statusEl = document.getElementById("calibrationStatus");
-      if (statusEl) statusEl.textContent = "Talk normally for about 5 seconds…";
+      if (statusEl) statusEl.textContent = "Use your normal call voice for about 10 seconds…";
     });
   }
 }
@@ -384,6 +422,8 @@ function setupCalibrationHandlers() {
  * @param {object} s — capture status reported by the widget
  */
 function renderCaptureStatus(s) {
+  lastCaptureStatus = s;
+  idleMicGeneration++;
   const deviceEl = document.getElementById("calibrationDevice");
   const statusEl = document.getElementById("calibrationStatus");
   if (!statusEl) return;
@@ -403,24 +443,40 @@ function renderCaptureStatus(s) {
 
   if (status.state === "idle") {
     statusEl.textContent = "Start monitoring to check your mic";
+    refreshIdleMicrophone();
   } else if (status.state === "unavailable") {
     statusEl.textContent =
-      status.reason === "permission" ? "Mic access denied" : "Mic unavailable";
+      status.reason === "permission" ? "Microphone access is off" : "Mic unavailable";
   } else if (status.state !== "running") {
     statusEl.textContent = "Reconnecting to mic…";
   } else if (status.calibrating) {
-    statusEl.textContent = "Calibrating — talk normally for about 5 seconds";
-  } else if (status.calibration) {
-    const when = new Date(status.calibration.calibratedAt);
-    statusEl.textContent =
-      "Calibrated " +
-      (isNaN(when.getTime()) ? "" : when.toLocaleDateString() + " ") +
-      "(normal ≈ " +
-      Math.round(status.calibration.baselineDb) +
-      " dBFS)";
+    statusEl.textContent = "Learning your normal voice…";
   } else {
-    statusEl.textContent = "Not calibrated";
+    showNormalVoice(status.calibration);
   }
+}
+
+// Saved or not, the status and the button agree: Set when none, Reset when saved.
+function showNormalVoice(record) {
+  const when = record ? new Date(record.calibratedAt) : null;
+  document.getElementById("calibrationStatus").textContent = record
+    ? "Normal voice saved " + (isNaN(when.getTime()) ? "" : when.toLocaleDateString())
+    : "Normal voice not set";
+  const btn = document.getElementById("recalibrateBtn");
+  if (btn) btn.textContent = record ? "Reset normal voice" : "Set normal voice";
+}
+
+// Read the selected mic's saved normal without opening its audio stream.
+async function refreshIdleMicrophone() {
+  if (lastCaptureStatus && lastCaptureStatus.state !== "idle") return;
+  const generation = ++idleMicGeneration;
+  try {
+    const choice = await MP.resolveChoice(navigator.mediaDevices, getInputTransports, selectedDeviceId);
+    const record = choice.deviceId ? await window.electronAPI.getCalibration(choice.deviceId) : null;
+    if (generation !== idleMicGeneration) return;
+    document.getElementById("calibrationDevice").textContent = choice.label || "Unnamed mic";
+    showNormalVoice(record);
+  } catch (error) { console.error("Could not read saved normal voice:", error); }
 }
 
 // ============================================================
@@ -428,30 +484,63 @@ function renderCaptureStatus(s) {
 // ============================================================
 
 function setupFooterHandlers() {
-  const resetBtn = document.getElementById("resetDefaults");
-  const closeBtn = document.getElementById("closeSettings");
-
-  if (resetBtn) {
-    resetBtn.addEventListener("click", () => {
-      config.sensitivity = 0;
-      updateUI();
-      saveSettings();
-    });
-  }
-
-  if (closeBtn) {
-    closeBtn.addEventListener("click", () => {
-      stopMicTest();
-      window.electronAPI.closeSettings();
-    });
-  }
-
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      stopMicTest();
-      window.electronAPI.closeSettings();
+  document.getElementById("resetDefaults").addEventListener("click", () => {
+    config.sensitivity = 0;
+    updateUI();
+    // This action only changes sensitivity; the microphone and general settings stay intact.
+    saveSettings();
+  });
+  document.addEventListener("keydown", (event) => {
+    if ((event.metaKey || event.ctrlKey) && ["1", "2"].includes(event.key)) {
+      event.preventDefault();
+      switchTab(event.key === "1" ? "monitoring" : "history");
+      document.getElementById(event.key === "1" ? "monitoringTab" : "historyTab").focus();
+    } else if (event.key === "Escape") {
+      if (document.getElementById("deleteConfirmModal").open) return;
+      if (detailSession) { closeSessionModal(); event.preventDefault(); }
+      else { stopMicTest(); window.electronAPI.closeSettings(); }
     }
   });
+}
+
+function resizeSettingsWindow() {
+  // Measure the selected pane rather than the current window (which can shrink).
+  requestAnimationFrame(() => {
+    const pane = document.getElementById("tab-" + activeTab);
+    const confirm = document.getElementById("deleteConfirmModal");
+    const height = Math.max(pane.offsetHeight, confirm.open ? Math.max(confirm.offsetHeight, confirm.scrollHeight + 2) : 0);
+    window.electronAPI.resizeSettings?.(Math.ceil(height + 48 + 14), activeTab);
+  });
+}
+
+async function refreshMicrophonePermission() {
+  if (!window.electronAPI.getMicrophoneStatus) return;
+  try { renderMicrophonePermission(await window.electronAPI.getMicrophoneStatus()); }
+  catch (error) { console.error("Could not check microphone access:", error); }
+}
+
+function renderMicrophonePermission(status) {
+  const wasBlocked = ["denied", "restricted"].includes(microphoneStatus);
+  microphoneStatus = status;
+  const blocked = ["denied", "restricted"].includes(status);
+  document.getElementById("microphoneGroups").hidden = blocked;
+  document.getElementById("microphoneDenied").hidden = !blocked;
+  document.getElementById("microphonePermissionHelp").textContent = status === "restricted"
+    ? "Your organization manages microphone access. Contact your administrator."
+    : "Turn on quietpls in System Settings → Privacy & Security → Microphone.";
+  if (blocked) stopMicTest();
+  else if (wasBlocked) {
+    enumerateAudioDevices();
+    window.electronAPI.getCaptureStatus().then(renderCaptureStatus);
+  }
+  resizeSettingsWindow();
+}
+
+function setupMicrophonePermission() {
+  document.getElementById("openMicrophoneSettings").addEventListener("click", () => window.electronAPI.openMicrophoneSettings());
+  document.getElementById("checkMicrophoneAccess").addEventListener("click", refreshMicrophonePermission);
+  window.electronAPI.onMicrophoneStatusChanged?.(renderMicrophonePermission);
+  refreshMicrophonePermission();
 }
 
 // ============================================================
@@ -468,11 +557,11 @@ function updateUI() {
   if (valueEl) valueEl.textContent = describeSensitivity(config.sensitivity);
   if (descEl) {
     descEl.textContent =
-      "Yellow at +" +
+      "Getting loud: +" +
       m.warningDb +
-      " dB and red at +" +
+      " dB. Ease your voice: +" +
       m.dangerDb +
-      " dB above your normal voice";
+      " dB above normal.";
   }
   updateZoneBand();
 }
@@ -494,28 +583,34 @@ function updateZoneBand() {
   if (zoneNormal) zoneNormal.style.flex = m.warningDb - BAND_MIN_DB;
   if (zoneLoud) zoneLoud.style.flex = m.dangerDb - m.warningDb;
   if (zoneDanger) zoneDanger.style.flex = BAND_MAX_DB - m.dangerDb;
+  // Label both thresholds where the zones change, like the details meter.
+  for (const [id, db] of [["scaleWarn", m.warningDb], ["scaleDanger", m.dangerDb]]) {
+    const label = document.getElementById(id);
+    if (!label) continue;
+    label.style.left = ((db - BAND_MIN_DB) / (BAND_MAX_DB - BAND_MIN_DB)) * 100 + "%";
+    label.textContent = "+" + db;
+  }
 }
 
 function updateLevelIndicator(update) {
   const marker = document.getElementById("levelMarker");
   const text = document.getElementById("liveLevelText");
   const speaking = update && typeof update.relDb === "number";
+  announceMonitoringState(update?.label || "Monitoring off");
   if (marker) {
-    marker.style.opacity = speaking ? "1" : "0.25";
+    marker.hidden = !speaking;
     if (speaking) marker.style.left = bandPercent(update.relDb) + "%";
   }
   if (text) {
     text.textContent = speaking
       ? LL.formatRelative(update.relDb) + " · " + update.label
-      : (update && update.label) || "Not monitoring";
+      : (update && update.label) || "Monitoring off";
   }
 }
 
-function updateCurrentLevel(update) {
-  const levelElement = document.getElementById("currentLevel");
-  if (levelElement) {
-    levelElement.textContent = (update && update.label) || "—";
-  }
+function announceMonitoringState(label) {
+  const announcement = document.getElementById("monitoringAnnouncement");
+  if (announcement.textContent !== label) announcement.textContent = label;
 }
 
 function updateMicTestFromMainLevel(update) {
@@ -527,8 +622,8 @@ function updateMicTestFromMainLevel(update) {
 
   const pct = Math.max(0, Math.min(100, Math.round(update.level || 0)));
   fill.style.width = pct + "%";
-  label.textContent = update.label || "--";
-  fill.className = "mic-test-fill";
+  label.textContent = update.label || "—";
+  fill.className = "";
   if (update.visual === "normal") fill.classList.add("level-normal");
   else if (update.visual === "loud") fill.classList.add("level-loud");
   else if (update.visual === "danger") fill.classList.add("level-danger");
@@ -545,266 +640,199 @@ function setupTabNavigation() {
       const tabName = tab.dataset.tab;
       switchTab(tabName);
     });
+    tab.addEventListener("keydown", (event) => {
+      if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+        event.preventDefault();
+        const name = event.key === "Home" ? "monitoring" : event.key === "End" ? "history" : activeTab === "history" ? "monitoring" : "history";
+        switchTab(name);
+        document.querySelector(`[data-tab="${name}"]`).focus();
+      }
+    });
   });
 }
 
 function switchTab(tabName) {
+  if (!["monitoring", "history"].includes(tabName)) return;
   activeTab = tabName;
-
-  // Update tab buttons
-  document.querySelectorAll(".tab-btn").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.tab === tabName);
+  if (tabName === "history") stopMicTest();
+  document.querySelectorAll(".tab-btn").forEach((button) => {
+    const selected = button.dataset.tab === tabName;
+    button.classList.toggle("on", selected);
+    button.setAttribute("aria-selected", String(selected));
+    button.tabIndex = selected ? 0 : -1;
   });
-
-  // Update tab content
-  document.querySelectorAll(".tab-content").forEach((content) => {
-    content.classList.toggle("active", content.id === "tab-" + tabName);
-  });
-
-  // Load session data on first visit to history tab
-  if (tabName === "history" && !sessionsLoaded) {
-    loadSessionHistory();
-  }
+  document.querySelectorAll(".tab-content").forEach((pane) => { pane.hidden = pane.id !== "tab-" + tabName; });
+  document.title = tabName === "history" ? "History" : "Monitoring";
+  if (tabName === "history") loadSessionHistory();
+  resizeSettingsWindow();
 }
 
-// ============================================================
-// Session History (US-018)
-// ============================================================
-
 function setupSessionHandlers() {
-  const modalClose = document.getElementById("sessionModalClose");
-  const modalOverlay = document.getElementById("sessionModal");
-  const deleteCancelBtn = document.getElementById("deleteCancelBtn");
-  const deleteConfirmBtn = document.getElementById("deleteConfirmBtn");
-  const deleteOverlay = document.getElementById("deleteConfirmModal");
+  document.getElementById("sessionModalClose").addEventListener("click", closeSessionModal);
+  document.getElementById("retryHistory").addEventListener("click", loadSessionHistory);
+  document.getElementById("detailDeleteBtn").addEventListener("click", () => showDeleteConfirm(detailSession.id));
+  document.getElementById("deleteCancelBtn").addEventListener("click", closeDeleteModal);
+  document.getElementById("deleteConfirmBtn").addEventListener("click", confirmDeleteSession);
+  document.getElementById("deleteConfirmModal").addEventListener("cancel", (event) => { event.preventDefault(); closeDeleteModal(); });
+}
 
-  if (modalClose) {
-    modalClose.addEventListener("click", () => closeSessionModal());
-  }
-  if (modalOverlay) {
-    modalOverlay.addEventListener("click", (e) => {
-      if (e.target === modalOverlay) closeSessionModal();
-    });
-  }
-  if (deleteCancelBtn) {
-    deleteCancelBtn.addEventListener("click", () => closeDeleteModal());
-  }
-  if (deleteConfirmBtn) {
-    deleteConfirmBtn.addEventListener("click", () => confirmDeleteSession());
-  }
-  if (deleteOverlay) {
-    deleteOverlay.addEventListener("click", (e) => {
-      if (e.target === deleteOverlay) closeDeleteModal();
-    });
-  }
+function showHistoryState(state) {
+  document.getElementById("historyContents").hidden = state !== "ready";
+  document.getElementById("sessionEmpty").hidden = state !== "empty";
+  document.getElementById("historyError").hidden = state !== "error";
+  document.getElementById("historyLoading").hidden = state !== "loading";
+  resizeSettingsWindow();
 }
 
 async function loadSessionHistory() {
   try {
+    if (!sessionsLoaded) showHistoryState("loading");
     const [sessionsResult, statsResult] = await Promise.all([
       window.electronAPI.getSessions({ limit: 50 }),
       window.electronAPI.getSessionStats(),
     ]);
-
-    const sessions =
-      sessionsResult && sessionsResult.success ? sessionsResult.data : [];
-    const stats = statsResult && statsResult.success ? statsResult.data : {};
-
+    if (!sessionsResult?.success || !statsResult?.success) throw new Error("History unavailable");
     sessionsLoaded = true;
-    renderStats(stats, sessions);
-    renderSessionList(sessions);
-  } catch (err) {
-    console.error("Failed to load session history:", err);
+    renderStats(statsResult.data);
+    renderSessionList(sessionsResult.data);
+    if (detailSession) document.getElementById("historyContents").hidden = true;
+  } catch (error) {
+    console.error("Could not load session history:", error);
     sessionsLoaded = false;
+    if (!detailSession) showHistoryState("error");
   }
 }
 
-function renderStats(stats, sessions) {
-  const totalEl = document.getElementById("statTotalSessions");
-  const minutesEl = document.getElementById("statTotalMinutes");
-  const gradeEl = document.getElementById("statAvgGrade");
+function glyph(symbol, kind) {
+  return `<svg class="g ${kind || ""}" aria-hidden="true"><use href="#${symbol}"/></svg>`;
+}
 
-  if (totalEl) totalEl.textContent = stats.totalSessions || 0;
-  if (minutesEl)
-    minutesEl.textContent = SHL.formatTotalMinutes(stats.totalMinutes || 0);
-  if (gradeEl) {
-    const avgGrade = SHL.computeAverageGrade(sessions);
-    gradeEl.textContent = avgGrade;
-  }
+function splitBar(percentages, legacy = false) {
+  const p = percentages;
+  return `<div class="split" role="img" aria-label="Normal ${p.normal}%, Getting loud ${p.loud}%, Ease your voice ${p.danger}%">${legacy ? `<i class="quiet" style="width:${p.quiet}%"></i>` : ""}<i class="normal" style="width:${p.normal}%"></i><i class="rising" style="width:${p.loud}%"></i><i class="loud" style="width:${p.danger}%"></i></div>`;
+}
+
+function legend(percentages) {
+  const p = percentages;
+  return `<span>${glyph("g-ok", "normal")}Normal ${p.normal}%</span><span>${glyph("g-rise", "rising")}Getting loud ${p.loud}%</span><span>${glyph("g-loud", "loud")}Ease your voice ${p.danger}%</span>`;
+}
+
+function renderStats(stats) {
+  document.getElementById("historyTotals").textContent = `${stats.totalSessions || 0} sessions · ${SHL.formatTotalMinutes(stats.totalMinutes || 0)} monitored`;
+  const percentages = SHL.computeSessionZonePercentages({ algorithmVersion: 4, zoneTime: stats.zoneTime, speakingTime: stats.speakingTime });
+  document.getElementById("overviewBar").innerHTML = splitBar(percentages);
+  document.getElementById("overviewLegend").innerHTML = legend(percentages);
 }
 
 function renderSessionList(sessions) {
   const list = document.getElementById("sessionList");
-  const empty = document.getElementById("sessionEmpty");
-  if (!list) return;
-
-  if (!sessions || sessions.length === 0) {
-    if (empty) empty.style.display = "block";
-    return;
-  }
-
-  if (empty) empty.style.display = "none";
-
-  // Clear existing session cards (keep empty placeholder)
-  const existingCards = list.querySelectorAll(".session-card");
-  existingCards.forEach((c) => c.remove());
-
-  for (const session of sessions) {
-    const card = createSessionCard(session);
-    list.appendChild(card);
-  }
+  list.replaceChildren();
+  for (const session of sessions || []) list.appendChild(createSessionCard(session));
+  showHistoryState(sessions?.length ? "ready" : "empty");
 }
 
 function createSessionCard(session) {
-  const grade = SHL.computeSessionGrade(session);
-  const zonePct = SHL.computeSessionZonePercentages(session);
+  const percentages = SHL.computeSessionZonePercentages(session);
   const legacy = SHL.isLegacySession(session);
-
   const card = document.createElement("div");
-  card.className = "session-card glass-panel";
+  card.className = "session-card" + (legacy ? " legacy" : "");
   card.dataset.sessionId = session.id;
-
-  card.innerHTML = `
-    <div class="session-card-main" data-action="view">
-      <div class="session-card-left">
-        <span class="session-date">${SHL.formatDate(session.startTime)}</span>
-        <span class="session-time">${SHL.formatTime(session.startTime)}</span>
-        ${legacy ? '<span class="session-time" title="Recorded with the old pre-2.1 scoring; not comparable with newer sessions">pre-2.1</span>' : ""}
-      </div>
-      <div class="session-card-center">
-        <span class="session-duration">${SHL.formatDuration(session.duration)}</span>
-        <div class="zone-mini-bar">
-          <div class="zone-mini-segment zone-quiet" style="width:${zonePct.quiet}%"></div>
-          <div class="zone-mini-segment zone-normal" style="width:${zonePct.normal}%"></div>
-          <div class="zone-mini-segment zone-loud" style="width:${zonePct.loud}%"></div>
-          <div class="zone-mini-segment zone-danger" style="width:${zonePct.danger}%"></div>
-        </div>
-      </div>
-      <div class="session-card-right">
-        <span class="session-grade grade-${grade.color}">${grade.letter}</span>
-      </div>
-    </div>
-    <button class="session-delete-btn" data-action="delete" title="Delete session">&times;</button>
-  `;
-
-  // Click to view details
-  card.querySelector('[data-action="view"]').addEventListener("click", () => {
-    showSessionDetail(session);
-  });
-
-  // Delete button
-  card
-    .querySelector('[data-action="delete"]')
-    .addEventListener("click", (e) => {
-      e.stopPropagation();
-      showDeleteConfirm(session.id);
-    });
-
+  const view = document.createElement("button");
+  view.className = "session-card-main";
+  view.dataset.action = "view";
+  view.innerHTML = `<span class="session-date">${SHL.formatDate(session.startTime)} ${SHL.formatTime(session.startTime)}</span><span class="num sub">${SHL.formatDuration(session.duration)}</span>${legacy ? '<span class="small" title="Uses scoring from before version 2.1; compare with other sessions from that version">Before 2.1</span>' : splitBar(percentages) + `<span class="small num">Normal ${percentages.normal}%</span>`}`;
+  view.addEventListener("click", () => showSessionDetail(session));
+  const remove = document.createElement("button");
+  remove.className = "session-delete-btn";
+  remove.dataset.action = "delete";
+  remove.setAttribute("aria-label", "Delete session");
+  remove.title = "Delete session";
+  remove.innerHTML = glyph("g-trash");
+  remove.addEventListener("click", () => showDeleteConfirm(session.id));
+  card.append(view, remove);
   return card;
 }
 
 function showSessionDetail(session) {
-  const modal = document.getElementById("sessionModal");
+  detailInvoker = document.activeElement;
+  detailSession = session;
   const body = document.getElementById("sessionModalBody");
-  if (!modal || !body) return;
-
-  const grade = SHL.computeSessionGrade(session);
-  const zonePct = SHL.computeSessionZonePercentages(session);
+  const percentages = SHL.computeSessionZonePercentages(session);
   const legacy = SHL.isLegacySession(session);
-  const breakdown = legacy
-    ? `
-      <span class="detail-label">Zone Breakdown (pre-2.1 scoring, not comparable)</span>
-      <div class="zone-mini-bar detail-bar">
-        <div class="zone-mini-segment zone-quiet" style="width:${zonePct.quiet}%"></div>
-        <div class="zone-mini-segment zone-normal" style="width:${zonePct.normal}%"></div>
-        <div class="zone-mini-segment zone-loud" style="width:${zonePct.loud}%"></div>
-        <div class="zone-mini-segment zone-danger" style="width:${zonePct.danger}%"></div>
-      </div>
-      <div class="zone-legend">
-        <span class="zone-legend-item"><span class="zone-dot-sm zone-quiet"></span>Quiet ${zonePct.quiet}%</span>
-        <span class="zone-legend-item"><span class="zone-dot-sm zone-normal"></span>Normal ${zonePct.normal}%</span>
-        <span class="zone-legend-item"><span class="zone-dot-sm zone-loud"></span>Loud ${zonePct.loud}%</span>
-        <span class="zone-legend-item"><span class="zone-dot-sm zone-danger"></span>Danger ${zonePct.danger}%</span>
-      </div>`
-    : `
-      <span class="detail-label">Speaking time ${SHL.formatDuration(session.speakingTime || 0)}</span>
-      <div class="zone-mini-bar detail-bar">
-        <div class="zone-mini-segment zone-normal" style="width:${zonePct.normal}%"></div>
-        <div class="zone-mini-segment zone-loud" style="width:${zonePct.loud}%"></div>
-        <div class="zone-mini-segment zone-danger" style="width:${zonePct.danger}%"></div>
-      </div>
-      <div class="zone-legend">
-        <span class="zone-legend-item"><span class="zone-dot-sm zone-normal"></span>Normal ${zonePct.normal}%</span>
-        <span class="zone-legend-item"><span class="zone-dot-sm zone-loud"></span>Getting loud ${zonePct.loud}%</span>
-        <span class="zone-legend-item"><span class="zone-dot-sm zone-danger"></span>Ease your voice ${zonePct.danger}%</span>
-      </div>`;
-
-  body.innerHTML = `
-    <div class="detail-row">
-      <span class="detail-label">Date</span>
-      <span class="detail-value">${SHL.formatDate(session.startTime)}</span>
-    </div>
-    <div class="detail-row">
-      <span class="detail-label">Time</span>
-      <span class="detail-value">${SHL.formatTime(session.startTime)}${session.endTime ? " - " + SHL.formatTime(session.endTime) : ""}</span>
-    </div>
-    <div class="detail-row">
-      <span class="detail-label">Duration</span>
-      <span class="detail-value">${SHL.formatDuration(session.duration)}</span>
-    </div>
-    <div class="detail-row">
-      <span class="detail-label">Grade</span>
-      <span class="detail-value session-grade grade-${grade.color}">${grade.letter}</span>
-    </div>
-    <div class="detail-section">${breakdown}
-    </div>
-  `;
-
-  modal.classList.add("visible");
+  body.replaceChildren();
+  const header = document.createElement("div");
+  header.className = "detail-title";
+  header.innerHTML = `<h3 class="rd">${SHL.formatDate(session.startTime)}</h3><span class="num sub">${SHL.formatDuration(session.duration)} monitored</span>`;
+  const summary = document.createElement("div");
+  summary.className = "form detail-summary";
+  if (legacy) {
+    summary.innerHTML = `<p class="small">Voice levels · before 2.1 scoring</p>${splitBar(percentages, true)}<p>Quiet ${percentages.quiet}% · Normal ${percentages.normal}% · Loud ${percentages.loud}% · High ${percentages.danger}%</p>`;
+  } else {
+    summary.innerHTML = splitBar(percentages);
+    for (const insight of window.SessionInsights.generateInsights(session)) {
+      const line = document.createElement("p");
+      line.textContent = insight;
+      summary.appendChild(line);
+    }
+    const talking = document.createElement("p");
+    talking.className = "small";
+    talking.textContent = `Detected talking · ${SHL.formatDuration(session.speakingTime || 0)}`;
+    summary.appendChild(talking);
+  }
+  body.append(header, summary);
+  // The header already gives the date and monitored time; the rows add only the time span.
+  for (const [label, value] of [["Time", SHL.formatTime(session.startTime) + (session.endTime ? " – " + SHL.formatTime(session.endTime) : "")]]) {
+    const row = document.createElement("div");
+    row.className = "detail-row";
+    row.innerHTML = `<span class="detail-label">${label}</span><span class="num">${value}</span>`;
+    body.appendChild(row);
+  }
+  showHistoryState("detail");
+  document.getElementById("sessionModal").hidden = false;
+  document.getElementById("sessionModalClose").focus();
+  resizeSettingsWindow();
 }
 
 function closeSessionModal() {
-  const modal = document.getElementById("sessionModal");
-  if (modal) modal.classList.remove("visible");
+  detailSession = null;
+  document.getElementById("sessionModal").hidden = true;
+  showHistoryState(document.querySelector(".session-card") ? "ready" : "empty");
+  if (detailInvoker?.isConnected) detailInvoker.focus();
+  else document.getElementById("historyTab").focus();
 }
 
 function showDeleteConfirm(sessionId) {
   pendingDeleteId = sessionId;
-  const modal = document.getElementById("deleteConfirmModal");
-  if (modal) modal.classList.add("visible");
+  deleteInvoker = document.activeElement;
+  document.getElementById("deleteError").hidden = true;
+  document.getElementById("deleteConfirmModal").showModal();
+  document.getElementById("deleteCancelBtn").focus();
+  resizeSettingsWindow();
 }
 
 function closeDeleteModal() {
   pendingDeleteId = null;
-  const modal = document.getElementById("deleteConfirmModal");
-  if (modal) modal.classList.remove("visible");
+  document.getElementById("deleteConfirmModal").close();
+  if (deleteInvoker?.isConnected) deleteInvoker.focus();
+  resizeSettingsWindow();
 }
 
 async function confirmDeleteSession() {
   if (!pendingDeleteId) return;
-
+  const button = document.getElementById("deleteConfirmBtn");
+  button.disabled = true;
   try {
-    await window.electronAPI.deleteSession(pendingDeleteId);
-
-    // Remove the card from DOM
-    const card = document.querySelector(
-      `.session-card[data-session-id="${pendingDeleteId}"]`,
-    );
-    if (card) card.remove();
-
-    // Check if list is now empty
-    const remaining = document.querySelectorAll(".session-card");
-    if (remaining.length === 0) {
-      const empty = document.getElementById("sessionEmpty");
-      if (empty) empty.style.display = "block";
-    }
-
-    // Refresh stats
+    const result = await window.electronAPI.deleteSession(pendingDeleteId);
+    if (!result?.success || !result.deleted) throw new Error("Session was not deleted");
+    if (detailSession?.id === pendingDeleteId) closeSessionModal();
+    closeDeleteModal();
     sessionsLoaded = false;
-    loadSessionHistory();
-  } catch (err) {
-    console.error("Failed to delete session:", err);
+    await loadSessionHistory();
+    document.getElementById("historyTab").focus();
+  } catch (error) {
+    console.error("Could not delete session:", error);
+    document.getElementById("deleteError").hidden = false;
+  } finally {
+    button.disabled = false;
   }
-
-  closeDeleteModal();
 }

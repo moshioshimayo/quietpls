@@ -22,7 +22,7 @@ describe("updater-state (tray action state machine)", () => {
     // Old bug: update-available alone flipped to available/Restart-to-Update.
     expect(s.available).toBe(false);
     expect(s.state).toBe("downloading");
-    expect(s.label).toBe("Downloading Update…");
+    expect(s.label).toBe("Downloading update…");
   });
 
   it("reaches ready (Restart to Update) only after update-downloaded", () => {
@@ -34,7 +34,7 @@ describe("updater-state (tray action state machine)", () => {
     s.onDownloaded("2.0.1");
     expect(s.state).toBe("ready");
     expect(s.available).toBe(true);
-    expect(s.label).toBe("Restart to Update (2.0.1)…");
+    expect(s.label).toBe("Restart to Update (2.0.1)");
     expect(s.enabled).toBe(true);
   });
 
@@ -79,4 +79,19 @@ describe("updater-state (tray action state machine)", () => {
     expect(s.available).toBe(true);
     expect(s.version).toBe("2.0.1");
   });
+});
+
+it("defers its single prompt until monitoring and recording are inactive", () => {
+  const s = createUpdaterState();
+  s.setActive(true);
+  s.onDownloaded("2.5.0");
+  expect(s.available).toBe(true);
+  expect(s.takePrompt()).toBe(false);
+  s.setActive(true);
+  expect(s.takePrompt()).toBe(false);
+  s.setActive(false);
+  expect(s.takePrompt()).toBe(true);
+  expect(s.takePrompt()).toBe(false);
+  s.onChecking();
+  expect(s.available).toBe(true);
 });

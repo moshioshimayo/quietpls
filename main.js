@@ -40,9 +40,9 @@ const inputTransports = E2E_FAKES
 const BLUETOOTH_ONLY_NOTE = {
   type: "info",
   buttons: ["OK"],
-  message: "quietpls is using your Bluetooth mic",
+  message: "Using Your Bluetooth Mic",
   detail:
-    "No other mic is available, so your headphones switch to call-quality audio and may sound tinny while quietpls listens. A wired or USB mic avoids this.",
+    "No other mic is available. Headset audio may sound less clear while monitoring. A wired or USB mic can avoid this.",
 };
 
 // Calibration data store, keyed by the real captured device id.
@@ -71,7 +71,7 @@ function clampSensitivity(value) {
   if (!Number.isFinite(n)) return 0;
   return Math.min(4, Math.max(-4, n));
 }
-const { createWidgetAnimator, STATE_BOUNDS } = require("./widget-animator");
+const { createWidgetAnimator, STATE_BOUNDS, WIDGET_INSETS } = require("./widget-animator");
 const { registerSessionIpc } = require("./session-ipc");
 const PermissionManager = require("./permission-manager");
 let trayIconRenderer;
@@ -149,6 +149,9 @@ function createWindow() {
   // Get the primary display's work area
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
+  const area = screen.getPrimaryDisplay().workArea;
+  const savedPosition = appStateStore.get("pillPosition");
+
   // Floating pill window — sized to match compact state bounds
   const { width: windowWidth, height: windowHeight } =
     STATE_BOUNDS[STATES.COMPACT];
@@ -156,8 +159,8 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: windowWidth,
     height: windowHeight,
-    x: Math.round((width - windowWidth) / 2), // Center horizontally
-    y: 60, // Below the notch area
+    x: savedPosition ? savedPosition.x : area.x + width - windowWidth + WIDGET_INSETS.right - 22,
+    y: savedPosition ? savedPosition.y : area.y + 8 - WIDGET_INSETS.top,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -217,7 +220,28 @@ function checkOnboarding() {
   }
 }
 
-function createOnboardingWindow() {
+function broadcastMicrophoneStatus() {
+  const status = permissionManager.getStatus();
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send("microphone-status-changed", status);
+  }
+}
+
+function resizeContentWindow(win, event, width, height) {
+  if (!win || win.isDestroyed() || event.sender !== win.webContents ||
+      !Number.isFinite(height)) return;
+  const display = screen.getDisplayMatching(win.getBounds());
+  const area = display.workArea;
+  const frameHeight = win.getBounds().height - win.getContentBounds().height;
+  win.setContentSize(width, Math.round(Math.max(200, Math.min(height, area.height - frameHeight))));
+  const bounds = win.getBounds();
+  win.setPosition(
+    Math.max(area.x, Math.min(bounds.x, area.x + area.width - bounds.width)),
+    Math.max(area.y, Math.min(bounds.y, area.y + area.height - bounds.height)),
+  );
+}
+
+function createOnboardingWindow(query) {
   if (onboardingWindow) {
     onboardingWindow.focus();
     return;
@@ -226,16 +250,18 @@ function createOnboardingWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
   onboardingWindow = new BrowserWindow({
-    width: 400,
+    width: 580,
+    useContentSize: true,
+    titleBarStyle: "hiddenInset",
     height: 500,
-    x: Math.round((width - 400) / 2),
+    x: Math.round((width - 580) / 2),
     y: Math.round((height - 500) / 2),
     frame: true,
     resizable: false,
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     title: "Welcome to quietpls",
     webPreferences: {
       nodeIntegration: false,
@@ -244,7 +270,7 @@ function createOnboardingWindow() {
     },
   });
 
-  onboardingWindow.loadFile("onboarding.html");
+  onboardingWindow.loadFile("onboarding.html", query ? { query } : undefined);
 
   onboardingWindow.webContents.on(
     "console-message",
@@ -262,8 +288,10 @@ function createOnboardingWindow() {
   });
 }
 
-function createSettingsWindow() {
+function createSettingsWindow(tab = "monitoring") {
   if (settingsWindow) {
+    settingsWindow.webContents.send("select-settings-tab", tab);
+    settingsWindow.setTitle(tab === "history" ? "History" : "Monitoring");
     settingsWindow.focus();
     return;
   }
@@ -271,17 +299,19 @@ function createSettingsWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
   settingsWindow = new BrowserWindow({
-    width: 420,
+    width: 540,
+    useContentSize: true,
+    titleBarStyle: "hiddenInset",
     height: 680,
-    x: Math.round((width - 420) / 2),
+    x: Math.round((width - 540) / 2),
     y: Math.round((height - 680) / 2),
     frame: true,
     resizable: false,
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
-    alwaysOnTop: true,
-    title: "Settings - quietpls",
+    alwaysOnTop: false,
+    title: "Monitoring",
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -304,6 +334,7 @@ function createSettingsWindow() {
   // Send current monitoring status
   settingsWindow.webContents.on("did-finish-load", () => {
     settingsWindow.webContents.send("monitoring-status", isMonitoring);
+    settingsWindow.webContents.send("select-settings-tab", tab);
   });
 
   settingsWindow.on("closed", () => {
@@ -312,14 +343,14 @@ function createSettingsWindow() {
 }
 
 function showAboutDialog() {
-  dialog.showMessageBox(mainWindow, {
-    type: "info",
-    title: "About quietpls",
-    message: `quietpls v${app.getVersion()}`,
-    detail:
-      "A floating audio monitor for meetings.\n\nOpen source: https://github.com/moshioshimayo/quietpls",
-    buttons: ["OK"],
+  app.setAboutPanelOptions({
+    applicationName: "quietpls",
+    applicationVersion: app.getVersion(),
+    version: "",
+    copyright: "Voice-level feedback for calls.",
+    website: "https://github.com/moshioshimayo/quietpls",
   });
+  app.showAboutPanel();
 }
 
 // ---- Auto-update ----
@@ -327,12 +358,28 @@ function showAboutDialog() {
 // Update state surfaced in the tray menu (see updater-state.js)
 const { createUpdaterState } = require("./updater-state");
 const updateStatus = createUpdaterState();
+let manualUpdateCheck = false;
 
+// A standard app alert (icon, bold message, detail), never a sheet on the pill
+// window. macOS shows no `title`, so the headline goes in `message`.
 function showMessage(options) {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    return dialog.showMessageBox(mainWindow, options);
-  }
+  app.focus({ steal: true });
   return dialog.showMessageBox(options);
+}
+
+function showUpdateError(error) {
+  showMessage({
+    type: "warning",
+    title: "Couldn’t Check for Updates",
+    message: "Try Check for Updates again from the menu bar.",
+    buttons: ["OK", "Show Details"], defaultId: 0, cancelId: 0,
+  }).then(({ response }) => {
+    if (response !== 1) return;
+    showMessage({
+      type: "info", title: "Update Details", message: "Couldn’t Check for Updates",
+      detail: String(error.message || error), buttons: ["OK"],
+    });
+  });
 }
 
 function checkForUpdates(manual = false) {
@@ -341,26 +388,23 @@ function checkForUpdates(manual = false) {
       showMessage({
         type: "info",
         title: "Updates",
-        message: "Update checks run in the packaged app.",
+        message: "Install the released app to check for updates.",
         buttons: ["OK"],
       });
     }
     return;
   }
+  if (updateStatus.available) return;
+  manualUpdateCheck = manual;
   updateStatus.onChecking();
   updateTrayMenu();
   autoUpdater.checkForUpdates().catch((err) => {
     console.error("[Updater] check failed:", err.message);
     updateStatus.onError(); // back to retryable idle
     updateTrayMenu();
-    if (manual) {
-      showMessage({
-        type: "warning",
-        title: "Update Check",
-        message: "Could not check for updates.",
-        detail: String(err.message || err),
-        buttons: ["OK"],
-      });
+    if (manualUpdateCheck) {
+      manualUpdateCheck = false;
+      showUpdateError(err);
     }
   });
 }
@@ -389,12 +433,21 @@ function setupAutoUpdater() {
     console.log("[Updater] no update available");
     updateStatus.onNotAvailable();
     updateTrayMenu();
+    if (manualUpdateCheck) {
+      manualUpdateCheck = false;
+      showMessage({ type: "info", title: "You’re Up to Date", message: "You’re Up to Date",
+        detail: `quietpls ${app.getVersion()} is the latest version.`, buttons: ["OK"] });
+    }
   });
 
   autoUpdater.on("error", (err) => {
     console.error("[Updater] error:", err);
-    updateStatus.onError(); // failed/interrupted check or download -> retryable
+    updateStatus.onError();
     updateTrayMenu();
+    if (manualUpdateCheck) {
+      manualUpdateCheck = false;
+      showUpdateError(err);
+    }
   });
 
   autoUpdater.on("download-progress", (progressObj) => {
@@ -405,20 +458,21 @@ function setupAutoUpdater() {
     console.log("[Updater] update downloaded:", info.version);
     updateStatus.onDownloaded(info.version);
     updateTrayMenu();
-    showMessage({
-      type: "info",
-      title: "Update Ready",
-      message: `quietpls ${info.version} is ready to install.`,
-      detail:
-        "Restart now to apply it, or use “Restart to Update” in the tray menu later.",
-      buttons: ["Restart Now", "Later"],
-      defaultId: 0,
-    }).then((result) => {
-      if (result.response === 0) {
-        autoUpdater.quitAndInstall();
-      }
-    });
+    manualUpdateCheck = false;
+    maybePromptUpdate();
   });
+}
+
+function maybePromptUpdate() {
+  updateStatus.setActive(isMonitoring || !!(captureMode &&
+    (captureMode.summary().phase === "recording" || captureMode.summary().ambient)));
+  if (!updateStatus.takePrompt()) return;
+  showMessage({
+    type: "info", title: "Update Ready",
+    message: `quietpls ${updateStatus.version} is ready to install.`,
+    detail: "Restart to install it. If you choose Later, it installs when quietpls quits.",
+    buttons: ["Restart Now", "Later"], defaultId: 0,
+  }).then((result) => { if (result.response === 0) autoUpdater.quitAndInstall(); });
 }
 
 // ---- System Tray ----
@@ -443,7 +497,7 @@ function loadTrayIcons() {
     const iconPath = path.join(__dirname, "assets", `${name}.png`);
     const icon = nativeImage.createFromPath(iconPath);
     icon.setTemplateImage(true);
-    trayIcons[stateMap[name]] = icon;
+    trayIcons[stateMap[name]] = trayIconRenderer?.createTrayIcon(0, stateMap[name]) || icon;
   }
 }
 
@@ -452,10 +506,7 @@ function createTray() {
   tray = new Tray(trayIcons.inactive);
   tray.setToolTip("quietpls");
 
-  // Click tray icon to toggle monitoring
-  tray.on("click", () => {
-    toggleMonitoringFromMain();
-  });
+  // macOS opens the installed context menu on click. No monitoring action here.
 
   updateTrayMenu();
 }
@@ -470,6 +521,8 @@ function toggleMonitoringFromMain() {
   }
   if (!isMonitoring) {
     resetTrayIcon();
+  } else {
+    tray.setImage(trayIconRenderer?.createTrayIcon(0, "normal") || trayIcons.normal);
   }
   updateTrayMenu();
 }
@@ -477,58 +530,29 @@ function toggleMonitoringFromMain() {
 function updateTrayMenu() {
   if (!tray) return;
 
-  const template = [
-    {
-      label: isMonitoring ? "Stop Monitoring" : "Start Monitoring",
-      click: () => {
-        toggleMonitoringFromMain();
-      },
-    },
+  const contextMenu = Menu.buildFromTemplate(buildMenuTemplate({ isMonitoring }));
+  tray.setContextMenu(contextMenu);
+  // Never prompt from inside a state change (a capture stop or Never runs through here).
+  setTimeout(maybePromptUpdate, 0);
+}
+
+// Both native menu entry points consume this model.
+function buildMenuTemplate(state) {
+  return [
+    { label: state.isMonitoring ? "Stop Monitoring" : "Start Monitoring", click: toggleMonitoringFromMain },
+    { label: "Voice Setup…", click: () => createOnboardingWindow({ step: "check" }) },
+    { label: "History", click: () => createSettingsWindow("history") },
+    { label: "Settings…", accelerator: "CmdOrCtrl+,", click: () => createSettingsWindow("monitoring") },
     ...(captureMode ? captureMode.menuItems() : []),
     { type: "separator" },
-    {
-      label: "Settings",
-      accelerator: "CmdOrCtrl+Shift+S",
-      click: () => {
-        createSettingsWindow();
-      },
-    },
-    {
-      label: "Show Tutorial",
-      click: () => {
-        createOnboardingWindow();
-      },
-    },
+    { label: updateStatus.label, enabled: updateStatus.enabled, click: () => {
+      if (updateStatus.available) autoUpdater.quitAndInstall();
+      else checkForUpdates(true);
+    } },
+    { label: "About quietpls", click: showAboutDialog },
     { type: "separator" },
-    {
-      label: updateStatus.label,
-      enabled: updateStatus.enabled,
-      click: () => {
-        if (updateStatus.available) {
-          autoUpdater.quitAndInstall();
-        } else {
-          checkForUpdates(true);
-        }
-      },
-    },
-    {
-      label: "About",
-      click: () => {
-        showAboutDialog();
-      },
-    },
-    { type: "separator" },
-    {
-      label: "Quit",
-      accelerator: "CmdOrCtrl+Q",
-      click: () => {
-        app.quit();
-      },
-    },
+    { label: "Quit quietpls", accelerator: "CmdOrCtrl+Q", click: () => app.quit() },
   ];
-
-  const contextMenu = Menu.buildFromTemplate(template);
-  tray.setContextMenu(contextMenu);
 }
 
 /**
@@ -620,15 +644,31 @@ app.whenReady().then(async () => {
     if (settingsStore.has(key)) settingsStore.delete(key);
   }
 
-  // Check and request microphone access (centralized in PermissionManager)
-  await permissionManager.checkAndRequestPermission();
-
   // Register permission IPC handlers (get-microphone-status, microphone-track-ended)
   permissionManager.registerIPC(() => mainWindow);
 
   // Onboarding: request microphone access from renderer (US-019)
   ipcMain.handle("request-microphone-access", async () => {
-    return permissionManager.checkAndRequestPermission();
+    const status = await permissionManager.request();
+    broadcastMicrophoneStatus();
+    return status;
+  });
+
+  // Checking access never opens the macOS permission prompt.
+  app.on("browser-window-focus", broadcastMicrophoneStatus);
+
+  ipcMain.on("setup-resize", (event, height) => {
+    resizeContentWindow(onboardingWindow, event, 580, height);
+  });
+  ipcMain.on("settings-resize", (event, height, tab) => {
+    if (height && typeof height === "object") {
+      tab = height.tab;
+      height = height.height;
+    }
+    resizeContentWindow(settingsWindow, event, 540, height);
+    if (settingsWindow && event.sender === settingsWindow.webContents) {
+      settingsWindow.setTitle(tab === "history" ? "History" : "Monitoring");
+    }
   });
 
   // Onboarding: open System Settings for mic permission (US-019)
@@ -739,7 +779,7 @@ app.whenReady().then(async () => {
   createWindow();
 
   // Wire up widget animator — smoothly resizes window on state transitions (US-005)
-  widgetAnimator = createWidgetAnimator(mainWindow);
+  widgetAnimator = createWidgetAnimator(mainWindow, { getWorkArea: (bounds) => screen.getDisplayMatching(bounds).workArea });
   widgetAnimator.connectStateMachine(widgetStateMachine);
 
   // Create system tray
@@ -753,7 +793,12 @@ app.whenReady().then(async () => {
       : path.join(__dirname, "bin"),
     getTray: () => tray,
     onTrayReleased: resetTrayIcon,
-    onMenuChanged: updateTrayMenu,
+    // Capture's phase, call prompts or always-on changed: the menu and Settings' Capture row.
+    onMenuChanged: () => {
+      updateTrayMenu();
+      if (settingsWindow && !settingsWindow.isDestroyed() && captureMode)
+        settingsWindow.webContents.send("capture:summary-changed", captureMode.summary());
+    },
     deps:
       E2E_FAKES && process.env.QUIETPLS_CAPTURE_FAKES === "1"
         ? require("./capture/e2e-fakes")
@@ -765,13 +810,28 @@ app.whenReady().then(async () => {
   // Initialize auto-updater
   setupAutoUpdater();
 
+  if (E2E_FAKES) {
+    globalThis.__quietplsE2E = {
+      popUpTrayMenu: () => tray.popUpContextMenu(),
+      showAbout: showAboutDialog,
+      checkForUpdates: ({ result } = {}) => {
+        manualUpdateCheck = true;
+        if (result === "none") autoUpdater.emit("update-not-available");
+        else if (result === "error") autoUpdater.emit("error", new Error("Check your connection, then try again."));
+        else checkForUpdates(true);
+      },
+      updateDownloaded: (version) => autoUpdater.emit("update-downloaded", { version }),
+    };
+  }
+
   // Register global keyboard shortcuts
   // Cmd+Shift+M to toggle monitoring
   globalShortcut.register("CommandOrControl+Shift+M", () => {
     toggleMonitoringFromMain();
   });
 
-  // Cmd+Shift+S to open settings
+  // Cmd+Shift+S to open settings (as in 2.4.3). Never a global Cmd+, : that is every
+  // other app's Settings shortcut; ⌘, stays the quietpls menu's accelerator.
   globalShortcut.register("CommandOrControl+Shift+S", () => {
     createSettingsWindow();
   });
@@ -830,8 +890,8 @@ app.whenReady().then(async () => {
   });
 
   // Settings window requests
-  ipcMain.on("open-settings", () => {
-    createSettingsWindow();
+  ipcMain.on("open-settings", (event, tab) => {
+    createSettingsWindow(tab);
   });
 
   ipcMain.on("close-settings", () => {
@@ -847,12 +907,14 @@ app.whenReady().then(async () => {
   ipcMain.on("update-settings", async (event, settings) => {
     // Validate and sanitize renderer-supplied settings
     if (!settings || typeof settings !== "object") return;
+    // Only the fields this window sent change, so no window writes a stale value back.
     const sanitized = {
-      sensitivity: clampSensitivity(settings.sensitivity),
-      audioDeviceId:
-        typeof settings.audioDeviceId === "string"
-          ? settings.audioDeviceId
-          : "",
+      sensitivity: "sensitivity" in settings
+        ? clampSensitivity(settings.sensitivity)
+        : currentSettings.sensitivity,
+      audioDeviceId: "audioDeviceId" in settings
+        ? (typeof settings.audioDeviceId === "string" ? settings.audioDeviceId : "")
+        : currentSettings.audioDeviceId,
     };
     currentSettings = sanitized;
 
@@ -860,8 +922,12 @@ app.whenReady().then(async () => {
     settingsStore.set("sensitivity", sanitized.sensitivity);
     settingsStore.set("audioDeviceId", sanitized.audioDeviceId || null);
 
-    // Send to main window
-    mainWindow.webContents.send("settings-updated", sanitized);
+    // Every other window that holds these settings gets the canonical values, so none
+    // of them can later save a stale copy back (the widget and an open Settings). The
+    // sender already has them (and a slider being dragged must not be echoed).
+    for (const win of [mainWindow, settingsWindow])
+      if (win && !win.isDestroyed() && win.webContents !== event.sender)
+        win.webContents.send("settings-updated", sanitized);
   });
 
   // Onboarding window requests
@@ -912,9 +978,11 @@ app.whenReady().then(async () => {
   ipcMain.handle("get-capture-status", () => lastCaptureStatus);
 
   // Settings "Recalibrate": same live operation as the context-menu item.
-  ipcMain.on("request-recalibration", () => {
+  ipcMain.on("request-recalibration", (event) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("trigger-recalibration");
+      mainWindow.webContents.send("trigger-recalibration", {
+        setup: event.sender.getURL().includes("onboarding.html"),
+      });
     }
   });
 
@@ -940,6 +1008,28 @@ app.whenReady().then(async () => {
     } catch (err) {
       return { success: false, error: err.message };
     }
+  });
+
+  ipcMain.on("widget-resize", (event, height) => {
+    if (!mainWindow || event.sender !== mainWindow.webContents || !Number.isFinite(height)) return;
+    widgetAnimator.setContentHeight(height);
+  });
+  ipcMain.on("widget-reduce-motion", (event, reduced) => {
+    if (mainWindow && event.sender === mainWindow.webContents) widgetAnimator.setReducedMotion(!!reduced);
+  });
+  ipcMain.on("show-input-menu", async (event) => {
+    if (!mainWindow || event.sender !== mainWindow.webContents) return;
+    const devices = await mainWindow.webContents.executeJavaScript(
+      "navigator.mediaDevices.enumerateDevices().then(ds => ds.filter(d => d.kind === 'audioinput').map(d => ({deviceId:d.deviceId,label:d.label})))");
+    Menu.buildFromTemplate(devices.filter(d => !["default", "communications"].includes(d.deviceId)).map(d => ({
+      label: d.label || "Unnamed mic", type: "radio", checked: d.deviceId === currentSettings.audioDeviceId,
+      click: () => {
+        currentSettings.audioDeviceId = d.deviceId;
+        settingsStore.set("audioDeviceId", d.deviceId);
+        mainWindow.webContents.send("settings-updated", currentSettings);
+        settingsWindow?.webContents.send("settings-updated", currentSettings);
+      },
+    }))).popup({window:mainWindow});
   });
 
   // ---- Screen / Window Position IPC (US-006 snap-to-position) ----
@@ -973,50 +1063,16 @@ app.whenReady().then(async () => {
     const clampedX = Math.max(-200, Math.min(Math.round(x), width + 200));
     const clampedY = Math.max(-200, Math.min(Math.round(y), height + 200));
     mainWindow.setPosition(clampedX, clampedY);
+    const bounds = mainWindow.getBounds();
+    appStateStore.set("pillPosition", {
+      x: clampedX + bounds.width - STATE_BOUNDS[STATES.COMPACT].width,
+      y: clampedY,
+    });
   });
 
   // Native context menu
   ipcMain.on("show-context-menu", (event, menuData) => {
-    const template = [
-      {
-        label: isMonitoring ? "Stop Monitoring" : "Start Monitoring",
-        icon: null, // Native menus don't support emojis well
-        click: () => {
-          toggleMonitoringFromMain();
-        },
-      },
-      {
-        label: "Recalibrate",
-        enabled: isMonitoring === true,
-        click: () => {
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send("trigger-recalibration");
-          }
-        },
-      },
-      {
-        label: "Settings",
-        accelerator: "CmdOrCtrl+Shift+S",
-        click: () => {
-          createSettingsWindow();
-        },
-      },
-      { type: "separator" },
-      {
-        label: "Show Tutorial",
-        click: () => {
-          createOnboardingWindow();
-        },
-      },
-      {
-        label: "About",
-        click: () => {
-          showAboutDialog();
-        },
-      },
-    ];
-
-    const menu = Menu.buildFromTemplate(template);
+    const menu = Menu.buildFromTemplate(buildMenuTemplate({ isMonitoring }));
     menu.popup({
       window: mainWindow,
       x: menuData.x,
@@ -1048,7 +1104,7 @@ app.on("activate", () => {
     if (widgetAnimator) {
       widgetAnimator.destroy();
     }
-    widgetAnimator = createWidgetAnimator(mainWindow);
+    widgetAnimator = createWidgetAnimator(mainWindow, { getWorkArea: (bounds) => screen.getDisplayMatching(bounds).workArea });
     widgetAnimator.connectStateMachine(widgetStateMachine);
   }
 });

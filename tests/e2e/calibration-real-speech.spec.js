@@ -40,15 +40,23 @@ test.describe("Set your normal voice with real nonstop speech", () => {
       await page.locator("#compactPill").click();
       if (i > 0) await page.locator("#recalibrateBtn").click();
       await expect(page.locator("#calibrationView")).toBeVisible();
+      await page.locator("#calPrimaryBtn").click();
       const started = Date.now();
-      await expect(page.locator("#calTitle")).toHaveText(/a bit louder/, { timeout: 40000 });
+      await expect(page.locator("#calTitle")).toHaveText("Normal voice saved", { timeout: 40000 });
+      await expect(page.locator("#calMark")).toBeVisible();
       const elapsedMs = Date.now() - started;
       console.log("E2E REAL SPEECH", JSON.stringify({ levelDb, elapsedMs }));
       expect(elapsedMs).toBeLessThanOrEqual(boundMs);
-      await page.locator("#calSecondaryBtn").click(); // Skip rehearsal
-      await expect(page.locator("#calTitle")).toHaveText("This is your normal");
-      await page.locator("#calSecondaryBtn").click(); // Done
+      if (i === 0) {
+        await expect(page.locator("#calText")).toHaveText("Try a slightly louder voice.");
+        await page.locator("#calSecondaryBtn").click();
+        await expect(page.locator("#calText")).toContainText("Louder check skipped");
+      }
+      if (i > 0) await page.keyboard.press("Escape");
+      else await page.locator("#calSecondaryBtn").click(); // Done
+      await expect(page.locator("#calibrationView")).not.toBeVisible();
       await expect(page.locator("#compactPill")).toBeVisible();
+      await expect(page.locator("#pillWord")).toHaveText(/Listening|Normal/, { timeout: 10000 });
     });
   }
 });

@@ -1,131 +1,80 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 // The renderer exposes pure helpers via globalThis.__onboardingHelpers.
-// We load the file to populate them.
-// Note: the DOMContentLoaded listener won't fire in Node, so only the
-// pure-logic helpers are exercised here.
+// The DOMContentLoaded wiring does not run in Node; the window flow is
+// covered by tests/e2e/setup-window.spec.js.
 require('../../onboarding-renderer.js');
 
 const {
-  resolveInitialStep, resolveStepButtons, permissionStateToUI,
-  computeRmsVolume, updateHearing,
+  panelForStatus, resolveInitialPanel, statusAnnouncement, micNote,
+  computeRmsVolume, updateHearing, voiceAction,
 } = globalThis.__onboardingHelpers;
 
-// ---------------------------------------------------------------------------
-// resolveInitialStep
-// ---------------------------------------------------------------------------
-describe('resolveInitialStep', () => {
-  it('returns step 3 when permission is granted', () => {
-    expect(resolveInitialStep('granted')).toBe(3);
-  });
-
-  it('returns step 1 when permission is denied', () => {
-    expect(resolveInitialStep('denied')).toBe(1);
-  });
-
-  it('returns step 1 when permission is not-determined', () => {
-    expect(resolveInitialStep('not-determined')).toBe(1);
-  });
-
-  it('returns step 1 when permission is restricted', () => {
-    expect(resolveInitialStep('restricted')).toBe(1);
-  });
-
-  it('returns step 1 for unknown states', () => {
-    expect(resolveInitialStep('unknown')).toBe(1);
+describe('voiceAction (AC-I7)', () => {
+  it('never redoes a saved normal voice: Start monitoring when idle, Reset normal voice while running', () => {
+    expect(voiceAction(true, false)).toMatchObject({ act: 'start', label: 'Start monitoring' });
+    expect(voiceAction(true, true)).toMatchObject({ act: 'reset', label: 'Reset normal voice' });
+    expect(voiceAction(false, false)).toMatchObject({ act: 'set', label: 'Set normal voice' });
+    expect(voiceAction(false, true)).toMatchObject({ act: 'set', label: 'Set normal voice' });
   });
 });
 
-// ---------------------------------------------------------------------------
-// resolveStepButtons
-// ---------------------------------------------------------------------------
-describe('resolveStepButtons', () => {
-  it('hides back button on step 1', () => {
-    const result = resolveStepButtons(1, false);
-    expect(result.back).toBe('hidden');
+describe('resolveInitialPanel (B3)', () => {
+  it('a real first run always starts at Welcome, even with access granted', () => {
+    for (const status of [null, 'granted', 'denied', 'restricted', 'not-determined']) {
+      expect(resolveInitialPanel(status, null)).toBe('welcome');
+    }
   });
 
-  it('shows back button on step 2', () => {
-    const result = resolveStepButtons(2, false);
-    expect(result.back).toBe('visible');
-  });
-
-  it('shows back button on step 3', () => {
-    const result = resolveStepButtons(3, false);
-    expect(result.back).toBe('visible');
-  });
-
-  it('shows skip on steps 1 and 2', () => {
-    expect(resolveStepButtons(1, false).skip).toBe('visible');
-    expect(resolveStepButtons(2, false).skip).toBe('visible');
-  });
-
-  it('hides skip on step 3', () => {
-    expect(resolveStepButtons(3, false).skip).toBe('hidden');
-  });
-
-  it('allowMic is true on step 2 without permission', () => {
-    expect(resolveStepButtons(2, false).allowMic).toBe(true);
-  });
-
-  it('allowMic is false on step 2 with permission', () => {
-    expect(resolveStepButtons(2, true).allowMic).toBe(false);
-  });
-
-  it('allowMic is false on step 1', () => {
-    expect(resolveStepButtons(1, false).allowMic).toBe(false);
-  });
-
-  it('nextDisabled is true on step 2 without permission', () => {
-    expect(resolveStepButtons(2, false).nextDisabled).toBe(true);
-  });
-
-  it('nextDisabled is false on step 2 with permission', () => {
-    expect(resolveStepButtons(2, true).nextDisabled).toBe(false);
-  });
-
-  it('nextDisabled is false on step 1', () => {
-    expect(resolveStepButtons(1, false).nextDisabled).toBe(false);
+  it('Voice Setup… opens the mic check, or what blocks it', () => {
+    expect(resolveInitialPanel('granted', 'check')).toBe('check');
+    expect(resolveInitialPanel('denied', 'check')).toBe('off');
+    expect(resolveInitialPanel('restricted', 'check')).toBe('managed');
+    expect(resolveInitialPanel('not-determined', 'check')).toBe('ask');
   });
 });
 
-// ---------------------------------------------------------------------------
-// permissionStateToUI
-// ---------------------------------------------------------------------------
-describe('permissionStateToUI', () => {
-  it('returns success UI for granted', () => {
-    const ui = permissionStateToUI('granted');
-    expect(ui.cssClass).toBe('success');
-    expect(ui.showDeniedHelp).toBe(false);
-    expect(ui.message).toContain('granted');
+describe('panelForStatus (B2/B4)', () => {
+  it('skips the pre-permission step when access is granted', () => {
+    expect(panelForStatus('granted')).toBe('check');
   });
 
-  it('returns error UI for denied', () => {
-    const ui = permissionStateToUI('denied');
-    expect(ui.cssClass).toBe('error');
-    expect(ui.showDeniedHelp).toBe(true);
-    expect(ui.message).toContain('denied');
+  it('asks only while undetermined', () => {
+    expect(panelForStatus('not-determined')).toBe('ask');
   });
 
-  it('returns error UI for restricted', () => {
-    const ui = permissionStateToUI('restricted');
-    expect(ui.cssClass).toBe('error');
-    expect(ui.showDeniedHelp).toBe(true);
-    expect(ui.message).toContain('restricted');
+  it('keeps access off and managed as recoverable states', () => {
+    expect(panelForStatus('denied')).toBe('off');
+    expect(panelForStatus('restricted')).toBe('managed');
   });
 
-  it('returns empty UI for not-determined', () => {
-    const ui = permissionStateToUI('not-determined');
-    expect(ui.cssClass).toBe('');
-    expect(ui.message).toBe('');
-    expect(ui.showDeniedHelp).toBe(false);
+  it('an unreadable status offers Check again', () => {
+    expect(panelForStatus('error')).toBe('error');
+    expect(panelForStatus(undefined)).toBe('error');
+  });
+});
+
+describe('statusAnnouncement', () => {
+  it('announces each coarse access change once, in reviewed copy', () => {
+    expect(statusAnnouncement('granted')).toBe('Microphone ready');
+    expect(statusAnnouncement('denied')).toBe('Microphone access is off.');
+    expect(statusAnnouncement('restricted')).toBe('Microphone access is managed by your organization.');
+    expect(statusAnnouncement('not-determined')).toBe('');
+    expect(statusAnnouncement('error')).toBe('Couldn’t check microphone access. Try again.');
+  });
+});
+
+describe('micNote (AC-O4)', () => {
+  const builtIn = { deviceId: 'b', label: 'MacBook Pro Microphone', reason: 'avoid-bluetooth' };
+  it('explains when Automatic avoids AirPods', () => {
+    expect(micNote(builtIn, [{ label: 'AirPods Pro' }, { label: 'MacBook Pro Microphone' }]))
+      .toBe('Automatic keeps AirPods audio clear by using this mic.');
   });
 
-  it('returns fallback error UI for unknown state', () => {
-    const ui = permissionStateToUI('something-else');
-    expect(ui.cssClass).toBe('error');
-    expect(ui.showDeniedHelp).toBe(false);
-    expect(ui.message).toBeTruthy();
+  it('names Bluetooth generically for other headsets, and says nothing otherwise', () => {
+    expect(micNote(builtIn, [{ label: 'WH-1000XM6' }])).toBe('Automatic keeps Bluetooth audio clear by using this mic.');
+    expect(micNote({ ...builtIn, reason: 'default' }, [{ label: 'AirPods Pro' }])).toBe('');
+    expect(micNote({ ...builtIn, reason: 'explicit' }, [])).toBe('');
   });
 });
 

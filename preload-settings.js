@@ -1,6 +1,15 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("electronAPI", {
+  resizeSettings: (height, tab) => ipcRenderer.send("settings-resize", height, tab),
+  onSelectSettingsTab: (callback) => {
+    ipcRenderer.on("select-settings-tab", (_event, tab) => callback(tab));
+  },
+  getMicrophoneStatus: () => ipcRenderer.invoke("get-microphone-status"),
+  openMicrophoneSettings: () => ipcRenderer.send("open-system-settings"),
+  onMicrophoneStatusChanged: (callback) => {
+    ipcRenderer.on("microphone-status-changed", (_event, status) => callback(status));
+  },
   requestSettings: () => {
     ipcRenderer.send("request-settings");
   },
@@ -65,6 +74,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // Capture (beta) section (capture/settings-section.js)
   captureSummary: () => ipcRenderer.invoke("capture:summary"),
+  onCaptureSummary: (callback) =>
+    ipcRenderer.on("capture:summary-changed", (_event, summary) => callback(summary)),
   setCaptureEnabled: (enabled) =>
     ipcRenderer.invoke("capture:set-enabled", enabled),
   openTranscripts: (tab) => ipcRenderer.invoke("capture:open-main", tab),

@@ -4,20 +4,21 @@
 const width = (rms) =>
   `${Math.round(Math.min(1, Math.max(0, (Math.log10(rms + 1e-5) + 3.2) / 2.6)) * 100)}%`;
 
+let shownPhase = null;
+
 function show(snap) {
   const { phase, file, error } = snap.state;
+  shownPhase = phase;
   $("#pill").className = `pill ${phase}`;
   $("#dot").className = `dot ${phase}`;
   const recording = phase === "recording";
   if (phase === "ambient") {
-    $("#pill").className = "pill recording ambient";
-    $("#dot").className = "dot recording";
     $("#label").textContent = "ALWAYS ON";
     $("#meters").hidden = true;
     $("#detail").hidden = false;
     $("#detail").textContent = snap.elapsed
       ? clock(snap.elapsed)
-      : "transcribing…";
+      : "Transcribing…";
     $("#stop").hidden = false;
     $("#open").hidden = true;
     $("#stop").onclick = () => window.qpc.ambientStop();
@@ -28,20 +29,26 @@ function show(snap) {
   $("#stop").hidden = !recording;
   $("#detail").hidden = recording;
   $("#open").hidden = !(phase === "saved" || phase === "error");
-  if (recording) $("#label").textContent = `REC ${clock(snap.elapsed)}`;
+  $("#detail").title = "";
+  // Call audio lost: say so and drop the empty "them" meter.
+  document.querySelector(".chan.them").hidden = Boolean(snap.micOnly);
+  if (recording) $("#label").textContent = `${snap.micOnly ? "Recording mic only" : "Recording"} ${clock(snap.elapsed)}`;
   if (phase === "transcribing") {
-    $("#label").textContent = "Transcribing";
-    $("#detail").textContent = "turning the call into text…";
+    $("#label").textContent = "Transcribing…";
+    $("#detail").textContent = "Creating transcript…";
   }
   if (phase === "saved") {
-    $("#label").textContent = "Saved";
-    $("#detail").textContent = "transcript committed";
+    $("#label").textContent = "Transcript saved";
+    $("#detail").textContent = "";
     $("#detail").title = file || "";
+    $("#open").textContent = "View";
   }
   if (phase === "error") {
-    $("#label").textContent = "Not saved";
+    // The error names what was (or wasn't) saved; the full text is one hover away.
+    $("#label").textContent = "Not recording · Check recording"; // never reads like a recording
     $("#detail").textContent = error || "";
     $("#detail").title = error || "";
+    $("#open").textContent = "Open";
   }
 }
 
@@ -53,6 +60,9 @@ window.qpc.on("levels", (l) => {
 window.qpc.snapshot().then(show);
 $("#stop").onclick = () => window.qpc.stop();
 $("#open").onclick = () => {
+  // A failure stays until it's resolved: open the Capture window, whose alert names the
+  // cause and its fix (Open System Settings), instead of dismissing it.
+  if (shownPhase === "error") return window.qpc.openMain("settings");
   window.qpc.openMain("calls");
   window.qpc.dismiss();
 };

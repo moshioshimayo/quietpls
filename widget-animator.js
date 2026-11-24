@@ -3,57 +3,51 @@
 /**
  * Widget Animator (US-005)
  *
- * Smoothly resizes the Electron BrowserWindow between Dynamic Island states.
- * Uses setInterval-based animation at ~30fps with easeOutCubic easing.
- * Keeps the window centered on its current horizontal position during resize.
+ * Resizes the floating window while keeping the pill's right edge in place.
  *
  * No renderer-side imports — this runs entirely in the main process.
  */
 
 const { STATES } = require('./widget-state-machine');
+// Transparent space around the visible pill/panel; shared with Capture placement.
+const WIDGET_INSETS = Object.freeze({ left: 32, right: 32, top: 24, bottom: 40 });
 
 // Target dimensions for each widget state
 const STATE_BOUNDS = Object.freeze({
-  [STATES.COMPACT]:          { width: 188, height: 32 },
-  [STATES.EXPANDED]:         { width: 320, height: 240 },
-  [STATES.SESSION_COMPLETE]: { width: 300, height: 120 },
+  [STATES.COMPACT]:          { width: 240, height: 94 },
+  [STATES.EXPANDED]:         { width: 368, height: 330 },
+  [STATES.SESSION_COMPLETE]: { width: 368, height: 300 },
 });
 
 // Animation configuration
-const ANIMATION_DURATION_MS = 350;
-const FRAME_INTERVAL_MS = 16; // ~60fps for smoother spring
+const ANIMATION_DURATION_MS = 180;
+const FRAME_INTERVAL_MS = 16;
 const TOTAL_FRAMES = Math.round(ANIMATION_DURATION_MS / FRAME_INTERVAL_MS);
 
 /**
- * Spring easing function — overshoots slightly then settles.
- * Creates a premium, physical feel to transitions.
+ * Ease out without overshoot.
  * @param {number} t — progress from 0 to 1
- * @returns {number} eased value (may exceed 1 briefly)
+ * @returns {number} eased value from 0 to 1
  */
 function easeOutCubic(t) {
-  // Spring-damped overshoot: peaks ~1.04 at t≈0.7, settles to 1.0
-  if (t <= 0) return 0;
-  if (t >= 1) return 1;
-  var c4 = (2 * Math.PI) / 4.5;
-  return 1 + Math.pow(2, -8 * t) * Math.sin((t * 8 - 1.2) * c4) * 0.15 + (1 - Math.pow(1 - t, 3)) - 1;
+  return 1 - Math.pow(1 - Math.max(0, Math.min(1, t)), 3);
 }
 
 /**
- * Calculate the target bounds for a given state, centered around a horizontal
- * midpoint and preserving the current y position.
+ * Keep the right edge and y position of the current window.
  *
  * @param {string} state — one of STATES values
- * @param {number} centerX — horizontal center of the current window
+ * @param {number} rightX — right edge of the current window
  * @param {number} y — current y position of the window
  * @returns {{ x: number, y: number, width: number, height: number }}
  */
-function calculateTargetBounds(state, centerX, y) {
+function calculateTargetBounds(state, rightX, y) {
   const dims = STATE_BOUNDS[state];
   if (!dims) {
     throw new Error(`Unknown widget state: "${state}"`);
   }
   return {
-    x: Math.round(centerX - dims.width / 2),
+    x: Math.round(rightX - dims.width),
     y: y,
     width: dims.width,
     height: dims.height,
@@ -83,12 +77,15 @@ function interpolateBounds(start, end, progress) {
  * @param {import('electron').BrowserWindow} browserWindow
  * @returns {object} animator API: { transitionTo, connectStateMachine, destroy }
  */
-function createWidgetAnimator(browserWindow) {
+function createWidgetAnimator(browserWindow, options = {}) {
   if (!browserWindow) {
     throw new Error('createWidgetAnimator requires a BrowserWindow instance');
   }
 
   let currentTimer = null;
+  let currentState = STATES.COMPACT;
+  let reducedMotion = false;
+  const heights = {};
   let unsubscribeStateMachine = null;
 
   /**
@@ -109,6 +106,7 @@ function createWidgetAnimator(browserWindow) {
    */
   function transitionTo(state) {
     cancelAnimation();
+    currentState = state;
 
     // If the window has been destroyed, bail out silently
     if (browserWindow.isDestroyed()) {
@@ -116,8 +114,20 @@ function createWidgetAnimator(browserWindow) {
     }
 
     const currentBounds = browserWindow.getBounds();
-    const centerX = currentBounds.x + currentBounds.width / 2;
-    const targetBounds = calculateTargetBounds(state, centerX, currentBounds.y);
+    const rightX = currentBounds.x + currentBounds.width;
+    const targetBounds = calculateTargetBounds(state, rightX, currentBounds.y);
+    if (heights[state]) targetBounds.height = heights[state];
+    const area = options.getWorkArea && options.getWorkArea(currentBounds);
+    if (area) {
+      targetBounds.x = Math.max(area.x - WIDGET_INSETS.left + 22,
+        Math.min(targetBounds.x, area.x + area.width - targetBounds.width + WIDGET_INSETS.right - 22));
+      targetBounds.y = Math.max(area.y - WIDGET_INSETS.top + 8,
+        Math.min(targetBounds.y, area.y + area.height - targetBounds.height + WIDGET_INSETS.bottom - 22));
+    }
+    if (reducedMotion) {
+      browserWindow.setBounds(targetBounds);
+      return Promise.resolve();
+    }
 
     // If already at target bounds, nothing to animate
     if (
@@ -198,6 +208,13 @@ function createWidgetAnimator(browserWindow) {
   }
 
   return {
+    setContentHeight(height) {
+      const next = Math.round(Math.max(94, Math.min(800, height)));
+      if (heights[currentState] === next) return;
+      heights[currentState] = next;
+      transitionTo(currentState);
+    },
+    setReducedMotion(value) { reducedMotion = !!value; },
     transitionTo: transitionTo,
     connectStateMachine: connectStateMachine,
     destroy: destroy,
@@ -205,6 +222,7 @@ function createWidgetAnimator(browserWindow) {
 }
 
 module.exports = {
+  WIDGET_INSETS,
   createWidgetAnimator,
   // Exported for testing
   STATE_BOUNDS,

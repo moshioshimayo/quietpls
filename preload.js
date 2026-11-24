@@ -17,8 +17,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   setMonitoring: (status) => {
     ipcRenderer.send("set-monitoring", status);
   },
-  openSettings: () => {
-    ipcRenderer.send("open-settings");
+  openSettings: (tab) => {
+    ipcRenderer.send("open-settings", tab);
   },
   showOnboarding: () => {
     ipcRenderer.send("show-onboarding");
@@ -42,6 +42,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
   showContextMenu: (menuData) => {
     ipcRenderer.send("show-context-menu", menuData);
   },
+  requestMicrophoneAccess: () => ipcRenderer.invoke("request-microphone-access"),
+  openSystemSettings: () => ipcRenderer.send("open-system-settings"),
+  onMicrophoneStatusChanged: (callback) => ipcRenderer.on("microphone-status-changed", (event, status) => callback(status)),
+  resizeWidget: (height) => ipcRenderer.send("widget-resize", height),
+  setReducedMotion: (reduced) => ipcRenderer.send("widget-reduce-motion", reduced),
+  showInputMenu: () => ipcRenderer.send("show-input-menu"),
   getMicrophoneStatus: () => ipcRenderer.invoke("get-microphone-status"),
   notifyMicrophoneTrackEnded: () => ipcRenderer.send("microphone-track-ended"),
   onMicrophonePermissionRevoked: (callback) => {
@@ -76,7 +82,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   clearCalibration: (deviceId) =>
     ipcRenderer.send("clear-calibration", { deviceId }),
   onTriggerRecalibration: (callback) =>
-    ipcRenderer.on("trigger-recalibration", () => callback()),
+    ipcRenderer.on("trigger-recalibration", (event, options) => callback(options)),
 
   // Meeting detection (US-016)
   onMeetingDetectionChanged: (callback) =>

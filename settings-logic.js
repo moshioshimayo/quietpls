@@ -53,7 +53,7 @@ function filterAudioInputDevices(devices) {
     .filter(d => d.kind === 'audioinput' && d.deviceId !== 'default')
     .map(d => ({
       deviceId: d.deviceId,
-      label: d.label || 'Microphone (' + d.deviceId.substring(0, 8) + ')'
+      label: d.label || 'Unnamed mic (' + d.deviceId.substring(0, 8) + ')'
     }));
 }
 

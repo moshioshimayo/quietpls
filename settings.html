@@ -3,310 +3,79 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Settings - quietpls</title>
-    <link rel="stylesheet" href="design-system.css" />
+    <title>Settings</title>
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="components.css" />
     <link rel="stylesheet" href="settings-styles.css" />
+    <script src="glyphs.js" defer></script>
   </head>
-  <body class="dark-surface">
+  <body>
     <div class="settings-container">
-      <!-- Header -->
-      <div class="settings-header glass-surface glass-border-subtle">
-        <h3>Settings</h3>
-        <div class="header-actions">
-          <button class="close-btn" id="closeSettings">&times;</button>
-        </div>
-      </div>
-
-      <!-- Tab Navigation -->
-      <nav class="settings-tabs" id="settingsTabs">
-        <button class="tab-btn active" data-tab="thresholds">Monitoring</button>
-        <button class="tab-btn" data-tab="history">History</button>
-      </nav>
-
-      <!-- Scrollable Content -->
-      <div class="settings-content">
-        <!-- ============ THRESHOLDS TAB ============ -->
-        <div class="tab-content active" id="tab-thresholds">
-          <!-- Sensitivity Section -->
-          <section class="settings-section">
-            <h4 class="section-title">Sensitivity</h4>
-
-            <!-- Live level relative to your calibrated normal -->
-            <div class="zone-band-container glass-panel">
-              <div class="zone-band">
-                <div class="zone-segment zone-normal" id="zoneNormal">
-                  <span class="zone-label">Normal</span>
-                </div>
-                <div class="zone-segment zone-loud" id="zoneLoud">
-                  <span class="zone-label" title="Getting loud">Loud</span>
-                </div>
-                <div class="zone-segment zone-danger" id="zoneDanger">
-                  <span class="zone-label">Ease your voice</span>
-                </div>
-              </div>
-              <div class="level-indicator" id="levelIndicator">
-                <div class="level-marker" id="levelMarker"></div>
-              </div>
-              <div class="zone-band-scale">
-                <span>−10 dB</span>
-                <span>your normal</span>
-                <span>+10</span>
-                <span>+20 dB</span>
-              </div>
-              <div class="threshold-description" id="liveLevelText">
-                Not monitoring
-              </div>
+      <header class="settings-titlebar">
+        <nav class="seg2 settings-tabs" id="settingsTabs" role="tablist" aria-label="Settings">
+          <button id="monitoringTab" class="tab-btn on" data-tab="monitoring" role="tab" aria-controls="tab-monitoring" aria-selected="true">Monitoring</button>
+          <button id="historyTab" class="tab-btn" data-tab="history" role="tab" aria-controls="tab-history" aria-selected="false" tabindex="-1">History</button>
+        </nav>
+      </header>
+      <main class="settings-content">
+        <div class="sr-only" id="monitoringAnnouncement" role="status"></div>
+        <div class="tab-content" id="tab-monitoring" role="tabpanel" aria-labelledby="monitoringTab">
+          <div id="microphoneGroups">
+            <h2 class="h">Microphone</h2>
+            <div class="form">
+              <div class="frow"><label class="l" for="audioDeviceSelect">Microphone</label><select id="audioDeviceSelect" aria-describedby="bluetoothMicNote"><option value="">Automatic</option></select></div>
+              <div class="frow"><span class="l">Test mic</span><div class="mic-test-meter" id="micTestMeter" aria-hidden="true"><i id="micTestFill"></i></div><span class="small" id="micTestLabel" role="status">—</span><button class="btn sm" id="testMicBtn">Test mic</button></div>
             </div>
-
-            <div class="threshold-control zone-loud">
-              <div class="threshold-header">
-                <span class="threshold-name">Warn me</span>
-                <span
-                  class="threshold-value sensitivity-value"
-                  id="sensitivityValue"
-                  >Default</span
-                >
-              </div>
-              <div class="slider-row">
-                <span class="sensitivity-end">Later</span>
-                <input
-                  type="range"
-                  id="sensitivity"
-                  min="-4"
-                  max="4"
-                  value="0"
-                  step="1"
-                  class="zone-slider"
-                />
-                <span class="sensitivity-end">Sooner</span>
-              </div>
-              <div class="threshold-description" id="marginsDescription">
-                Yellow at +6 dB and red at +10 dB above your normal voice
-              </div>
-            </div>
-          </section>
-
-          <!-- Calibration Section -->
-          <section class="settings-section">
-            <h4 class="section-title">Calibration</h4>
-            <div class="glass-panel calibration-panel">
-              <div class="calibration-row">
-                <span class="calibration-label">Mic</span>
-                <span class="calibration-value" id="calibrationDevice">—</span>
-              </div>
-              <div class="calibration-row">
-                <span class="calibration-label">Status</span>
-                <span class="calibration-value" id="calibrationStatus"
-                  >Checking...</span
-                >
-              </div>
-              <div class="calibration-row">
-                <button class="mic-test-btn" id="recalibrateBtn">
-                  Recalibrate
-                </button>
-              </div>
-              <div class="threshold-description">
-                You talk normally for about 5 seconds; that level becomes your
-                normal for this mic. Recalibrate after moving the mic or
-                changing its input gain. Headphones work best: sound from your
-                speakers or nearby voices can be counted as you.
-              </div>
-            </div>
-          </section>
-
-          <!-- Audio Device Section -->
-          <section class="settings-section">
-            <h4 class="section-title">Audio Device</h4>
-            <div class="glass-panel device-panel">
-              <div class="device-row">
-                <label for="audioDeviceSelect">Input Device</label>
-                <select id="audioDeviceSelect">
-                  <option value="">System Default</option>
-                </select>
-                <p class="device-note" id="bluetoothMicNote" hidden>
-                  Using a Bluetooth mic switches your headphones to call-quality
-                  audio.
-                </p>
-              </div>
-              <div class="device-row mic-test-row">
-                <button class="mic-test-btn" id="testMicBtn">Test Mic</button>
-                <div class="mic-test-meter" id="micTestMeter">
-                  <div class="mic-test-fill" id="micTestFill"></div>
-                </div>
-                <span class="mic-test-label" id="micTestLabel">--</span>
-              </div>
-            </div>
-          </section>
-
-          <!-- General Settings Section -->
-          <section class="settings-section">
-            <h4 class="section-title">General</h4>
-            <div class="glass-panel general-panel">
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <span class="toggle-label">Launch at Login</span>
-                  <span class="toggle-description"
-                    >Start quietpls when you log in</span
-                  >
-                </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="launchAtLogin" />
-                  <span class="toggle-track"></span>
-                </label>
-              </div>
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <span class="toggle-label">Show in Menu Bar</span>
-                  <span class="toggle-description"
-                    >Display tray icon in menu bar</span
-                  >
-                </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="showInMenubar" checked />
-                  <span class="toggle-track"></span>
-                </label>
-              </div>
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <span class="toggle-label">Start Automatically in Calls</span>
-                  <span class="toggle-description"
-                    >Monitor while another app is using the mic</span
-                  >
-                </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="meetingDetection" />
-                  <span class="toggle-track"></span>
-                </label>
-              </div>
-            </div>
-          </section>
-
-          <!-- Capture (beta): opt-in call recording + local transcripts -->
-          <section class="settings-section" id="captureSection">
-            <h4 class="section-title">Capture (beta)</h4>
-            <div class="glass-panel general-panel">
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <span class="toggle-label">Record and transcribe calls</span>
-                  <span class="toggle-description" id="captureDescription"
-                    >Off. Monitoring never records anything.</span
-                  >
-                </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="captureEnabled" />
-                  <span class="toggle-track"></span>
-                </label>
-              </div>
-              <p class="toggle-description capture-note" id="captureNote">
-                When on, quietpls asks at the start of each call. Only calls you
-                approve are recorded: your mic and the call's audio. Speech is
-                turned into text on this Mac, the audio is deleted after
-                transcription by default, and each transcript is committed to a
-                local git folder you choose, which must have no remote.
-              </p>
-              <div class="capture-actions" id="captureActions" hidden>
-                <button class="mic-test-btn" id="captureSettingsBtn">
-                  Capture settings…
-                </button>
-                <button class="mic-test-btn" id="captureTranscriptsBtn">
-                  View transcripts
-                </button>
-              </div>
-            </div>
-          </section>
-        </div>
-        <!-- /tab-thresholds -->
-
-        <!-- ============ HISTORY TAB ============ -->
-        <div class="tab-content" id="tab-history">
-          <!-- Aggregate Stats -->
-          <section class="settings-section">
-            <h4 class="section-title">Overview</h4>
-            <div class="stats-grid">
-              <div class="stat-card glass-panel">
-                <span class="stat-value" id="statTotalSessions">--</span>
-                <span class="stat-label">Sessions</span>
-              </div>
-              <div class="stat-card glass-panel">
-                <span class="stat-value" id="statTotalMinutes">--</span>
-                <span class="stat-label">Total Time</span>
-              </div>
-              <div class="stat-card glass-panel">
-                <span class="stat-value" id="statAvgGrade">--</span>
-                <span class="stat-label">Avg Grade</span>
-              </div>
-            </div>
-          </section>
-
-          <!-- Session List -->
-          <section class="settings-section">
-            <h4 class="section-title">Recent Sessions</h4>
-            <div class="session-list" id="sessionList">
-              <div class="session-empty" id="sessionEmpty">
-                <p>No sessions recorded yet.</p>
-                <p class="session-empty-hint">
-                  Start monitoring to begin tracking sessions.
-                </p>
-              </div>
-            </div>
-          </section>
-        </div>
-        <!-- /tab-history -->
-
-        <!-- Session Detail Modal -->
-        <div class="session-modal-overlay" id="sessionModal">
-          <div class="session-modal glass-panel">
-            <div class="session-modal-header">
-              <h4>Session Details</h4>
-              <button
-                class="close-btn session-modal-close"
-                id="sessionModalClose"
-              >
-                &times;
-              </button>
-            </div>
-            <div class="session-modal-body" id="sessionModalBody">
-              <!-- Populated dynamically -->
-            </div>
+            <p class="help" id="bluetoothMicNote" hidden>A Bluetooth mic may reduce headset audio quality.</p>
+            <h2 class="h">Normal voice</h2>
+            <div class="form"><div class="frow"><div class="l"><span id="calibrationDevice" aria-label="Mic">—</span><small id="calibrationStatus" role="status" aria-label="Status">Checking…</small></div><button class="btn sm" id="recalibrateBtn">Reset normal voice</button></div></div>
+            <p class="help">Talk in your normal call voice for about 10 seconds. Reset it after moving the mic or changing its input level. Headphones help keep call audio out of the mic. Nearby voices can affect the reading.</p>
           </div>
-        </div>
-
-        <!-- Delete Confirmation Modal -->
-        <div class="session-modal-overlay" id="deleteConfirmModal">
-          <div class="session-modal glass-panel delete-confirm-modal">
-            <h4>Delete Session?</h4>
-            <p>This action cannot be undone.</p>
-            <div class="delete-confirm-actions">
-              <button class="delete-cancel-btn" id="deleteCancelBtn">
-                Cancel
-              </button>
-              <button class="delete-confirm-btn" id="deleteConfirmBtn">
-                Delete
-              </button>
-            </div>
+          <section id="microphoneDenied" hidden aria-live="polite">
+            <h2 class="h">Microphone</h2>
+            <div class="form"><div class="frow permission-row"><svg class="g" aria-hidden="true"><use href="#g-micoff"/></svg><div class="l">Microphone access is off<small id="microphonePermissionHelp">Turn on quietpls in System Settings → Privacy &amp; Security → Microphone.</small></div><button class="btn sm" id="checkMicrophoneAccess">Check again</button><button class="btn sm primary" id="openMicrophoneSettings">Open System Settings</button></div></div>
+          </section>
+          <h2 class="h">Voice feedback<span class="sp"></span><button class="link" id="resetDefaults">Reset sensitivity</button></h2>
+          <div class="form">
+            <div class="frow"><label class="l" for="sensitivity">Sensitivity<small id="sensitivityValue">Default</small></label><div class="slider-row"><span>Less sensitive</span><input type="range" id="sensitivity" min="-4" max="4" step="1" value="0" aria-describedby="sensitivityValue marginsDescription"/><span>More sensitive</span></div></div>
+            <div class="frow meter-row"><div class="meter" role="img" aria-label="Voice level relative to normal"><i class="z1" id="zoneNormal"></i><i class="z2" id="zoneLoud"></i><i class="z3" id="zoneDanger"></i><span class="normal-notch"></span><b id="levelMarker" hidden></b></div><div class="scale"><span style="left:0">−10 dB</span><span style="left:33.333%">normal</span><span id="scaleWarn" style="left:53.333%">+6</span><span id="scaleDanger" style="left:66.667%">+10</span><span style="left:100%">+20 dB</span></div><div class="live-level small" id="liveLevelText">Monitoring off</div></div>
           </div>
-        </div>
-
-        <!-- Footer -->
-        <div class="settings-footer">
-          <button class="reset-btn" id="resetDefaults">Reset Defaults</button>
-          <div class="status-info">
-            <span class="status-label" id="settingsStatus">Inactive</span>
-            <span class="status-level" id="currentLevel">—</span>
+          <p class="help" id="marginsDescription">Getting loud: +6 dB. Ease your voice: +10 dB above normal.</p>
+          <h2 class="h">General</h2>
+          <div class="form">
+            <div class="frow"><label class="l" for="meetingDetection">Start monitoring automatically<small>Monitor when another app uses the mic</small></label><input class="sw" type="checkbox" role="switch" id="meetingDetection"/></div>
+            <div class="frow"><label class="l" for="launchAtLogin" title="Open quietpls when you log in to this Mac">Open at login</label><input class="sw" type="checkbox" role="switch" id="launchAtLogin"/></div>
+            <div class="frow"><label class="l" for="showInMenubar" title="Show the quietpls icon in the menu bar">Show in menu bar</label><input class="sw" type="checkbox" role="switch" id="showInMenubar" checked/></div>
           </div>
+          <section id="captureSection">
+            <h2 class="h">Capture (beta)</h2>
+            <div class="form"><div class="frow"><label class="l" for="captureEnabled">Ask to record calls<small id="captureDescription">Call prompts off. Voice monitoring doesn’t save audio.</small></label><span id="captureActions" hidden><button class="btn sm" id="captureSettingsBtn">Capture settings…</button></span><input class="sw" type="checkbox" role="switch" id="captureEnabled" aria-describedby="captureDescription captureNote"/></div></div>
+            <p class="sr-only" id="captureNote">When a call is detected, choose whether to record it. Capture saves a transcript on this Mac. Call audio is included when available. By default, audio is deleted after the transcript is saved. Choose a transcript folder in Capture settings.</p>
+          </section>
+          <footer class="support-link small">Need help? <a class="link" href="https://github.com/moshioshimayo/quietpls/issues">Report an issue on GitHub</a></footer>
         </div>
-
-        <div class="support-link">
-          Need help?
-          <a href="https://github.com/moshioshimayo/quietpls/issues"
-            >Open an issue on GitHub</a
-          >
+        <div class="tab-content" id="tab-history" role="tabpanel" aria-labelledby="historyTab" hidden>
+          <div id="historyContents" hidden>
+            <h2 class="h">Overview<span class="sp"></span><span class="num" id="historyTotals"></span></h2>
+            <div class="form history-overview"><div id="overviewBar"></div><div class="zone-legend" id="overviewLegend"></div></div>
+            <h2 class="h">Recent sessions</h2>
+            <div class="form session-list" id="sessionList"></div>
+            <p class="help">Share of detected talking time. Select a session for details.</p>
+          </div>
+          <div class="history-state" id="sessionEmpty" hidden><h2 class="status rd">No sessions yet</h2><p class="sub">Start monitoring. Your summary appears here after you stop.</p></div>
+          <div class="history-state" id="historyError" hidden role="status"><h2 class="status rd">Couldn’t load history</h2><p class="sub">Your sessions are still on this Mac.</p><button class="btn primary" id="retryHistory">Try again</button></div>
+          <div class="history-state" id="historyLoading" role="status">Loading history…</div>
+          <section id="sessionModal" aria-label="Session details" hidden><button class="link" id="sessionModalClose" aria-label="Close session details">‹ History</button><h2 class="sr-only">Session details</h2><div id="sessionModalBody"></div><div class="foot"><span class="small">Share of detected talking time.</span><span class="sp"></span><button class="btn" id="detailDeleteBtn">Delete session…</button></div></section>
         </div>
-      </div>
+      </main>
+      <dialog class="delete-confirm-modal" id="deleteConfirmModal" role="alertdialog" aria-labelledby="deleteTitle" aria-describedby="deleteDescription">
+        <svg class="delete-icon" aria-hidden="true"><use href="#t-bars"/></svg><h2 class="status rd" id="deleteTitle">Delete this session?</h2><p id="deleteDescription">This removes the session summary from History. It can’t be undone.</p><p id="deleteError" role="alert" hidden>Couldn’t delete this session. Try again.</p><div class="delete-confirm-actions"><button class="btn danger" id="deleteConfirmBtn">Delete session</button><button class="btn primary" id="deleteCancelBtn" autofocus>Cancel</button></div>
+      </dialog>
     </div>
     <script src="level-logic.js"></script>
     <script src="settings-logic.js"></script>
     <script src="settings-history-logic.js"></script>
+    <script src="session-insights.js"></script>
     <script src="mic-policy.js"></script>
     <script src="settings-renderer.js"></script>
     <script src="capture/settings-section.js"></script>

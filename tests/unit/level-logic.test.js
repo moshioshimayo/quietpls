@@ -198,7 +198,7 @@ describe("shared labels, units and margins", () => {
     expect(LL.ALERT_SPEECH_MS).toBe(2000);
   });
   it("formats relative levels and exposes neutral Listening", () => {
-    expect(LL.formatRelative(7.4)).toBe("+7 dB above your normal");
+    expect(LL.formatRelative(7.4)).toBe("+7 dB above normal");
     expect(LL.formatRelative(0.3)).toBe("Normal");
     expect(LL.formatRelative(-5)).toBe("Normal");
     expect(LL.formatRelativeShort(11.6)).toBe("+12 dB");

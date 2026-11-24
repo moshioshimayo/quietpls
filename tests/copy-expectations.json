@@ -1,0 +1,5136 @@
+[
+  {
+    "id": "CR-001",
+    "owner": "T1",
+    "expected": "quietpls",
+    "old": "quietpls",
+    "action": "retain",
+    "location": "index.html:6; main.js:453",
+    "oldLiterals": [
+      "quietpls"
+    ]
+  },
+  {
+    "id": "CR-002",
+    "owner": "T1",
+    "expected": null,
+    "old": "quietpls: {state}. Show details",
+    "action": "change",
+    "location": "index.html:13; renderer.js:717",
+    "template": "quietpls: {state}. Show details",
+    "placeholders": [
+      "state"
+    ],
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-003",
+    "owner": "T1",
+    "expected": "Start monitoring",
+    "old": "Start monitoring",
+    "action": "retain",
+    "location": "index.html:15,24; renderer.js:53",
+    "oldLiterals": [
+      "Start monitoring"
+    ]
+  },
+  {
+    "id": "CR-004",
+    "owner": "T1",
+    "expected": "Voice monitoring details",
+    "old": "quietpls details",
+    "action": "change",
+    "location": "index.html:20",
+    "oldLiterals": [
+      "quietpls details"
+    ]
+  },
+  {
+    "id": "CR-005",
+    "owner": "T1",
+    "expected": "Hide",
+    "old": "Hide",
+    "action": "retain",
+    "location": "index.html:25",
+    "oldLiterals": [
+      "Hide"
+    ]
+  },
+  {
+    "id": "CR-006",
+    "owner": "T1",
+    "expected": "No voice reading",
+    "old": "No level",
+    "action": "change",
+    "location": "index.html:29; renderer.js:737",
+    "oldLiterals": [
+      "No level"
+    ]
+  },
+  {
+    "id": "CR-007",
+    "owner": "T1",
+    "expected": "normal",
+    "old": "normal",
+    "action": "retain",
+    "location": "index.html:35",
+    "oldLiterals": [
+      "normal"
+    ]
+  },
+  {
+    "id": "CR-008",
+    "owner": "T1",
+    "expected": null,
+    "old": "+6 / +10 / +{threshold}",
+    "action": "retain",
+    "location": "index.html:35; renderer.js:761,763",
+    "template": "+{threshold}",
+    "placeholders": [
+      "threshold"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-009",
+    "owner": "T1",
+    "expected": "Mic:",
+    "old": "Mic:",
+    "action": "retain",
+    "location": "index.html:38",
+    "oldLiterals": [
+      "Mic:"
+    ]
+  },
+  {
+    "id": "CR-010",
+    "owner": "T1",
+    "expected": "—",
+    "old": "—",
+    "action": "retain",
+    "location": "index.html:38; renderer.js:681",
+    "oldLiterals": [
+      "—"
+    ]
+  },
+  {
+    "id": "CR-011",
+    "owner": "T1",
+    "expected": "Reset",
+    "old": "Set normal voice again",
+    "action": "change",
+    "location": "index.html:42",
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": [
+      "Set normal voice again"
+    ]
+  },
+  {
+    "id": "CR-012",
+    "owner": "T1",
+    "expected": "Try again",
+    "old": "Retry",
+    "action": "change",
+    "location": "index.html:43",
+    "oldLiterals": [
+      "Retry"
+    ]
+  },
+  {
+    "id": "CR-013",
+    "owner": "T1",
+    "expected": "Stop",
+    "old": "Stop",
+    "action": "retain",
+    "location": "index.html:45; renderer.js:795,810",
+    "oldLiterals": [
+      "Stop"
+    ]
+  },
+  {
+    "id": "CR-014",
+    "owner": "T1",
+    "expected": "Live feedback",
+    "old": "quietpls shows:",
+    "action": "change",
+    "location": "index.html:58",
+    "oldLiterals": [
+      "quietpls shows:"
+    ]
+  },
+  {
+    "id": "CR-015",
+    "owner": "T1",
+    "expected": null,
+    "old": "Done",
+    "action": "retire",
+    "location": "index.html:74",
+    "oldLiterals": [
+      "Done"
+    ],
+    "reason": "Summary × removed: Done closes the summary (round-2 judge batch E3)"
+  },
+  {
+    "id": "CR-016",
+    "owner": "T1",
+    "expected": "Listening",
+    "old": "Listening",
+    "action": "retain",
+    "location": "level-logic.js:36",
+    "oldLiterals": [
+      "Listening"
+    ]
+  },
+  {
+    "id": "CR-017",
+    "owner": "T1",
+    "expected": "Normal",
+    "old": "Normal",
+    "action": "retain",
+    "location": "level-logic.js:37,263,271",
+    "oldLiterals": [
+      "Normal"
+    ]
+  },
+  {
+    "id": "CR-018",
+    "owner": "T1",
+    "expected": "Getting loud",
+    "old": "Getting loud",
+    "action": "retain",
+    "location": "level-logic.js:38",
+    "oldLiterals": [
+      "Getting loud"
+    ]
+  },
+  {
+    "id": "CR-019",
+    "owner": "T1",
+    "expected": "Ease your voice",
+    "old": "Ease your voice",
+    "action": "retain",
+    "location": "level-logic.js:39",
+    "oldLiterals": [
+      "Ease your voice"
+    ]
+  },
+  {
+    "id": "CR-020",
+    "owner": "T1",
+    "expected": "Learning voice",
+    "old": "Calibrating",
+    "action": "change",
+    "location": "level-logic.js:40",
+    "oldLiterals": [
+      "Calibrating"
+    ]
+  },
+  {
+    "id": "CR-021",
+    "owner": "T1",
+    "expected": "Set normal voice",
+    "old": "Set your normal voice",
+    "action": "change",
+    "location": "level-logic.js:41",
+    "oldLiterals": [
+      "Set your normal voice"
+    ]
+  },
+  {
+    "id": "CR-022",
+    "owner": "T1",
+    "expected": "Starting…",
+    "old": "Starting…",
+    "action": "retain",
+    "location": "level-logic.js:42",
+    "oldLiterals": [
+      "Starting…"
+    ]
+  },
+  {
+    "id": "CR-023",
+    "owner": "T1",
+    "expected": "Reconnecting mic…",
+    "old": "Reconnecting mic…",
+    "action": "retain",
+    "location": "level-logic.js:43",
+    "oldLiterals": [
+      "Reconnecting mic…"
+    ]
+  },
+  {
+    "id": "CR-024",
+    "owner": "T1",
+    "expected": "Mic unavailable",
+    "old": "Mic unavailable",
+    "action": "retain",
+    "location": "level-logic.js:44; settings-renderer.js:408",
+    "oldLiterals": [
+      "Mic unavailable"
+    ]
+  },
+  {
+    "id": "CR-025",
+    "owner": "T1",
+    "expected": null,
+    "old": "+{n} dB above your normal",
+    "action": "change",
+    "location": "level-logic.js:264",
+    "template": "+{n} dB above normal",
+    "placeholders": [
+      "n"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-026",
+    "owner": "T1",
+    "expected": null,
+    "old": "+{n} dB",
+    "action": "retain",
+    "location": "level-logic.js:271",
+    "template": "+{n} dB",
+    "placeholders": [
+      "n"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-027",
+    "owner": "T1",
+    "expected": "Couldn’t start the mic. Check microphone access in System Settings, then try again.",
+    "old": "Microphone access denied. Please grant microphone permissions to use quietpls.",
+    "action": "change",
+    "location": "renderer.js:402",
+    "oldLiterals": [
+      "Microphone access denied. Please grant microphone permissions to use quietpls."
+    ]
+  },
+  {
+    "id": "CR-028",
+    "owner": "T1",
+    "expected": null,
+    "old": "Set normal voice {pct}%",
+    "action": "change",
+    "location": "renderer.js:647",
+    "template": "Learning voice {pct}%",
+    "placeholders": [
+      "pct"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-029",
+    "owner": "T1",
+    "expected": "Mic access off",
+    "old": "Mic access denied",
+    "action": "change",
+    "location": "renderer.js:657; settings-renderer.js:408",
+    "oldLiterals": [
+      "Mic access denied"
+    ]
+  },
+  {
+    "id": "CR-030",
+    "owner": "T1",
+    "expected": "Mic unavailable. Try again.",
+    "old": "No reading while the mic is unavailable",
+    "action": "change",
+    "location": "renderer.js:665",
+    "oldLiterals": [
+      "No reading while the mic is unavailable"
+    ]
+  },
+  {
+    "id": "CR-031",
+    "owner": "T1",
+    "expected": "Reconnecting to the mic…",
+    "old": "No reading while the mic reconnects",
+    "action": "change",
+    "location": "renderer.js:667",
+    "oldLiterals": [
+      "No reading while the mic reconnects"
+    ]
+  },
+  {
+    "id": "CR-032",
+    "owner": "T1",
+    "expected": "Feedback appears when you talk",
+    "old": "Listening — say something",
+    "action": "change",
+    "location": "renderer.js:669",
+    "oldLiterals": [
+      "Listening — say something"
+    ]
+  },
+  {
+    "id": "CR-033",
+    "owner": "T1",
+    "expected": "Set your normal voice first",
+    "old": "Set your normal voice to start",
+    "action": "change",
+    "location": "renderer.js:671",
+    "oldLiterals": [
+      "Set your normal voice to start"
+    ]
+  },
+  {
+    "id": "CR-034",
+    "owner": "T1",
+    "expected": "Near or below normal",
+    "old": "At your normal",
+    "action": "change",
+    "location": "renderer.js:675,736",
+    "oldLiterals": [
+      "At your normal"
+    ]
+  },
+  {
+    "id": "CR-035",
+    "owner": "T1",
+    "expected": "Using a mic that keeps headset audio clear",
+    "old": "Headset mic skipped — keeps call audio clear",
+    "action": "change",
+    "location": "renderer.js:683",
+    "oldLiterals": [
+      "Headset mic skipped — keeps call audio clear"
+    ]
+  },
+  {
+    "id": "CR-036",
+    "owner": "T1",
+    "expected": "Selected in Settings",
+    "old": "Chosen in Settings",
+    "action": "change",
+    "location": "renderer.js:684",
+    "oldLiterals": [
+      "Chosen in Settings"
+    ]
+  },
+  {
+    "id": "CR-037",
+    "owner": "T1",
+    "expected": "Unnamed mic",
+    "old": "Unnamed mic",
+    "action": "retain",
+    "location": "renderer.js:687; settings-renderer.js:399",
+    "oldLiterals": [
+      "Unnamed mic"
+    ]
+  },
+  {
+    "id": "CR-038",
+    "owner": "T1",
+    "expected": "Selected mic unavailable. Using this mic.",
+    "old": "Chosen mic unavailable — using this one",
+    "action": "change",
+    "location": "renderer.js:690",
+    "oldLiterals": [
+      "Chosen mic unavailable — using this one"
+    ]
+  },
+  {
+    "id": "CR-039",
+    "owner": "T1",
+    "expected": null,
+    "old": "Normal adjusted {signed n} dB for this session — your setup looks different from when you set it",
+    "action": "change",
+    "location": "renderer.js:701",
+    "template": "Normal adjusted {signed n} dB for this session",
+    "placeholders": [
+      "signed n"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-040",
+    "owner": "T1",
+    "expected": "Normal voice",
+    "old": "Step 1 of 2 · Set your normal voice",
+    "action": "change",
+    "location": "renderer.js:790",
+    "oldLiterals": [
+      "Step 1 of 2 · Set your normal voice"
+    ]
+  },
+  {
+    "id": "CR-041",
+    "owner": "T1",
+    "expected": "Use your normal call voice",
+    "old": "Talk the way you usually do on a call",
+    "action": "change",
+    "location": "renderer.js:791",
+    "oldLiterals": [
+      "Talk the way you usually do on a call"
+    ]
+  },
+  {
+    "id": "CR-042",
+    "owner": "T1",
+    "expected": null,
+    "old": "{heard} of 10 seconds of talking heard · Mic: {mic}",
+    "action": "change",
+    "location": "renderer.js:794",
+    "template": "{heard} of 10 seconds heard · {mic}",
+    "placeholders": [
+      "heard",
+      "mic"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-043",
+    "owner": "T1",
+    "expected": "Mic input is too strong.",
+    "old": "The mic is overloading",
+    "action": "change",
+    "location": "renderer.js:800",
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": [
+      "The mic is overloading"
+    ]
+  },
+  {
+    "id": "CR-044",
+    "owner": "T1",
+    "expected": "Try voice setup again",
+    "old": "Didn’t hear enough talking",
+    "action": "change",
+    "location": "renderer.js:800",
+    "oldLiterals": [
+      "Didn’t hear enough talking"
+    ]
+  },
+  {
+    "id": "CR-045",
+    "owner": "T1",
+    "expected": "Move a little farther from the mic.",
+    "old": "Move back a little or lower the input gain, then try again. Nothing was saved.",
+    "action": "change",
+    "location": "renderer.js:803",
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": [
+      "Move back a little or lower the input gain, then try again. Nothing was saved."
+    ]
+  },
+  {
+    "id": "CR-046",
+    "owner": "T1",
+    "expected": "Talk near the mic in your normal call voice, then try again.",
+    "old": "quietpls needs about 10 seconds of talking within 40 seconds; it heard {heard}. Nothing was saved.",
+    "action": "change",
+    "location": "renderer.js:804",
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-047",
+    "owner": "T1",
+    "expected": "Try again",
+    "old": "Try again",
+    "action": "retain",
+    "location": "renderer.js:809",
+    "oldLiterals": [
+      "Try again"
+    ]
+  },
+  {
+    "id": "CR-048",
+    "owner": "T1",
+    "expected": "Try the feedback",
+    "old": "Step 2 of 2 · Quick check",
+    "action": "change",
+    "location": "renderer.js:812",
+    "oldLiterals": [
+      "Step 2 of 2 · Quick check"
+    ]
+  },
+  {
+    "id": "CR-049",
+    "owner": "T1",
+    "expected": "Try a slightly louder voice.",
+    "old": "Now say one sentence a bit louder",
+    "action": "change",
+    "location": "renderer.js:815",
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": [
+      "Now say one sentence a bit louder"
+    ]
+  },
+  {
+    "id": "CR-050",
+    "owner": "T1",
+    "expected": "Normal voice saved",
+    "old": "That’s fine — you can try again later. Now your normal voice",
+    "action": "change",
+    "location": "renderer.js:817",
+    "variants": [
+      "Normal voice saved",
+      "Louder check skipped. Your normal voice is saved."
+    ],
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": [
+      "That’s fine — you can try again later. Now your normal voice"
+    ]
+  },
+  {
+    "id": "CR-051",
+    "owner": "T1",
+    "expected": "Return to your normal voice",
+    "old": "Good — that read as Getting loud. Now back to your normal voice",
+    "action": "change",
+    "location": "renderer.js:818",
+    "oldLiterals": [
+      "Good — that read as Getting loud. Now back to your normal voice"
+    ]
+  },
+  {
+    "id": "CR-052",
+    "owner": "T1",
+    "expected": "Normal voice saved",
+    "old": "Your normal is already saved.",
+    "action": "change",
+    "location": "renderer.js:820",
+    "oldLiterals": [
+      "Your normal is already saved."
+    ]
+  },
+  {
+    "id": "CR-053",
+    "owner": "T1",
+    "expected": "Skip check",
+    "old": "Skip",
+    "action": "change",
+    "location": "renderer.js:821",
+    "oldLiterals": [
+      "Skip"
+    ]
+  },
+  {
+    "id": "CR-054",
+    "owner": "T1",
+    "expected": "Normal voice saved",
+    "old": "This is your normal",
+    "action": "change",
+    "location": "renderer.js:824",
+    "oldLiterals": [
+      "This is your normal"
+    ]
+  },
+  {
+    "id": "CR-055",
+    "owner": "T1",
+    "expected": null,
+    "old": "Saved for {mic}. quietpls shows Getting loud and Ease your voice compared with this.",
+    "action": "change",
+    "location": "renderer.js:826",
+    "template": "Saved for {mic}. Feedback compares your voice with this level.",
+    "placeholders": [
+      "mic"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-056",
+    "owner": "T1",
+    "expected": "Closes in 3 seconds",
+    "old": "Closes in 3 s",
+    "action": "retain",
+    "location": "renderer.js:829",
+    "oldLiterals": [
+      "Closes in 3 s"
+    ]
+  },
+  {
+    "id": "CR-057",
+    "owner": "T1",
+    "expected": "Done",
+    "old": "Done",
+    "action": "retain",
+    "location": "renderer.js:830",
+    "oldLiterals": [
+      "Done"
+    ]
+  },
+  {
+    "id": "CR-058",
+    "owner": "T2",
+    "expected": "Welcome to quietpls",
+    "old": "Welcome to quietpls",
+    "action": "retain",
+    "location": "onboarding.html:6; main.js:239",
+    "oldLiterals": [
+      "Welcome to quietpls"
+    ]
+  },
+  {
+    "id": "CR-059",
+    "owner": "T2",
+    "expected": "Welcome to quietpls",
+    "old": "Welcome to quietpls",
+    "action": "retain",
+    "location": "onboarding.html:35",
+    "oldLiterals": [
+      "Welcome to quietpls"
+    ]
+  },
+  {
+    "id": "CR-060",
+    "owner": "T2",
+    "expected": "Notice when your voice gets louder on calls.",
+    "old": "You have no idea how you sound to others. Let’s fix that.",
+    "action": "change",
+    "location": "onboarding.html:36",
+    "oldLiterals": [
+      "You have no idea how you sound to others. Let’s fix that."
+    ]
+  },
+  {
+    "id": "CR-061",
+    "owner": "T2",
+    "expected": "Get started",
+    "old": "Get Started",
+    "action": "change",
+    "location": "onboarding.html:39",
+    "oldLiterals": [
+      "Get Started"
+    ]
+  },
+  {
+    "id": "CR-062",
+    "owner": "T2",
+    "expected": "Check your voice level.",
+    "old": "We need your microphone",
+    "action": "change",
+    "location": "onboarding.html:59",
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": [
+      "We need your microphone"
+    ]
+  },
+  {
+    "id": "CR-063",
+    "owner": "T2",
+    "expected": "quietpls uses your mic to compare your voice with your normal call voice.",
+    "old": "quietpls listens to your mic volume levels (never records audio) to help you sound your best.",
+    "action": "change",
+    "location": "onboarding.html:61",
+    "oldLiterals": [
+      "quietpls listens to your mic volume levels (never records audio) to help you sound your best."
+    ]
+  },
+  {
+    "id": "CR-064",
+    "owner": "T2",
+    "expected": "Voice monitoring doesn't save audio. Capture recording is optional.",
+    "old": "Your audio never leaves your device.",
+    "action": "change",
+    "location": "onboarding.html:68",
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": [
+      "Your audio never leaves your device."
+    ]
+  },
+  {
+    "id": "CR-065",
+    "owner": "T2",
+    "expected": "Continue",
+    "old": "Allow Microphone",
+    "action": "change",
+    "location": "onboarding.html:76",
+    "oldLiterals": [
+      "Allow Microphone"
+    ]
+  },
+  {
+    "id": "CR-066",
+    "owner": "T2",
+    "expected": "Turn on microphone access in System Settings:",
+    "old": "Microphone access was denied. To enable it:",
+    "action": "change",
+    "location": "onboarding.html:84",
+    "oldLiterals": [
+      "Microphone access was denied. To enable it:"
+    ]
+  },
+  {
+    "id": "CR-067",
+    "owner": "T2",
+    "expected": "Open System Settings",
+    "old": "Open System Settings",
+    "action": "retain",
+    "location": "onboarding.html:87",
+    "oldLiterals": [
+      "Open System Settings"
+    ]
+  },
+  {
+    "id": "CR-068",
+    "owner": "T2",
+    "expected": "Choose Privacy & Security → Microphone",
+    "old": "Go to Privacy & Security > Microphone",
+    "action": "change",
+    "location": "onboarding.html:88",
+    "oldLiterals": [
+      "Go to Privacy & Security > Microphone"
+    ]
+  },
+  {
+    "id": "CR-069",
+    "owner": "T2",
+    "expected": "Turn on quietpls",
+    "old": "Enable access for quietpls",
+    "action": "change",
+    "location": "onboarding.html:89",
+    "oldLiterals": [
+      "Enable access for quietpls"
+    ]
+  },
+  {
+    "id": "CR-070",
+    "owner": "T2",
+    "expected": "Restart quietpls",
+    "old": "Restart the app",
+    "action": "change",
+    "location": "onboarding.html:90",
+    "condition": "Microphone access granted, but mic start still fails",
+    "oldLiterals": [
+      "Restart the app"
+    ]
+  },
+  {
+    "id": "CR-071",
+    "owner": "T2",
+    "expected": "Open System Settings",
+    "old": "Open System Settings",
+    "action": "retain",
+    "location": "onboarding.html:92",
+    "oldLiterals": [
+      "Open System Settings"
+    ]
+  },
+  {
+    "id": "CR-072",
+    "owner": "T2",
+    "expected": "Check your mic",
+    "old": "Try it out",
+    "action": "change",
+    "location": "onboarding.html:100",
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": [
+      "Try it out"
+    ]
+  },
+  {
+    "id": "CR-073",
+    "owner": "T2",
+    "expected": "Say a few words.",
+    "old": "Waiting for your voice…",
+    "action": "change",
+    "location": "onboarding.html:109; onboarding-renderer.js:485",
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": [
+      "Waiting for your voice…"
+    ]
+  },
+  {
+    "id": "CR-074",
+    "owner": "T2",
+    "expected": "Next, talk normally for about 10 seconds to set your normal voice.",
+    "old": "Next time you start, quietpls learns your normal voice from about 10 seconds of talking. After that it tells you when you get louder than that.",
+    "action": "change",
+    "location": "onboarding.html:112",
+    "oldLiterals": [
+      "Next time you start, quietpls learns your normal voice from about 10 seconds of talking. After that it tells you when you get louder than that."
+    ]
+  },
+  {
+    "id": "CR-075",
+    "owner": "T2",
+    "expected": "Set normal voice",
+    "old": "Start Monitoring",
+    "action": "change",
+    "location": "onboarding.html:114",
+    "oldLiterals": [
+      "Start Monitoring"
+    ]
+  },
+  {
+    "id": "CR-076",
+    "owner": "T2",
+    "expected": "Back",
+    "old": "Back",
+    "action": "retain",
+    "location": "onboarding.html:122",
+    "oldLiterals": [
+      "Back"
+    ]
+  },
+  {
+    "id": "CR-077",
+    "owner": "T2",
+    "expected": "Set up later",
+    "old": "Skip",
+    "action": "change",
+    "location": "onboarding.html:123",
+    "oldLiterals": [
+      "Skip"
+    ]
+  },
+  {
+    "id": "CR-078",
+    "owner": "T2",
+    "expected": "Microphone ready",
+    "old": "Microphone access granted!",
+    "action": "change",
+    "location": "onboarding-renderer.js:56",
+    "oldLiterals": [
+      "Microphone access granted!"
+    ]
+  },
+  {
+    "id": "CR-079",
+    "owner": "T2",
+    "expected": "Microphone access is off.",
+    "old": "Microphone access was denied.",
+    "action": "change",
+    "location": "onboarding-renderer.js:62",
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": [
+      "Microphone access was denied."
+    ]
+  },
+  {
+    "id": "CR-080",
+    "owner": "T2",
+    "expected": "Microphone access is managed by your organization.",
+    "old": "Microphone access is restricted by system policy.",
+    "action": "change",
+    "location": "onboarding-renderer.js:68",
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": [
+      "Microphone access is restricted by system policy."
+    ]
+  },
+  {
+    "id": "CR-081",
+    "owner": "T2",
+    "expected": "Couldn’t check microphone access. Try again.",
+    "old": "Could not determine microphone status.",
+    "action": "change",
+    "location": "onboarding-renderer.js:80",
+    "oldLiterals": [
+      "Could not determine microphone status."
+    ]
+  },
+  {
+    "id": "CR-082",
+    "owner": "T2",
+    "expected": "Waiting for microphone access…",
+    "old": "Requesting microphone access...",
+    "action": "change",
+    "location": "onboarding-renderer.js:277",
+    "oldLiterals": [
+      "Requesting microphone access..."
+    ]
+  },
+  {
+    "id": "CR-083",
+    "owner": "T2",
+    "expected": "Microphone ready",
+    "old": "Microphone Enabled",
+    "action": "change",
+    "location": "onboarding-renderer.js:341",
+    "oldLiterals": [
+      "Microphone Enabled"
+    ]
+  },
+  {
+    "id": "CR-084",
+    "owner": "T2",
+    "expected": "Couldn’t start the mic. Check System Settings.",
+    "old": "Could not access the microphone",
+    "action": "change",
+    "location": "onboarding-renderer.js:474",
+    "oldLiterals": [
+      "Could not access the microphone"
+    ]
+  },
+  {
+    "id": "CR-085",
+    "owner": "T2",
+    "expected": "Mic is responding",
+    "old": "Hearing you",
+    "action": "change",
+    "location": "onboarding-renderer.js:485",
+    "oldLiterals": [
+      "Hearing you"
+    ]
+  },
+  {
+    "id": "CR-086",
+    "owner": "T2",
+    "expected": "Your organization manages microphone access. Contact your administrator if you can’t enable quietpls in System Settings → Privacy & Security → Microphone.",
+    "old": "Microphone access is restricted by a system policy. Please contact your administrator, or check System Settings > Privacy & Security > Microphone.",
+    "action": "change",
+    "location": "permission-manager.js:56",
+    "oldLiterals": [
+      "Microphone access is restricted by a system policy. Please contact your administrator, or check System Settings > Privacy & Security > Microphone."
+    ]
+  },
+  {
+    "id": "CR-087",
+    "owner": "T2",
+    "expected": "Restart quietpls",
+    "old": "Please grant microphone access in System Settings > Privacy & Security > Microphone, then restart the app.",
+    "action": "change",
+    "location": "permission-manager.js:57",
+    "condition": "Microphone access granted, but mic start still fails",
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": [
+      "Please grant microphone access in System Settings > Privacy & Security > Microphone, then restart the app."
+    ]
+  },
+  {
+    "id": "CR-088",
+    "owner": "T2",
+    "expected": "Microphone Access Is Off",
+    "old": "Microphone Access Required",
+    "action": "change",
+    "location": "permission-manager.js:61",
+    "oldLiterals": [
+      "Microphone Access Required"
+    ]
+  },
+  {
+    "id": "CR-089",
+    "owner": "T2",
+    "expected": "Allow microphone access to monitor your voice level.",
+    "old": "quietpls needs microphone access to monitor your voice levels.",
+    "action": "change",
+    "location": "permission-manager.js:62",
+    "oldLiterals": [
+      "quietpls needs microphone access to monitor your voice levels."
+    ]
+  },
+  {
+    "id": "CR-090",
+    "owner": "T2",
+    "expected": "Open System Settings",
+    "old": "Open System Settings / OK",
+    "action": "retain",
+    "location": "permission-manager.js:64",
+    "variants": [
+      "Open System Settings",
+      "OK"
+    ],
+    "oldLiterals": [
+      "Open System Settings",
+      "OK"
+    ]
+  },
+  {
+    "id": "CR-091",
+    "owner": "T2",
+    "expected": "Voice Monitoring Stopped",
+    "old": "Microphone Access Lost",
+    "action": "change",
+    "location": "permission-manager.js:112",
+    "oldLiterals": [
+      "Microphone Access Lost"
+    ]
+  },
+  {
+    "id": "CR-092",
+    "owner": "T2",
+    "expected": "quietpls can’t use the microphone.",
+    "old": "Microphone access was lost and monitoring has been stopped.",
+    "action": "change",
+    "location": "permission-manager.js:113",
+    "oldLiterals": [
+      "Microphone access was lost and monitoring has been stopped."
+    ]
+  },
+  {
+    "id": "CR-093",
+    "owner": "T2",
+    "expected": "Check the mic connection, then try again.",
+    "old": "The audio device may have been disconnected. Please reconnect and try again.",
+    "action": "change",
+    "location": "permission-manager.js:115",
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": [
+      "The audio device may have been disconnected. Please reconnect and try again."
+    ]
+  },
+  {
+    "id": "CR-094",
+    "owner": "T2",
+    "expected": "Turn on quietpls in System Settings → Privacy & Security → Microphone, then start monitoring again.",
+    "old": "Please re-enable microphone access in System Settings > Privacy & Security > Microphone, then restart monitoring.",
+    "action": "change",
+    "location": "permission-manager.js:116",
+    "oldLiterals": [
+      "Please re-enable microphone access in System Settings > Privacy & Security > Microphone, then restart monitoring."
+    ]
+  },
+  {
+    "id": "CR-095",
+    "owner": "T2",
+    "expected": "OK",
+    "old": "OK",
+    "action": "retain",
+    "location": "permission-manager.js:117",
+    "oldLiterals": [
+      "OK"
+    ]
+  },
+  {
+    "id": "CR-096",
+    "owner": "T2",
+    "expected": "quietpls uses your mic to monitor your voice level. Monitoring doesn’t save audio. Optional Capture records audio and transcribes it on this Mac.",
+    "old": "quietpls needs access to your microphone to monitor audio levels in real-time. Monitoring never records or transmits audio. If you turn on Capture (beta), calls you approve are recorded and transcribed on this Mac.",
+    "action": "change",
+    "location": "electron-builder.yml:52",
+    "oldLiterals": [
+      "quietpls needs access to your microphone to monitor audio levels in real-time. Monitoring never records or transmits audio. If you turn on Capture (beta), calls you approve are recorded and transcribed on this Mac."
+    ]
+  },
+  {
+    "id": "CR-097",
+    "owner": "T2",
+    "expected": "Optional Capture records call audio for transcripts on this Mac. Always-on recording separately records system audio beyond calls.",
+    "old": "Capture (beta) records the other side of calls you approve, so they can be transcribed on this Mac.",
+    "action": "change",
+    "location": "electron-builder.yml:53",
+    "oldLiterals": [
+      "Capture (beta) records the other side of calls you approve, so they can be transcribed on this Mac."
+    ]
+  },
+  {
+    "id": "CR-098",
+    "owner": "T3",
+    "expected": "Settings",
+    "old": "Settings - quietpls",
+    "action": "change",
+    "location": "settings.html:6; main.js:284",
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": [
+      "Settings - quietpls"
+    ]
+  },
+  {
+    "id": "CR-099",
+    "owner": "T3",
+    "expected": null,
+    "old": "Settings",
+    "action": "retire",
+    "location": "settings.html:14",
+    "reason": "B15: custom Settings chrome removed",
+    "oldLiterals": [
+      "Settings"
+    ]
+  },
+  {
+    "id": "CR-100",
+    "owner": "T3",
+    "expected": null,
+    "old": "×",
+    "action": "retire",
+    "location": "settings.html:16",
+    "reason": "B15: custom Settings chrome removed",
+    "oldLiterals": [
+      "×"
+    ]
+  },
+  {
+    "id": "CR-101",
+    "owner": "T3",
+    "expected": "Monitoring",
+    "old": "Monitoring",
+    "action": "retain",
+    "location": "settings.html:22",
+    "oldLiterals": [
+      "Monitoring"
+    ]
+  },
+  {
+    "id": "CR-102",
+    "owner": "T3",
+    "expected": "History",
+    "old": "History",
+    "action": "retain",
+    "location": "settings.html:23",
+    "oldLiterals": [
+      "History"
+    ]
+  },
+  {
+    "id": "CR-103",
+    "owner": "T3",
+    "expected": "Voice feedback",
+    "old": "Sensitivity",
+    "action": "change",
+    "location": "settings.html:32",
+    "oldLiterals": [
+      "Sensitivity"
+    ]
+  },
+  {
+    "id": "CR-104",
+    "owner": "T3",
+    "expected": "Normal",
+    "old": "Normal",
+    "action": "retain",
+    "location": "settings.html:38",
+    "oldLiterals": [
+      "Normal"
+    ]
+  },
+  {
+    "id": "CR-105",
+    "owner": "T3",
+    "expected": "Getting loud",
+    "old": "Loud / Getting loud",
+    "action": "retain",
+    "location": "settings.html:41",
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": [
+      "Loud",
+      "Getting loud"
+    ]
+  },
+  {
+    "id": "CR-106",
+    "owner": "T3",
+    "expected": "Ease your voice",
+    "old": "Ease your voice",
+    "action": "retain",
+    "location": "settings.html:44",
+    "oldLiterals": [
+      "Ease your voice"
+    ]
+  },
+  {
+    "id": "CR-107",
+    "owner": "T3",
+    "expected": "−10 dB",
+    "old": "−10 dB",
+    "action": "retain",
+    "location": "settings.html:51",
+    "oldLiterals": [
+      "−10 dB"
+    ]
+  },
+  {
+    "id": "CR-108",
+    "owner": "T3",
+    "expected": "normal",
+    "old": "your normal",
+    "action": "change",
+    "location": "settings.html:52",
+    "oldLiterals": [
+      "your normal"
+    ]
+  },
+  {
+    "id": "CR-109",
+    "owner": "T3",
+    "expected": "+10",
+    "old": "+10",
+    "action": "retain",
+    "location": "settings.html:53",
+    "oldLiterals": [
+      "+10"
+    ]
+  },
+  {
+    "id": "CR-110",
+    "owner": "T3",
+    "expected": "+20 dB",
+    "old": "+20 dB",
+    "action": "retain",
+    "location": "settings.html:54",
+    "oldLiterals": [
+      "+20 dB"
+    ]
+  },
+  {
+    "id": "CR-111",
+    "owner": "T3",
+    "expected": "Monitoring off",
+    "old": "Not monitoring",
+    "action": "change",
+    "location": "settings.html:57; settings-renderer.js:510",
+    "oldLiterals": [
+      "Not monitoring"
+    ]
+  },
+  {
+    "id": "CR-112",
+    "owner": "T3",
+    "expected": "Sensitivity",
+    "old": "Warn me",
+    "action": "change",
+    "location": "settings.html:63",
+    "oldLiterals": [
+      "Warn me"
+    ]
+  },
+  {
+    "id": "CR-113",
+    "owner": "T3",
+    "expected": "Default",
+    "old": "Default",
+    "action": "retain",
+    "location": "settings.html:67; settings-renderer.js:141",
+    "oldLiterals": [
+      "Default"
+    ]
+  },
+  {
+    "id": "CR-114",
+    "owner": "T3",
+    "expected": "Less sensitive",
+    "old": "Later",
+    "action": "change",
+    "location": "settings.html:71",
+    "oldLiterals": [
+      "Later"
+    ]
+  },
+  {
+    "id": "CR-115",
+    "owner": "T3",
+    "expected": "More sensitive",
+    "old": "Sooner",
+    "action": "change",
+    "location": "settings.html:81",
+    "oldLiterals": [
+      "Sooner"
+    ]
+  },
+  {
+    "id": "CR-116",
+    "owner": "T3",
+    "expected": null,
+    "old": "Yellow at +{w} dB and red at +{d} dB above your normal voice",
+    "action": "change",
+    "location": "settings.html:84; settings-renderer.js:471",
+    "template": "Getting loud: +{w} dB. Ease your voice: +{d} dB above normal.",
+    "placeholders": [
+      "d",
+      "w"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-117",
+    "owner": "T3",
+    "expected": "Normal voice",
+    "old": "Calibration",
+    "action": "change",
+    "location": "settings.html:91",
+    "oldLiterals": [
+      "Calibration"
+    ]
+  },
+  {
+    "id": "CR-118",
+    "owner": "T3",
+    "expected": "Mic",
+    "old": "Mic",
+    "action": "retain",
+    "location": "settings.html:94",
+    "oldLiterals": [
+      "Mic"
+    ]
+  },
+  {
+    "id": "CR-119",
+    "owner": "T3",
+    "expected": "Status",
+    "old": "Status",
+    "action": "retain",
+    "location": "settings.html:98",
+    "oldLiterals": [
+      "Status"
+    ]
+  },
+  {
+    "id": "CR-120",
+    "owner": "T3",
+    "expected": "Checking…",
+    "old": "Checking...",
+    "action": "change",
+    "location": "settings.html:100",
+    "oldLiterals": [
+      "Checking..."
+    ]
+  },
+  {
+    "id": "CR-121",
+    "owner": "T3",
+    "expected": "Reset normal voice",
+    "old": "Recalibrate",
+    "action": "change",
+    "location": "settings.html:105; main.js:989",
+    "oldLiterals": [
+      "Recalibrate"
+    ]
+  },
+  {
+    "id": "CR-122",
+    "owner": "T3",
+    "expected": "Talk in your normal call voice for about 10 seconds. Reset it after moving the mic or changing its input level. Headphones help keep call audio out of the mic. Nearby voices can affect the reading.",
+    "old": "You talk normally for about 5 seconds; that level becomes your normal for this mic. Recalibrate after moving the mic or changing its input gain. Headphones work best: sound from your speakers or nearby voices can be counted as you.",
+    "action": "change",
+    "location": "settings.html:109",
+    "oldLiterals": [
+      "You talk normally for about 5 seconds; that level becomes your normal for this mic. Recalibrate after moving the mic or changing its input gain. Headphones work best: sound from your speakers or nearby voices can be counted as you."
+    ]
+  },
+  {
+    "id": "CR-123",
+    "owner": "T3",
+    "expected": "Microphone",
+    "old": "Audio Device",
+    "action": "change",
+    "location": "settings.html:119",
+    "oldLiterals": [
+      "Audio Device"
+    ]
+  },
+  {
+    "id": "CR-124",
+    "owner": "T3",
+    "expected": "Microphone",
+    "old": "Input Device",
+    "action": "change",
+    "location": "settings.html:122",
+    "oldLiterals": [
+      "Input Device"
+    ]
+  },
+  {
+    "id": "CR-125",
+    "owner": "T3",
+    "expected": "Automatic",
+    "old": "System Default",
+    "action": "change",
+    "location": "settings.html:124",
+    "oldLiterals": [
+      "System Default"
+    ]
+  },
+  {
+    "id": "CR-126",
+    "owner": "T3",
+    "expected": "A Bluetooth mic may reduce headset audio quality.",
+    "old": "Using a Bluetooth mic switches your headphones to call-quality audio.",
+    "action": "change",
+    "location": "settings.html:127",
+    "oldLiterals": [
+      "Using a Bluetooth mic switches your headphones to call-quality audio."
+    ]
+  },
+  {
+    "id": "CR-127",
+    "owner": "T3",
+    "expected": "Test mic",
+    "old": "Test Mic",
+    "action": "change",
+    "location": "settings.html:132; settings-renderer.js:304",
+    "oldLiterals": [
+      "Test Mic"
+    ]
+  },
+  {
+    "id": "CR-128",
+    "owner": "T3",
+    "expected": "—",
+    "old": "--",
+    "action": "change",
+    "location": "settings.html:136; settings-renderer.js:307",
+    "oldLiterals": [
+      "--"
+    ]
+  },
+  {
+    "id": "CR-129",
+    "owner": "T3",
+    "expected": "General",
+    "old": "General",
+    "action": "retain",
+    "location": "settings.html:143",
+    "oldLiterals": [
+      "General"
+    ]
+  },
+  {
+    "id": "CR-130",
+    "owner": "T3",
+    "expected": "Open at login",
+    "old": "Launch at Login",
+    "action": "change",
+    "location": "settings.html:147",
+    "oldLiterals": [
+      "Launch at Login"
+    ]
+  },
+  {
+    "id": "CR-131",
+    "owner": "T3",
+    "expected": "Open quietpls when you log in to this Mac",
+    "old": "Start quietpls when you log in",
+    "action": "change",
+    "location": "settings.html:149",
+    "oldLiterals": [
+      "Start quietpls when you log in"
+    ]
+  },
+  {
+    "id": "CR-132",
+    "owner": "T3",
+    "expected": "Show in menu bar",
+    "old": "Show in Menu Bar",
+    "action": "change",
+    "location": "settings.html:159",
+    "oldLiterals": [
+      "Show in Menu Bar"
+    ]
+  },
+  {
+    "id": "CR-133",
+    "owner": "T3",
+    "expected": "Show the quietpls icon in the menu bar",
+    "old": "Display tray icon in menu bar",
+    "action": "change",
+    "location": "settings.html:161",
+    "oldLiterals": [
+      "Display tray icon in menu bar"
+    ]
+  },
+  {
+    "id": "CR-134",
+    "owner": "T3",
+    "expected": "Start monitoring automatically",
+    "old": "Start Automatically in Calls",
+    "action": "change",
+    "location": "settings.html:171",
+    "oldLiterals": [
+      "Start Automatically in Calls"
+    ]
+  },
+  {
+    "id": "CR-135",
+    "owner": "T3",
+    "expected": "Monitor when another app uses the mic",
+    "old": "Monitor while another app is using the mic",
+    "action": "change",
+    "location": "settings.html:173",
+    "oldLiterals": [
+      "Monitor while another app is using the mic"
+    ]
+  },
+  {
+    "id": "CR-136",
+    "owner": "T3",
+    "expected": "Capture (beta)",
+    "old": "Capture (beta)",
+    "action": "retain",
+    "location": "settings.html:186",
+    "oldLiterals": [
+      "Capture (beta)"
+    ]
+  },
+  {
+    "id": "CR-137",
+    "owner": "T3",
+    "expected": "Ask to record calls",
+    "old": "Record and transcribe calls",
+    "action": "change",
+    "location": "settings.html:190",
+    "oldLiterals": [
+      "Record and transcribe calls"
+    ]
+  },
+  {
+    "id": "CR-138",
+    "owner": "T3",
+    "expected": "Call prompts off. Voice monitoring doesn’t save audio.",
+    "old": "Off. Monitoring never records anything.",
+    "action": "change",
+    "location": "settings.html:192; capture/settings-section.js:16",
+    "oldLiterals": [
+      "Off. Monitoring never records anything."
+    ]
+  },
+  {
+    "id": "CR-139",
+    "owner": "T3",
+    "expected": "When a call is detected, choose whether to record it. Capture saves a transcript on this Mac. Call audio is included when available. By default, audio is deleted after the transcript is saved. Choose a transcript folder in Capture settings.",
+    "old": "When on, quietpls asks at the start of each call. Only calls you approve are recorded: your mic and the call’s audio. Speech is turned into text on this Mac, the audio is deleted after transcription by default, and each transcript is committed to a local git folder you choose, which must have no remote.",
+    "action": "change",
+    "location": "settings.html:201",
+    "oldLiterals": [
+      "When on, quietpls asks at the start of each call. Only calls you approve are recorded: your mic and the call’s audio. Speech is turned into text on this Mac, the audio is deleted after transcription by default, and each transcript is committed to a local git folder you choose, which must have no remote."
+    ]
+  },
+  {
+    "id": "CR-140",
+    "owner": "T3",
+    "expected": "Capture settings…",
+    "old": "Capture settings…",
+    "action": "retain",
+    "location": "settings.html:209",
+    "oldLiterals": [
+      "Capture settings…"
+    ]
+  },
+  {
+    "id": "CR-141",
+    "owner": "T3",
+    "expected": null,
+    "old": "View transcripts",
+    "action": "retire",
+    "location": "settings.html:212",
+    "reason": "superseded by B22 — single Capture settings… entry; transcripts reachable via tray View Transcripts… CR-292",
+    "oldLiterals": [
+      "View transcripts"
+    ]
+  },
+  {
+    "id": "CR-142",
+    "owner": "T3",
+    "expected": "Call prompts on. Choose which calls to record.",
+    "old": "On. You’re asked before any call is recorded.",
+    "action": "change",
+    "location": "capture/settings-section.js:18",
+    "oldLiterals": [
+      "On. You’re asked before any call is recorded."
+    ]
+  },
+  {
+    "id": "CR-143",
+    "owner": "T3",
+    "expected": "Finish setup in Capture settings",
+    "old": "On, but not set up yet. Open Capture settings to finish.",
+    "action": "change",
+    "location": "capture/settings-section.js:19",
+    "oldLiterals": [
+      "On, but not set up yet. Open Capture settings to finish."
+    ]
+  },
+  {
+    "id": "CR-144",
+    "owner": "T3",
+    "expected": "Overview",
+    "old": "Overview",
+    "action": "retain",
+    "location": "settings.html:224",
+    "oldLiterals": [
+      "Overview"
+    ]
+  },
+  {
+    "id": "CR-145",
+    "owner": "T3",
+    "expected": null,
+    "old": "Sessions",
+    "action": "retain",
+    "location": "settings.html:228",
+    "template": "{n} sessions",
+    "placeholders": [
+      "n"
+    ],
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": [
+      "Sessions"
+    ]
+  },
+  {
+    "id": "CR-146",
+    "owner": "T3",
+    "expected": null,
+    "old": "Total Time",
+    "action": "change",
+    "location": "settings.html:232",
+    "template": "{duration} monitored",
+    "placeholders": [
+      "duration"
+    ],
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": [
+      "Total Time"
+    ]
+  },
+  {
+    "id": "CR-147",
+    "owner": "T3",
+    "expected": null,
+    "old": "Avg Grade",
+    "action": "retire",
+    "location": "settings.html:236",
+    "reason": "B16 / spec §9.1: grade removed from UI",
+    "oldLiterals": [
+      "Avg Grade"
+    ]
+  },
+  {
+    "id": "CR-148",
+    "owner": "T3",
+    "expected": "Recent sessions",
+    "old": "Recent Sessions",
+    "action": "change",
+    "location": "settings.html:243",
+    "oldLiterals": [
+      "Recent Sessions"
+    ]
+  },
+  {
+    "id": "CR-149",
+    "owner": "T3",
+    "expected": "No sessions yet",
+    "old": "No sessions recorded yet.",
+    "action": "change",
+    "location": "settings.html:246",
+    "oldLiterals": [
+      "No sessions recorded yet."
+    ]
+  },
+  {
+    "id": "CR-150",
+    "owner": "T3",
+    "expected": "Start monitoring. Your summary appears here after you stop.",
+    "old": "Start monitoring to begin tracking sessions.",
+    "action": "change",
+    "location": "settings.html:248",
+    "oldLiterals": [
+      "Start monitoring to begin tracking sessions."
+    ]
+  },
+  {
+    "id": "CR-151",
+    "owner": "T3",
+    "expected": "Session details",
+    "old": "Session Details",
+    "action": "change",
+    "location": "settings.html:260",
+    "oldLiterals": [
+      "Session Details"
+    ]
+  },
+  {
+    "id": "CR-152",
+    "owner": "T3",
+    "expected": "Close session details",
+    "old": "×",
+    "action": "change",
+    "location": "settings.html:265",
+    "oldLiterals": [
+      "×"
+    ]
+  },
+  {
+    "id": "CR-153",
+    "owner": "T3",
+    "expected": "Delete this session?",
+    "old": "Delete Session?",
+    "action": "change",
+    "location": "settings.html:277",
+    "oldLiterals": [
+      "Delete Session?"
+    ]
+  },
+  {
+    "id": "CR-154",
+    "owner": "T3",
+    "expected": "This removes the session summary from History. It can’t be undone.",
+    "old": "This action cannot be undone.",
+    "action": "change",
+    "location": "settings.html:278",
+    "oldLiterals": [
+      "This action cannot be undone."
+    ]
+  },
+  {
+    "id": "CR-155",
+    "owner": "T3",
+    "expected": "Cancel",
+    "old": "Cancel",
+    "action": "retain",
+    "location": "settings.html:281",
+    "oldLiterals": [
+      "Cancel"
+    ]
+  },
+  {
+    "id": "CR-156",
+    "owner": "T3",
+    "expected": "Delete session",
+    "old": "Delete",
+    "action": "change",
+    "location": "settings.html:284",
+    "oldLiterals": [
+      "Delete"
+    ]
+  },
+  {
+    "id": "CR-157",
+    "owner": "T3",
+    "expected": "Reset sensitivity",
+    "old": "Reset Defaults",
+    "action": "change",
+    "location": "settings.html:292",
+    "oldLiterals": [
+      "Reset Defaults"
+    ]
+  },
+  {
+    "id": "CR-158",
+    "owner": "T3",
+    "expected": "Monitoring on",
+    "old": "Active / Inactive",
+    "action": "change",
+    "location": "settings.html:294; settings-renderer.js:77",
+    "variants": [
+      "Monitoring on",
+      "Monitoring off"
+    ],
+    "oldLiterals": [
+      "Active",
+      "Inactive"
+    ]
+  },
+  {
+    "id": "CR-159",
+    "owner": "T3",
+    "expected": "—",
+    "old": "—",
+    "action": "retain",
+    "location": "settings.html:295; settings-renderer.js:517",
+    "oldLiterals": [
+      "—"
+    ]
+  },
+  {
+    "id": "CR-160",
+    "owner": "T3",
+    "expected": "Need help?",
+    "old": "Need help?",
+    "action": "retain",
+    "location": "settings.html:300",
+    "oldLiterals": [
+      "Need help?"
+    ]
+  },
+  {
+    "id": "CR-161",
+    "owner": "T3",
+    "expected": "Report an issue on GitHub",
+    "old": "Open an issue on GitHub",
+    "action": "change",
+    "location": "settings.html:302",
+    "oldLiterals": [
+      "Open an issue on GitHub"
+    ]
+  },
+  {
+    "id": "CR-162",
+    "owner": "T3",
+    "expected": null,
+    "old": "{n} dB sooner",
+    "action": "change",
+    "location": "settings-renderer.js:142",
+    "template": "{n} dB lower",
+    "placeholders": [
+      "n"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-163",
+    "owner": "T3",
+    "expected": null,
+    "old": "{n} dB later",
+    "action": "change",
+    "location": "settings-renderer.js:142",
+    "template": "{n} dB higher",
+    "placeholders": [
+      "n"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-164",
+    "owner": "T3",
+    "expected": "Automatic (prefers non-Bluetooth)",
+    "old": "System Default (skips Bluetooth mics)",
+    "action": "change",
+    "location": "settings-renderer.js:186",
+    "oldLiterals": [
+      "System Default (skips Bluetooth mics)"
+    ]
+  },
+  {
+    "id": "CR-165",
+    "owner": "T3",
+    "expected": "(Bluetooth)",
+    "old": "(Bluetooth)",
+    "action": "retain",
+    "location": "settings-renderer.js:193",
+    "oldLiterals": [
+      "(Bluetooth)"
+    ]
+  },
+  {
+    "id": "CR-166",
+    "owner": "T3",
+    "expected": "Stop test",
+    "old": "Stop",
+    "action": "change",
+    "location": "settings-renderer.js:265",
+    "oldLiterals": [
+      "Stop"
+    ]
+  },
+  {
+    "id": "CR-167",
+    "owner": "T3",
+    "expected": "Signal",
+    "old": "Signal / No signal",
+    "action": "retain",
+    "location": "settings-renderer.js:283",
+    "variants": [
+      "Signal",
+      "No signal"
+    ],
+    "oldLiterals": [
+      "Signal",
+      "No signal"
+    ]
+  },
+  {
+    "id": "CR-168",
+    "owner": "T3",
+    "expected": "Mic unavailable",
+    "old": "Error",
+    "action": "change",
+    "location": "settings-renderer.js:292",
+    "oldLiterals": [
+      "Error"
+    ]
+  },
+  {
+    "id": "CR-169",
+    "owner": "T3",
+    "expected": "Use your normal call voice for about 10 seconds…",
+    "old": "Talk normally for about 5 seconds…",
+    "action": "change",
+    "location": "settings-renderer.js:377",
+    "oldLiterals": [
+      "Talk normally for about 5 seconds…"
+    ]
+  },
+  {
+    "id": "CR-170",
+    "owner": "T3",
+    "expected": "(selected mic unavailable)",
+    "old": "(selected mic unavailable)",
+    "action": "retain",
+    "location": "settings-renderer.js:400",
+    "oldLiterals": [
+      "(selected mic unavailable)"
+    ]
+  },
+  {
+    "id": "CR-171",
+    "owner": "T3",
+    "expected": "Start monitoring to check your mic",
+    "old": "Start monitoring to check your mic",
+    "action": "retain",
+    "location": "settings-renderer.js:405",
+    "oldLiterals": [
+      "Start monitoring to check your mic"
+    ]
+  },
+  {
+    "id": "CR-172",
+    "owner": "T3",
+    "expected": "Reconnecting to mic…",
+    "old": "Reconnecting to mic…",
+    "action": "retain",
+    "location": "settings-renderer.js:410",
+    "oldLiterals": [
+      "Reconnecting to mic…"
+    ]
+  },
+  {
+    "id": "CR-173",
+    "owner": "T3",
+    "expected": "Learning your normal voice…",
+    "old": "Calibrating — talk normally for about 5 seconds",
+    "action": "change",
+    "location": "settings-renderer.js:412",
+    "oldLiterals": [
+      "Calibrating — talk normally for about 5 seconds"
+    ]
+  },
+  {
+    "id": "CR-174",
+    "owner": "T3",
+    "expected": null,
+    "old": "Calibrated {date} (normal ≈ {n} dBFS)",
+    "action": "change",
+    "location": "settings-renderer.js:416",
+    "template": "Normal voice saved {date}",
+    "placeholders": [
+      "date"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-175",
+    "owner": "T3",
+    "expected": "Normal voice not set",
+    "old": "Not calibrated",
+    "action": "change",
+    "location": "settings-renderer.js:422",
+    "oldLiterals": [
+      "Not calibrated"
+    ]
+  },
+  {
+    "id": "CR-176",
+    "owner": "T3",
+    "expected": null,
+    "old": "{relative readout} · {state}",
+    "action": "retain",
+    "location": "settings-renderer.js:509",
+    "template": "{relative readout} · {state}",
+    "placeholders": [
+      "relative readout",
+      "state"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-177",
+    "owner": "T3",
+    "expected": "Before 2.1",
+    "old": "pre-2.1",
+    "action": "change",
+    "location": "settings-renderer.js:672",
+    "oldLiterals": [
+      "pre-2.1"
+    ]
+  },
+  {
+    "id": "CR-178",
+    "owner": "T3",
+    "expected": "Uses scoring from before version 2.1; compare with other sessions from that version",
+    "old": "Recorded with the old pre-2.1 scoring; not comparable with newer sessions",
+    "action": "change",
+    "location": "settings-renderer.js:672",
+    "oldLiterals": [
+      "Recorded with the old pre-2.1 scoring; not comparable with newer sessions"
+    ]
+  },
+  {
+    "id": "CR-179",
+    "owner": "T3",
+    "expected": "Delete session",
+    "old": "Delete session",
+    "action": "retain",
+    "location": "settings-renderer.js:687",
+    "oldLiterals": [
+      "Delete session"
+    ]
+  },
+  {
+    "id": "CR-180",
+    "owner": "T3",
+    "expected": "Voice levels · before 2.1 scoring",
+    "old": "Zone Breakdown (pre-2.1 scoring, not comparable)",
+    "action": "change",
+    "location": "settings-renderer.js:716",
+    "oldLiterals": [
+      "Zone Breakdown (pre-2.1 scoring, not comparable)"
+    ]
+  },
+  {
+    "id": "CR-181",
+    "owner": "T3",
+    "expected": null,
+    "old": "Quiet {pct}%",
+    "action": "retain",
+    "location": "settings-renderer.js:724",
+    "template": "Quiet {pct}%",
+    "placeholders": [
+      "pct"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-182",
+    "owner": "T3",
+    "expected": null,
+    "old": "Normal {pct}%",
+    "action": "retain",
+    "location": "settings-renderer.js:725",
+    "template": "Normal {pct}%",
+    "placeholders": [
+      "pct"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-183",
+    "owner": "T3",
+    "expected": null,
+    "old": "Loud {pct}%",
+    "action": "retain",
+    "location": "settings-renderer.js:726",
+    "template": "Loud {pct}%",
+    "placeholders": [
+      "pct"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-184",
+    "owner": "T3",
+    "expected": null,
+    "old": "Danger {pct}%",
+    "action": "change",
+    "location": "settings-renderer.js:727",
+    "template": "High {pct}%",
+    "placeholders": [
+      "pct"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-185",
+    "owner": "T3",
+    "expected": null,
+    "old": "Speaking time {duration}",
+    "action": "change",
+    "location": "settings-renderer.js:730",
+    "template": "Detected talking · {duration}",
+    "placeholders": [
+      "duration"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-186",
+    "owner": "T3",
+    "expected": null,
+    "old": "Normal {pct}%",
+    "action": "retain",
+    "location": "settings-renderer.js:737",
+    "template": "Normal {pct}%",
+    "placeholders": [
+      "pct"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-187",
+    "owner": "T3",
+    "expected": null,
+    "old": "Getting loud {pct}%",
+    "action": "retain",
+    "location": "settings-renderer.js:738",
+    "template": "Getting loud {pct}%",
+    "placeholders": [
+      "pct"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-188",
+    "owner": "T3",
+    "expected": null,
+    "old": "Ease your voice {pct}%",
+    "action": "retain",
+    "location": "settings-renderer.js:739",
+    "template": "Ease your voice {pct}%",
+    "placeholders": [
+      "pct"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-189",
+    "owner": "T3",
+    "expected": null,
+    "old": "Date",
+    "action": "retire",
+    "location": "settings-renderer.js:744",
+    "oldLiterals": [
+      "Date"
+    ],
+    "reason": "Session details: the header already shows the date and monitored time (post-judging F5)"
+  },
+  {
+    "id": "CR-190",
+    "owner": "T3",
+    "expected": "Time",
+    "old": "Time",
+    "action": "retain",
+    "location": "settings-renderer.js:748",
+    "oldLiterals": [
+      "Time"
+    ]
+  },
+  {
+    "id": "CR-191",
+    "owner": "T3",
+    "expected": null,
+    "old": "Duration",
+    "action": "retire",
+    "location": "settings-renderer.js:752",
+    "oldLiterals": [
+      "Duration"
+    ],
+    "reason": "Session details: the header already shows the date and monitored time (post-judging F5)"
+  },
+  {
+    "id": "CR-192",
+    "owner": "T3",
+    "expected": null,
+    "old": "Grade",
+    "action": "retire",
+    "location": "settings-renderer.js:756",
+    "reason": "B16 / spec §9.1: grade removed from UI",
+    "oldLiterals": [
+      "Grade"
+    ]
+  },
+  {
+    "id": "CR-193",
+    "owner": "T3",
+    "expected": "Jan",
+    "old": "Jan / Feb / Mar / Apr / May / Jun / Jul / Aug / Sep / Oct / Nov / Dec",
+    "action": "retain",
+    "location": "settings-history-logic.js:17",
+    "variants": [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec"
+    ],
+    "oldLiterals": [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec"
+    ]
+  },
+  {
+    "id": "CR-194",
+    "owner": "T3",
+    "expected": "AM",
+    "old": "AM / PM",
+    "action": "retain",
+    "location": "settings-history-logic.js:45",
+    "variants": [
+      "AM",
+      "PM"
+    ],
+    "oldLiterals": [
+      "AM",
+      "PM"
+    ]
+  },
+  {
+    "id": "CR-195",
+    "owner": "T3",
+    "expected": null,
+    "old": "{h}h {m}m / {m}m {s}s / {m}m / < 1m",
+    "action": "change",
+    "location": "settings-history-logic.js:65,78; renderer.js:14",
+    "template": "{h}h {m}m",
+    "placeholders": [
+      "h",
+      "m"
+    ],
+    "variants": [
+      "{h}h {m}m",
+      "{m}m",
+      "< 1m"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-196",
+    "owner": "T3",
+    "expected": null,
+    "old": "A / B / C / D / F / --",
+    "action": "retire",
+    "location": "settings-history-logic.js:112,169",
+    "reason": "B16 / spec §9.1: grade removed from UI",
+    "oldLiterals": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "F",
+      "--"
+    ]
+  },
+  {
+    "id": "CR-197",
+    "owner": "T3",
+    "expected": "No talking detected this session",
+    "old": "No speech detected this session",
+    "action": "change",
+    "location": "session-insights.js:38",
+    "oldLiterals": [
+      "No speech detected this session"
+    ]
+  },
+  {
+    "id": "CR-198",
+    "owner": "T3",
+    "expected": null,
+    "old": "Ease your voice for {pct}% of your speaking time",
+    "action": "change",
+    "location": "session-insights.js:45",
+    "template": "“Ease your voice” shown for {pct}% of talking time",
+    "placeholders": [
+      "pct"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-199",
+    "owner": "T3",
+    "expected": "“Ease your voice” shown for under 1% of talking time",
+    "old": "You never needed to ease your voice",
+    "action": "change",
+    "location": "session-insights.js:47",
+    "oldLiterals": [
+      "You never needed to ease your voice"
+    ]
+  },
+  {
+    "id": "CR-200",
+    "owner": "T3",
+    "expected": null,
+    "old": "Getting loud for {pct}% of your speaking time",
+    "action": "change",
+    "location": "session-insights.js:52",
+    "template": "“Getting loud” shown for {pct}% of talking time",
+    "placeholders": [
+      "pct"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-201",
+    "owner": "T3",
+    "expected": "Voice level was higher in the second half",
+    "old": "You got louder in the second half",
+    "action": "change",
+    "location": "session-insights.js:60",
+    "oldLiterals": [
+      "You got louder in the second half"
+    ]
+  },
+  {
+    "id": "CR-202",
+    "owner": "T3",
+    "expected": "Voice level was lower in the second half",
+    "old": "You got quieter toward the end",
+    "action": "change",
+    "location": "session-insights.js:62",
+    "oldLiterals": [
+      "You got quieter toward the end"
+    ]
+  },
+  {
+    "id": "CR-203",
+    "owner": "T3",
+    "expected": "Average voice level was similar in both halves",
+    "old": "Your level was consistent throughout",
+    "action": "change",
+    "location": "session-insights.js:63",
+    "oldLiterals": [
+      "Your level was consistent throughout"
+    ]
+  },
+  {
+    "id": "CR-204",
+    "owner": "T3",
+    "expected": null,
+    "old": "Loudest at {time}: +{n} dB above your normal",
+    "action": "change",
+    "location": "session-insights.js:77",
+    "template": "Peak {minutes} min in · +{n} dB above normal",
+    "placeholders": [
+      "minutes",
+      "n"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-205",
+    "owner": "T1",
+    "expected": "Using Your Bluetooth Mic",
+    "old": "quietpls is using your Bluetooth mic",
+    "action": "change",
+    "location": "main.js:43",
+    "oldLiterals": [
+      "quietpls is using your Bluetooth mic"
+    ]
+  },
+  {
+    "id": "CR-206",
+    "owner": "T1",
+    "expected": "No other mic is available. Headset audio may sound less clear while monitoring. A wired or USB mic can avoid this.",
+    "old": "No other mic is available, so your headphones switch to call-quality audio and may sound tinny while quietpls listens. A wired or USB mic avoids this.",
+    "action": "change",
+    "location": "main.js:45",
+    "oldLiterals": [
+      "No other mic is available, so your headphones switch to call-quality audio and may sound tinny while quietpls listens. A wired or USB mic avoids this."
+    ]
+  },
+  {
+    "id": "CR-207",
+    "owner": "T1",
+    "expected": "OK",
+    "old": "OK",
+    "action": "retain",
+    "location": "main.js:42,321,345,362",
+    "oldLiterals": [
+      "OK"
+    ]
+  },
+  {
+    "id": "CR-208",
+    "owner": "T1",
+    "expected": "About quietpls",
+    "old": "About quietpls",
+    "action": "retain",
+    "location": "main.js:317",
+    "oldLiterals": [
+      "About quietpls"
+    ]
+  },
+  {
+    "id": "CR-209",
+    "owner": "T1",
+    "expected": null,
+    "old": "quietpls v{version}",
+    "action": "change",
+    "location": "main.js:318",
+    "template": "Version {version}",
+    "placeholders": [
+      "version"
+    ],
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-210",
+    "owner": "T1",
+    "expected": "Voice-level feedback for calls.",
+    "old": "A floating audio monitor for meetings. Open source: https://github.com/moshioshimayo/quietpls",
+    "action": "change",
+    "location": "main.js:320",
+    "variants": [
+      "Voice-level feedback for calls.",
+      "https://github.com/moshioshimayo/quietpls"
+    ],
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": [
+      "A floating audio monitor for meetings. Open source: https://github.com/moshioshimayo/quietpls"
+    ]
+  },
+  {
+    "id": "CR-211",
+    "owner": "T1",
+    "expected": "Updates",
+    "old": "Updates",
+    "action": "retain",
+    "location": "main.js:343",
+    "oldLiterals": [
+      "Updates"
+    ]
+  },
+  {
+    "id": "CR-212",
+    "owner": "T1",
+    "expected": "Install the released app to check for updates.",
+    "old": "Update checks run in the packaged app.",
+    "action": "change",
+    "location": "main.js:344",
+    "oldLiterals": [
+      "Update checks run in the packaged app."
+    ]
+  },
+  {
+    "id": "CR-213",
+    "owner": "T1",
+    "expected": "Couldn’t Check for Updates",
+    "old": "Update Check",
+    "action": "change",
+    "location": "main.js:359",
+    "oldLiterals": [
+      "Update Check"
+    ]
+  },
+  {
+    "id": "CR-214",
+    "owner": "T1",
+    "expected": "Try Check for Updates again from the menu bar.",
+    "old": "Could not check for updates.",
+    "action": "change",
+    "location": "main.js:360",
+    "oldLiterals": [
+      "Could not check for updates."
+    ]
+  },
+  {
+    "id": "CR-215",
+    "owner": "T1",
+    "expected": null,
+    "old": "{err.message}",
+    "action": "change",
+    "location": "main.js:361",
+    "template": "{diagnostic detail}",
+    "placeholders": [
+      "diagnostic detail"
+    ],
+    "diagnostic": true,
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-216",
+    "owner": "T1",
+    "expected": "Update Ready",
+    "old": "Update Ready",
+    "action": "retain",
+    "location": "main.js:410",
+    "oldLiterals": [
+      "Update Ready"
+    ]
+  },
+  {
+    "id": "CR-217",
+    "owner": "T1",
+    "expected": null,
+    "old": "quietpls {version} is ready to install.",
+    "action": "retain",
+    "location": "main.js:411",
+    "template": "quietpls {version} is ready to install.",
+    "placeholders": [
+      "version"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-218",
+    "owner": "T1",
+    "expected": "Restart to install it. If you choose Later, it installs when quietpls quits.",
+    "old": "Restart now to apply it, or use “Restart to Update” in the tray menu later.",
+    "action": "change",
+    "location": "main.js:413",
+    "oldLiterals": [
+      "Restart now to apply it, or use “Restart to Update” in the tray menu later."
+    ]
+  },
+  {
+    "id": "CR-219",
+    "owner": "T1",
+    "expected": "Restart Now",
+    "old": "Restart Now / Later",
+    "action": "retain",
+    "location": "main.js:414",
+    "variants": [
+      "Restart Now",
+      "Later"
+    ],
+    "oldLiterals": [
+      "Restart Now",
+      "Later"
+    ]
+  },
+  {
+    "id": "CR-220",
+    "owner": "T1",
+    "expected": "Stop Monitoring",
+    "old": "Stop Monitoring / Start Monitoring",
+    "action": "retain",
+    "location": "main.js:482,982",
+    "variants": [
+      "Stop Monitoring",
+      "Start Monitoring"
+    ],
+    "oldLiterals": [
+      "Stop Monitoring",
+      "Start Monitoring"
+    ]
+  },
+  {
+    "id": "CR-221",
+    "owner": "T1",
+    "expected": "Settings…",
+    "old": "Settings",
+    "action": "change",
+    "location": "main.js:490,998",
+    "oldLiterals": [
+      "Settings"
+    ]
+  },
+  {
+    "id": "CR-222",
+    "owner": "T1",
+    "expected": "Voice Setup…",
+    "old": "Show Tutorial",
+    "action": "change",
+    "location": "main.js:497,1006",
+    "oldLiterals": [
+      "Show Tutorial"
+    ]
+  },
+  {
+    "id": "CR-223",
+    "owner": "T1",
+    "expected": "About quietpls",
+    "old": "About",
+    "action": "change",
+    "location": "main.js:515,1012",
+    "oldLiterals": [
+      "About"
+    ]
+  },
+  {
+    "id": "CR-224",
+    "owner": "T1",
+    "expected": "Quit quietpls",
+    "old": "Quit",
+    "action": "change",
+    "location": "main.js:522",
+    "oldLiterals": [
+      "Quit"
+    ]
+  },
+  {
+    "id": "CR-225",
+    "owner": "T1",
+    "expected": "Check for Updates…",
+    "old": "Check for Updates…",
+    "action": "retain",
+    "location": "updater-state.js:7",
+    "oldLiterals": [
+      "Check for Updates…"
+    ]
+  },
+  {
+    "id": "CR-226",
+    "owner": "T1",
+    "expected": "Checking for Updates…",
+    "old": "Checking for Updates…",
+    "action": "retain",
+    "location": "updater-state.js:8",
+    "oldLiterals": [
+      "Checking for Updates…"
+    ]
+  },
+  {
+    "id": "CR-227",
+    "owner": "T1",
+    "expected": "Downloading update…",
+    "old": "Downloading Update…",
+    "action": "retain",
+    "location": "updater-state.js:9",
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": [
+      "Downloading Update…"
+    ]
+  },
+  {
+    "id": "CR-228",
+    "owner": "T1",
+    "expected": null,
+    "old": "Restart to Update ({version})…",
+    "action": "change",
+    "location": "updater-state.js:10,32",
+    "template": "Restart to Update ({version})",
+    "placeholders": [
+      "version"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-229",
+    "owner": "T4",
+    "expected": "quietpls — Transcripts",
+    "old": "quietpls — Transcripts",
+    "action": "retain",
+    "location": "capture/renderer/main.html:6; capture/mode.js:247",
+    "oldLiterals": [
+      "quietpls — Transcripts"
+    ]
+  },
+  {
+    "id": "CR-230",
+    "owner": "T4",
+    "expected": "Transcripts",
+    "old": "Calls",
+    "action": "change",
+    "location": "capture/renderer/main.html:13",
+    "oldLiterals": [
+      "Calls"
+    ]
+  },
+  {
+    "id": "CR-231",
+    "owner": "T4",
+    "expected": "Settings",
+    "old": "Settings",
+    "action": "retain",
+    "location": "capture/renderer/main.html:14",
+    "oldLiterals": [
+      "Settings"
+    ]
+  },
+  {
+    "id": "CR-232",
+    "owner": "T4",
+    "expected": "Call prompts off",
+    "old": "Off",
+    "action": "change",
+    "location": "capture/renderer/main.html:18",
+    "oldLiterals": [
+      "Off"
+    ]
+  },
+  {
+    "id": "CR-233",
+    "owner": "T4",
+    "expected": "Search transcripts",
+    "old": "Search calls",
+    "action": "change",
+    "location": "capture/renderer/main.html:27",
+    "oldLiterals": [
+      "Search calls"
+    ]
+  },
+  {
+    "id": "CR-234",
+    "owner": "T4",
+    "expected": null,
+    "old": "A call started in {apps}",
+    "action": "change",
+    "location": "capture/renderer/banner.html:16",
+    "template": "Record a call in {app}?",
+    "placeholders": [
+      "app"
+    ],
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": [],
+    "variants": [
+      "Record a call in {app}?",
+      "Can’t record this call"
+    ]
+  },
+  {
+    "id": "CR-235",
+    "owner": "T4",
+    "expected": "Audio",
+    "old": "Record",
+    "action": "change",
+    "location": "capture/renderer/banner.html:19",
+    "oldLiterals": [
+      "Record"
+    ]
+  },
+  {
+    "id": "CR-236",
+    "owner": "T4",
+    "expected": "Your mic + available call audio",
+    "old": "you (your mic) + them (call audio)",
+    "action": "change",
+    "location": "capture/renderer/banner.html:21",
+    "oldLiterals": [
+      "you (your mic) + them (call audio)"
+    ]
+  },
+  {
+    "id": "CR-237",
+    "owner": "T4",
+    "expected": "Transcript",
+    "old": "Saves",
+    "action": "change",
+    "location": "capture/renderer/banner.html:24",
+    "oldLiterals": [
+      "Saves"
+    ]
+  },
+  {
+    "id": "CR-238",
+    "owner": "T4",
+    "expected": "Saved to your folder",
+    "old": "a text transcript to your folder",
+    "action": "change",
+    "location": "capture/renderer/banner.html:25",
+    "oldLiterals": [
+      "a text transcript to your folder"
+    ]
+  },
+  {
+    "id": "CR-239",
+    "owner": "T4",
+    "expected": "Keep audio",
+    "old": "Audio",
+    "action": "change",
+    "location": "capture/renderer/banner.html:26",
+    "oldLiterals": [
+      "Audio"
+    ]
+  },
+  {
+    "id": "CR-240",
+    "owner": "T4",
+    "expected": "Deleted after transcript is saved",
+    "old": "deleted once the text is saved",
+    "action": "change",
+    "location": "capture/renderer/banner.html:27; capture/renderer/banner.js:38",
+    "oldLiterals": [
+      "deleted once the text is saved"
+    ]
+  },
+  {
+    "id": "CR-241",
+    "owner": "T4",
+    "expected": "Record this call",
+    "old": "Record this call",
+    "action": "retain",
+    "location": "capture/renderer/banner.html:31; capture/renderer/banner.js:42; capture/mode.js:372",
+    "oldLiterals": [
+      "Record this call"
+    ]
+  },
+  {
+    "id": "CR-242",
+    "owner": "T4",
+    "expected": "Skip this call",
+    "old": "Not now / Not this time",
+    "action": "change",
+    "location": "capture/renderer/banner.html:32; capture/mode.js:373",
+    "oldLiterals": [
+      "Not now",
+      "Not this time"
+    ]
+  },
+  {
+    "id": "CR-243",
+    "owner": "T4",
+    "expected": null,
+    "old": "Never for {app}",
+    "action": "retain",
+    "location": "capture/renderer/banner.html:34",
+    "template": "Never for {app}",
+    "placeholders": [
+      "app"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-244",
+    "owner": "T4",
+    "expected": "these apps",
+    "old": "these apps",
+    "action": "retain",
+    "location": "capture/renderer/banner.js:32",
+    "oldLiterals": [
+      "these apps"
+    ]
+  },
+  {
+    "id": "CR-245",
+    "owner": "T4",
+    "expected": null,
+    "old": "Can’t record: {apps} is/are set to Never record, and recording would capture it/them too.",
+    "action": "change",
+    "location": "capture/renderer/banner.js:9",
+    "template": "Recording blocked. {apps} is set to Never.",
+    "placeholders": [
+      "apps"
+    ],
+    "variants": [
+      "Recording blocked. {apps} is set to Never.",
+      "Recording blocked. {apps} are set to Never."
+    ],
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-246",
+    "owner": "T4",
+    "expected": "Your transcript folder syncs to an online code repository. Choose another folder in Settings.",
+    "old": "Can’t record: your transcript folder’s git repo has a remote, so calls could be pushed.",
+    "action": "change",
+    "location": "capture/renderer/banner.js:11",
+    "oldLiterals": [
+      "Can’t record: your transcript folder’s git repo has a remote, so calls could be pushed."
+    ]
+  },
+  {
+    "id": "CR-247",
+    "owner": "T4",
+    "expected": "Choose a transcript folder in Settings first.",
+    "old": "Can’t record yet: choose a transcript folder first.",
+    "action": "change",
+    "location": "capture/renderer/banner.js:13",
+    "oldLiterals": [
+      "Can’t record yet: choose a transcript folder first."
+    ]
+  },
+  {
+    "id": "CR-248",
+    "owner": "T4",
+    "expected": "Install speech-to-text in Capture settings first.",
+    "old": "Can’t record yet: speech-to-text isn’t installed.",
+    "action": "change",
+    "location": "capture/renderer/banner.js:15",
+    "oldLiterals": [
+      "Can’t record yet: speech-to-text isn’t installed."
+    ]
+  },
+  {
+    "id": "CR-249",
+    "owner": "T4",
+    "expected": "Download transcription data in Settings first.",
+    "old": "Can’t record yet: the speech model isn’t downloaded.",
+    "action": "change",
+    "location": "capture/renderer/banner.js:17",
+    "oldLiterals": [
+      "Can’t record yet: the speech model isn’t downloaded."
+    ]
+  },
+  {
+    "id": "CR-250",
+    "owner": "T4",
+    "expected": "Turn on quietpls microphone access in System Settings.",
+    "old": "Can’t record: microphone access is off for this app.",
+    "action": "change",
+    "location": "capture/renderer/banner.js:19",
+    "oldLiterals": [
+      "Can’t record: microphone access is off for this app."
+    ]
+  },
+  {
+    "id": "CR-251",
+    "owner": "T4",
+    "expected": null,
+    "old": "text to {folder} (git, this Mac only)",
+    "action": "change",
+    "location": "capture/renderer/banner.js:34",
+    "template": "{folder}",
+    "placeholders": [
+      "folder"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-252",
+    "owner": "T4",
+    "expected": "Choose a transcript folder first",
+    "old": "nowhere yet — choose a folder first",
+    "action": "change",
+    "location": "capture/renderer/banner.js:35",
+    "oldLiterals": [
+      "nowhere yet — choose a folder first"
+    ]
+  },
+  {
+    "id": "CR-253",
+    "owner": "T4",
+    "expected": null,
+    "old": "kept for {days} day(s), then deleted",
+    "action": "retain",
+    "location": "capture/renderer/banner.js:37",
+    "template": "Kept for {days} days, then deleted",
+    "placeholders": [
+      "days"
+    ],
+    "variants": [
+      "Kept for {days} days, then deleted",
+      "Kept for 1 day, then deleted"
+    ],
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-254",
+    "owner": "T4",
+    "expected": "Open settings",
+    "old": "Fix in Settings",
+    "action": "change",
+    "location": "capture/renderer/banner.js:42",
+    "oldLiterals": [
+      "Fix in Settings"
+    ]
+  },
+  {
+    "id": "CR-255",
+    "owner": "T4",
+    "expected": null,
+    "old": "REC {time}",
+    "action": "retain",
+    "location": "capture/renderer/indicator.html:12; capture/renderer/indicator.js:31; capture/mode.js:282",
+    "template": "REC {time}",
+    "placeholders": [
+      "time"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-256",
+    "owner": "T4",
+    "expected": "you",
+    "old": "you",
+    "action": "retain",
+    "location": "capture/renderer/indicator.html:14",
+    "oldLiterals": [
+      "you"
+    ]
+  },
+  {
+    "id": "CR-257",
+    "owner": "T4",
+    "expected": "them",
+    "old": "them",
+    "action": "retain",
+    "location": "capture/renderer/indicator.html:15",
+    "oldLiterals": [
+      "them"
+    ]
+  },
+  {
+    "id": "CR-258",
+    "owner": "T4",
+    "expected": "Stop",
+    "old": "Stop",
+    "action": "retain",
+    "location": "capture/renderer/indicator.html:18; capture/renderer/main.js:16",
+    "oldLiterals": [
+      "Stop"
+    ]
+  },
+  {
+    "id": "CR-259",
+    "owner": "T4",
+    "expected": "Open",
+    "old": "Open",
+    "action": "retain",
+    "location": "capture/renderer/indicator.html:19",
+    "oldLiterals": [
+      "Open"
+    ]
+  },
+  {
+    "id": "CR-260",
+    "owner": "T4",
+    "expected": "ALWAYS ON",
+    "old": "ALWAYS ON",
+    "action": "retain",
+    "location": "capture/renderer/indicator.js:15; capture/mode.js:287",
+    "oldLiterals": [
+      "ALWAYS ON"
+    ]
+  },
+  {
+    "id": "CR-261",
+    "owner": "T4",
+    "expected": "Transcribing…",
+    "old": "transcribing…",
+    "action": "change",
+    "location": "capture/renderer/indicator.js:20",
+    "oldLiterals": [
+      "transcribing…"
+    ]
+  },
+  {
+    "id": "CR-262",
+    "owner": "T4",
+    "expected": "Transcribing",
+    "old": "Transcribing / Transcribing…",
+    "action": "retain",
+    "location": "capture/renderer/indicator.js:33; capture/mode.js:283",
+    "variants": [
+      "Transcribing",
+      "Transcribing…"
+    ],
+    "oldLiterals": [
+      "Transcribing",
+      "Transcribing…"
+    ]
+  },
+  {
+    "id": "CR-263",
+    "owner": "T4",
+    "expected": "Creating transcript…",
+    "old": "turning the call into text…",
+    "action": "change",
+    "location": "capture/renderer/indicator.js:34",
+    "oldLiterals": [
+      "turning the call into text…"
+    ]
+  },
+  {
+    "id": "CR-264",
+    "owner": "T4",
+    "expected": "Saved",
+    "old": "Saved",
+    "action": "retain",
+    "location": "capture/renderer/indicator.js:37; capture/mode.js:285",
+    "oldLiterals": [
+      "Saved"
+    ]
+  },
+  {
+    "id": "CR-265",
+    "owner": "T4",
+    "expected": "Transcript saved",
+    "old": "transcript committed",
+    "action": "change",
+    "location": "capture/renderer/indicator.js:38",
+    "oldLiterals": [
+      "transcript committed"
+    ]
+  },
+  {
+    "id": "CR-266",
+    "owner": "T4",
+    "expected": "Not recording · Check recording",
+    "old": "Not saved",
+    "action": "change",
+    "location": "capture/renderer/indicator.js:42",
+    "oldLiterals": [
+      "Not saved"
+    ]
+  },
+  {
+    "id": "CR-267",
+    "owner": "T4",
+    "expected": null,
+    "old": "{error}",
+    "action": "change",
+    "location": "capture/renderer/indicator.js:43",
+    "template": "{specific error and saved-data result}",
+    "placeholders": [
+      "specific error and saved-data result"
+    ],
+    "diagnostic": true,
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-268",
+    "owner": "T4",
+    "expected": "Call prompts off",
+    "old": "Off — not listening for calls / Turn on",
+    "action": "change",
+    "location": "capture/renderer/main.js:12",
+    "variants": [
+      "Call prompts off",
+      "Turn on"
+    ],
+    "oldLiterals": [
+      "Off — not listening for calls",
+      "Turn on"
+    ]
+  },
+  {
+    "id": "CR-269",
+    "owner": "T4",
+    "expected": "Waiting for a call",
+    "old": "Waiting for a call",
+    "action": "retain",
+    "location": "capture/renderer/main.js:13",
+    "oldLiterals": [
+      "Waiting for a call"
+    ]
+  },
+  {
+    "id": "CR-270",
+    "owner": "T4",
+    "expected": "Not recording this call",
+    "old": "Call on — not recording",
+    "action": "change",
+    "location": "capture/renderer/main.js:14",
+    "oldLiterals": [
+      "Call on — not recording"
+    ]
+  },
+  {
+    "id": "CR-271",
+    "owner": "T4",
+    "expected": "Record this call?",
+    "old": "Call on — asking to record / Record",
+    "action": "change",
+    "location": "capture/renderer/main.js:15",
+    "variants": [
+      "Record this call?",
+      "Record"
+    ],
+    "oldLiterals": [
+      "Call on — asking to record",
+      "Record"
+    ]
+  },
+  {
+    "id": "CR-272",
+    "owner": "T4",
+    "expected": null,
+    "old": "Recording {time} · {apps}",
+    "action": "retain",
+    "location": "capture/renderer/main.js:16,41",
+    "template": "Recording {time} · {apps}",
+    "placeholders": [
+      "apps",
+      "time"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-273",
+    "owner": "T4",
+    "expected": "Transcribing…",
+    "old": "Transcribing…",
+    "action": "retain",
+    "location": "capture/renderer/main.js:17",
+    "oldLiterals": [
+      "Transcribing…"
+    ]
+  },
+  {
+    "id": "CR-274",
+    "owner": "T4",
+    "expected": "Transcript saved",
+    "old": "Transcript saved / Show",
+    "action": "change",
+    "location": "capture/renderer/main.js:18",
+    "variants": [
+      "Transcript saved",
+      "View"
+    ],
+    "oldLiterals": [
+      "Transcript saved",
+      "Show"
+    ]
+  },
+  {
+    "id": "CR-275",
+    "owner": "T4",
+    "expected": "Not recording · Check recording",
+    "old": "Needs attention",
+    "action": "change",
+    "location": "capture/renderer/main.js:19; capture/mode.js:286",
+    "oldLiterals": [
+      "Needs attention"
+    ]
+  },
+  {
+    "id": "CR-276",
+    "owner": "T4",
+    "expected": "ALWAYS ON · mic + system audio",
+    "old": "ALWAYS ON — microphone + system audio",
+    "action": "change",
+    "location": "capture/renderer/main.js:20; capture/mode.js:356",
+    "oldLiterals": [
+      "ALWAYS ON — microphone + system audio"
+    ]
+  },
+  {
+    "id": "CR-277",
+    "owner": "T4",
+    "expected": "Dismiss",
+    "old": "OK",
+    "action": "change",
+    "location": "capture/renderer/main.js:73",
+    "oldLiterals": [
+      "OK"
+    ]
+  },
+  {
+    "id": "CR-278",
+    "owner": "T4",
+    "expected": null,
+    "old": "quietpls capture {page}",
+    "action": "change",
+    "location": "capture/mode.js:216",
+    "template": "quietpls — {mode}",
+    "placeholders": [
+      "mode"
+    ],
+    "choices": {
+      "mode": [
+        "Recording",
+        "Record call"
+      ]
+    },
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-279",
+    "owner": "T4",
+    "expected": "Record call?",
+    "old": "Record call?",
+    "action": "retain",
+    "location": "capture/mode.js:284",
+    "oldLiterals": [
+      "Record call?"
+    ]
+  },
+  {
+    "id": "CR-280",
+    "owner": "T4",
+    "expected": "Call prompts off",
+    "old": "Capture off",
+    "action": "change",
+    "location": "capture/mode.js:346",
+    "oldLiterals": [
+      "Capture off"
+    ]
+  },
+  {
+    "id": "CR-281",
+    "owner": "T4",
+    "expected": "Waiting for a call",
+    "old": "Capture on — waiting for a call",
+    "action": "change",
+    "location": "capture/mode.js:347",
+    "oldLiterals": [
+      "Capture on — waiting for a call"
+    ]
+  },
+  {
+    "id": "CR-282",
+    "owner": "T4",
+    "expected": null,
+    "old": "Call on ({apps}) — not recording",
+    "action": "change",
+    "location": "capture/mode.js:348",
+    "template": "Not recording · {apps}",
+    "placeholders": [
+      "apps"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-283",
+    "owner": "T4",
+    "expected": null,
+    "old": "Call on ({apps}) — waiting for your OK",
+    "action": "change",
+    "location": "capture/mode.js:349",
+    "template": "Record this call? · {apps}",
+    "placeholders": [
+      "apps"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-284",
+    "owner": "T4",
+    "expected": null,
+    "old": "Recording your side only — {apps}",
+    "action": "change",
+    "location": "capture/mode.js:351",
+    "template": "Recording mic only · {apps}",
+    "placeholders": [
+      "apps"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-285",
+    "owner": "T4",
+    "expected": null,
+    "old": "Recording {apps}",
+    "action": "retain",
+    "location": "capture/mode.js:352",
+    "template": "Recording · {apps}",
+    "placeholders": [
+      "apps"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-286",
+    "owner": "T4",
+    "expected": "Creating transcript…",
+    "old": "Turning the call into text",
+    "action": "change",
+    "location": "capture/mode.js:353",
+    "oldLiterals": [
+      "Turning the call into text"
+    ]
+  },
+  {
+    "id": "CR-287",
+    "owner": "T4",
+    "expected": "Transcript saved",
+    "old": "Transcript saved",
+    "action": "retain",
+    "location": "capture/mode.js:354",
+    "oldLiterals": [
+      "Transcript saved"
+    ]
+  },
+  {
+    "id": "CR-288",
+    "owner": "T4",
+    "expected": "Recording needs attention",
+    "old": "Something went wrong",
+    "action": "change",
+    "location": "capture/mode.js:355",
+    "oldLiterals": [
+      "Something went wrong"
+    ]
+  },
+  {
+    "id": "CR-289",
+    "owner": "T4",
+    "expected": "Stop Recording",
+    "old": "Stop recording",
+    "action": "change",
+    "location": "capture/mode.js:369",
+    "oldLiterals": [
+      "Stop recording"
+    ]
+  },
+  {
+    "id": "CR-290",
+    "owner": "T4",
+    "expected": "Stop Always-on Recording",
+    "old": "Stop always-on capture",
+    "action": "change",
+    "location": "capture/mode.js:377",
+    "oldLiterals": [
+      "Stop always-on capture"
+    ]
+  },
+  {
+    "id": "CR-291",
+    "owner": "T4",
+    "expected": "Always-on Recording…",
+    "old": "Always-on capture…",
+    "action": "change",
+    "location": "capture/mode.js:379",
+    "oldLiterals": [
+      "Always-on capture…"
+    ]
+  },
+  {
+    "id": "CR-292",
+    "owner": "T4",
+    "expected": "View Transcripts…",
+    "old": "View transcripts…",
+    "action": "change",
+    "location": "capture/mode.js:383",
+    "oldLiterals": [
+      "View transcripts…"
+    ]
+  },
+  {
+    "id": "CR-293",
+    "owner": "T4",
+    "expected": null,
+    "old": "Transcripts are paused. {folder} is a git repo with a remote ({remotes}). Calls are never written to a repo that can be pushed. Remove the remote or pick another folder.",
+    "action": "change",
+    "location": "capture/renderer/main.js:81",
+    "template": "Capture can’t save to {folder} because it syncs to an online code repository. Choose another folder.",
+    "placeholders": [
+      "folder"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-294",
+    "owner": "T4",
+    "expected": "Choose folder…",
+    "old": "Choose folder…",
+    "action": "retain",
+    "location": "capture/renderer/main.js:82,88,390",
+    "oldLiterals": [
+      "Choose folder…"
+    ]
+  },
+  {
+    "id": "CR-295",
+    "owner": "T4",
+    "expected": null,
+    "old": "Transcript folder not found: {folder}",
+    "action": "retain",
+    "location": "capture/renderer/main.js:87",
+    "template": "Transcript folder not found: {folder}",
+    "placeholders": [
+      "folder"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-296",
+    "owner": "T4",
+    "expected": "Microphone access is off. Turn on quietpls in System Settings → Privacy & Security → Microphone.",
+    "old": "Microphone access is off, so your side can’t be recorded. Turn it on in System Settings → Privacy & Security → Microphone.",
+    "action": "change",
+    "location": "capture/renderer/main.js:94",
+    "oldLiterals": [
+      "Microphone access is off, so your side can’t be recorded. Turn it on in System Settings → Privacy & Security → Microphone."
+    ]
+  },
+  {
+    "id": "CR-297",
+    "owner": "T4",
+    "expected": "Open System Settings",
+    "old": "Open System Settings",
+    "action": "retain",
+    "location": "capture/renderer/main.js:95,112,426",
+    "oldLiterals": [
+      "Open System Settings"
+    ]
+  },
+  {
+    "id": "CR-298",
+    "owner": "T4",
+    "expected": "Install speech-to-text. In Terminal, run brew install whisper-cpp, then choose Check again.",
+    "old": "Speech-to-text isn’t installed. In Terminal, run brew install whisper-cpp, then check again.",
+    "action": "change",
+    "location": "capture/renderer/main.js:100",
+    "oldLiterals": [
+      "Speech-to-text isn’t installed. In Terminal, run brew install whisper-cpp, then check again."
+    ]
+  },
+  {
+    "id": "CR-299",
+    "owner": "T4",
+    "expected": "Check again",
+    "old": "Check again",
+    "action": "retain",
+    "location": "capture/renderer/main.js:101,302",
+    "oldLiterals": [
+      "Check again"
+    ]
+  },
+  {
+    "id": "CR-300",
+    "owner": "T4",
+    "expected": null,
+    "old": "Your side only. quietpls couldn’t tell that the call’s sound was coming from {app}, so this call records only your microphone.",
+    "action": "change",
+    "location": "capture/renderer/main.js:106",
+    "template": "Call audio unavailable for {app}. Only your microphone was recorded.",
+    "placeholders": [
+      "app"
+    ],
+    "oldLiterals": [],
+    "variants": [
+      "Call audio unavailable for {app}. Only your microphone was recorded.",
+      "Call audio isn’t available for {app}. Recording your microphone only."
+    ]
+  },
+  {
+    "id": "CR-301",
+    "owner": "T4",
+    "expected": "No call audio was captured in the last recording. Check Screen & System Audio Recording in System Settings.",
+    "old": "The last call had no sound from the other side. macOS may be blocking system audio. Allow it in System Settings → Privacy & Security → Screen & System Audio Recording.",
+    "action": "change",
+    "location": "capture/renderer/main.js:111",
+    "oldLiterals": [
+      "The last call had no sound from the other side. macOS may be blocking system audio. Allow it in System Settings → Privacy & Security → Screen & System Audio Recording."
+    ]
+  },
+  {
+    "id": "CR-302",
+    "owner": "T4",
+    "expected": "No transcript text",
+    "old": "no speech",
+    "action": "change",
+    "location": "capture/renderer/main.js:209",
+    "oldLiterals": [
+      "no speech"
+    ]
+  },
+  {
+    "id": "CR-303",
+    "owner": "T4",
+    "expected": null,
+    "old": "No calls match “{query}”.",
+    "action": "change",
+    "location": "capture/renderer/main.js:212",
+    "template": "No transcripts match “{query}”. Try another search.",
+    "placeholders": [
+      "query"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-304",
+    "owner": "T4",
+    "expected": "No transcripts yet",
+    "old": "No calls yet. / No calls yet",
+    "action": "change",
+    "location": "capture/renderer/main.js:212,218",
+    "oldLiterals": [
+      "No calls yet.",
+      "No calls yet"
+    ]
+  },
+  {
+    "id": "CR-305",
+    "owner": "T4",
+    "expected": "When a call is detected, choose Record this call. Its transcript appears here after recording stops.",
+    "old": "When a call starts (Zoom, Meet, Teams, FaceTime…), a small box asks before anything is recorded. Say yes and the transcript shows up here, newest first.",
+    "action": "change",
+    "location": "capture/renderer/main.js:219",
+    "oldLiterals": [
+      "When a call starts (Zoom, Meet, Teams, FaceTime…), a small box asks before anything is recorded. Say yes and the transcript shows up here, newest first."
+    ]
+  },
+  {
+    "id": "CR-306",
+    "owner": "T4",
+    "expected": "Call prompts are on.",
+    "old": "Listening for calls now.",
+    "action": "change",
+    "location": "capture/renderer/main.js:221",
+    "oldLiterals": [
+      "Listening for calls now."
+    ]
+  },
+  {
+    "id": "CR-307",
+    "owner": "T4",
+    "expected": "Call prompts are off. Choose Turn on to enable them.",
+    "old": "Asking is off. Turn it on in the top right.",
+    "action": "change",
+    "location": "capture/renderer/main.js:221",
+    "oldLiterals": [
+      "Asking is off. Turn it on in the top right."
+    ]
+  },
+  {
+    "id": "CR-308",
+    "owner": "T4",
+    "expected": "Transcript file not found",
+    "old": "That call’s file is gone",
+    "action": "change",
+    "location": "capture/renderer/main.js:239",
+    "oldLiterals": [
+      "That call’s file is gone"
+    ]
+  },
+  {
+    "id": "CR-309",
+    "owner": "T4",
+    "expected": null,
+    "old": "audio {kept/deleted}",
+    "action": "change",
+    "location": "capture/renderer/main.js:244",
+    "template": "Audio: {retention}",
+    "placeholders": [
+      "retention"
+    ],
+    "choices": {
+      "retention": [
+        "kept",
+        "deleted"
+      ]
+    },
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-310",
+    "owner": "T4",
+    "expected": "Copy text",
+    "old": "Copy text",
+    "action": "retain",
+    "location": "capture/renderer/main.js:245",
+    "oldLiterals": [
+      "Copy text"
+    ]
+  },
+  {
+    "id": "CR-311",
+    "owner": "T4",
+    "expected": "Show in Finder",
+    "old": "Show in Finder",
+    "action": "retain",
+    "location": "capture/renderer/main.js:245",
+    "oldLiterals": [
+      "Show in Finder"
+    ]
+  },
+  {
+    "id": "CR-312",
+    "owner": "T4",
+    "expected": "You",
+    "old": "You / Them",
+    "action": "change",
+    "location": "capture/renderer/main.js:247",
+    "variants": [
+      "You",
+      "Call audio"
+    ],
+    "oldLiterals": [
+      "You",
+      "Them"
+    ]
+  },
+  {
+    "id": "CR-313",
+    "owner": "T4",
+    "expected": null,
+    "old": "{channel} channel — click to rename",
+    "action": "change",
+    "location": "capture/renderer/main.js:247",
+    "template": "Rename speaker · {channel}",
+    "placeholders": [
+      "channel"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-314",
+    "owner": "T4",
+    "expected": null,
+    "old": "Rename {speaker}",
+    "action": "retain",
+    "location": "capture/renderer/main.js:264",
+    "template": "Rename {speaker}",
+    "placeholders": [
+      "speaker"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-315",
+    "owner": "T4",
+    "expected": null,
+    "old": "{err.message}",
+    "action": "change",
+    "location": "capture/renderer/main.js:277",
+    "template": "Couldn’t rename speaker. {specific detail}",
+    "placeholders": [
+      "specific detail"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-316",
+    "owner": "T4",
+    "expected": "Ready for call transcripts",
+    "old": "Ready / Set up call transcripts",
+    "action": "change",
+    "location": "capture/renderer/main.js:299",
+    "variants": [
+      "Ready for call transcripts",
+      "Set up transcripts"
+    ],
+    "oldLiterals": [
+      "Ready",
+      "Set up call transcripts"
+    ]
+  },
+  {
+    "id": "CR-317",
+    "owner": "T4",
+    "expected": "Choose which calls to record. Capture creates a transcript on this Mac and saves it to your folder. Only you see the recording prompt; quietpls doesn’t notify the other people on the call.",
+    "old": "Records your calls only when you say yes, turns them into text on this Mac, and saves one file per call to a folder you pick.",
+    "action": "change",
+    "location": "capture/renderer/main.js:300",
+    "oldLiterals": [
+      "Records your calls only when you say yes, turns them into text on this Mac, and saves one file per call to a folder you pick."
+    ]
+  },
+  {
+    "id": "CR-318",
+    "owner": "T4",
+    "expected": "Install speech-to-text",
+    "old": "Install speech-to-text",
+    "action": "retain",
+    "location": "capture/renderer/main.js:302",
+    "oldLiterals": [
+      "Install speech-to-text"
+    ]
+  },
+  {
+    "id": "CR-319",
+    "owner": "T4",
+    "expected": "Installed",
+    "old": "Found {path}",
+    "action": "change",
+    "location": "capture/renderer/main.js:302",
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-320",
+    "owner": "T4",
+    "expected": null,
+    "old": "Download the speech model ({size})",
+    "action": "change",
+    "location": "capture/renderer/main.js:306",
+    "template": "Download transcription data · {size}",
+    "placeholders": [
+      "size"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-321",
+    "owner": "T4",
+    "expected": "Transcription data ready",
+    "old": "{model} is ready",
+    "action": "change",
+    "location": "capture/renderer/main.js:308",
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-322",
+    "owner": "T4",
+    "expected": null,
+    "old": "{download error}",
+    "action": "change",
+    "location": "capture/renderer/main.js:310",
+    "template": "Couldn’t download. Try again. {diagnostic detail}",
+    "placeholders": [
+      "diagnostic detail"
+    ],
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-323",
+    "owner": "T4",
+    "expected": "Downloaded once, then used for every call.",
+    "old": "Downloaded once from Hugging Face and kept in ~/Library/Application Support/quietpls/models. Capture makes no other network requests.",
+    "action": "change",
+    "location": "capture/renderer/main.js:311",
+    "oldLiterals": [
+      "Downloaded once from Hugging Face and kept in ~/Library/Application Support/quietpls/models. Capture makes no other network requests."
+    ]
+  },
+  {
+    "id": "CR-324",
+    "owner": "T4",
+    "expected": "Download",
+    "old": "Download",
+    "action": "retain",
+    "location": "capture/renderer/main.js:316,400",
+    "oldLiterals": [
+      "Download"
+    ]
+  },
+  {
+    "id": "CR-325",
+    "owner": "T4",
+    "expected": "Choose a transcript folder",
+    "old": "Choose a transcript folder",
+    "action": "retain",
+    "location": "capture/renderer/main.js:321",
+    "oldLiterals": [
+      "Choose a transcript folder"
+    ]
+  },
+  {
+    "id": "CR-326",
+    "owner": "T4",
+    "expected": null,
+    "old": "{folder} · local git repo, no remote",
+    "action": "change",
+    "location": "capture/renderer/main.js:323",
+    "template": "{folder}",
+    "placeholders": [
+      "folder"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-327",
+    "owner": "T4",
+    "expected": "Choose a folder that exists and doesn’t sync to an online code repository",
+    "old": "That folder’s repo has a remote. Pick one that can’t be pushed.",
+    "action": "change",
+    "location": "capture/renderer/main.js:325",
+    "oldLiterals": [
+      "That folder’s repo has a remote. Pick one that can’t be pushed."
+    ]
+  },
+  {
+    "id": "CR-328",
+    "owner": "T4",
+    "expected": "Saves each call transcript as a text file. Choose a folder that doesn’t sync to an online code repository.",
+    "old": "Each call is saved there as a markdown file and committed with git. It must not have a git remote.",
+    "action": "change",
+    "location": "capture/renderer/main.js:326",
+    "oldLiterals": [
+      "Each call is saved there as a markdown file and committed with git. It must not have a git remote."
+    ]
+  },
+  {
+    "id": "CR-329",
+    "owner": "T4",
+    "expected": "Change…",
+    "old": "Change… / Choose…",
+    "action": "retain",
+    "location": "capture/renderer/main.js:327",
+    "variants": [
+      "Change…",
+      "Choose…"
+    ],
+    "oldLiterals": [
+      "Change…",
+      "Choose…"
+    ]
+  },
+  {
+    "id": "CR-330",
+    "owner": "T4",
+    "expected": "Turn on call prompts",
+    "old": "Turn on “ask when a call starts”",
+    "action": "change",
+    "location": "capture/renderer/main.js:332",
+    "oldLiterals": [
+      "Turn on “ask when a call starts”"
+    ]
+  },
+  {
+    "id": "CR-331",
+    "owner": "T4",
+    "expected": "On. Choose which detected calls to record.",
+    "old": "On. You’ll be asked at the start of every call.",
+    "action": "change",
+    "location": "capture/renderer/main.js:334",
+    "oldLiterals": [
+      "On. You’ll be asked at the start of every call."
+    ]
+  },
+  {
+    "id": "CR-332",
+    "owner": "T4",
+    "expected": "Call recording starts only after you choose Record this call.",
+    "old": "Nothing is recorded unless you say yes to that call.",
+    "action": "change",
+    "location": "capture/renderer/main.js:335",
+    "oldLiterals": [
+      "Nothing is recorded unless you say yes to that call."
+    ]
+  },
+  {
+    "id": "CR-333",
+    "owner": "T4",
+    "expected": "Turn on",
+    "old": "Turn on",
+    "action": "retain",
+    "location": "capture/renderer/main.js:338",
+    "oldLiterals": [
+      "Turn on"
+    ]
+  },
+  {
+    "id": "CR-334",
+    "owner": "T4",
+    "expected": "By default, audio is deleted after the transcript is saved.",
+    "old": "Recordings and transcripts stay on this Mac. Audio is deleted once the text is saved (change this in Settings).",
+    "action": "change",
+    "location": "capture/renderer/main.js:341",
+    "oldLiterals": [
+      "Recordings and transcripts stay on this Mac. Audio is deleted once the text is saved (change this in Settings)."
+    ]
+  },
+  {
+    "id": "CR-335",
+    "owner": "T4",
+    "expected": "No folder selected",
+    "old": "No folder chosen",
+    "action": "change",
+    "location": "capture/renderer/main.js:364",
+    "oldLiterals": [
+      "No folder chosen"
+    ]
+  },
+  {
+    "id": "CR-336",
+    "owner": "T4",
+    "expected": "✓ Ready. Saves transcripts on this Mac.",
+    "old": "✓ Local git repo, no remote",
+    "action": "change",
+    "location": "capture/renderer/main.js:366",
+    "oldLiterals": [
+      "✓ Local git repo, no remote"
+    ]
+  },
+  {
+    "id": "CR-337",
+    "owner": "T4",
+    "expected": "✗ This folder syncs to an online code repository. Choose another folder.",
+    "old": "✗ Has a remote ({names}). Nothing will be saved here.",
+    "action": "change",
+    "location": "capture/renderer/main.js:368",
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-338",
+    "owner": "T4",
+    "expected": "✗ Folder not found",
+    "old": "✗ Folder not found",
+    "action": "retain",
+    "location": "capture/renderer/main.js:369",
+    "oldLiterals": [
+      "✗ Folder not found"
+    ]
+  },
+  {
+    "id": "CR-339",
+    "owner": "T4",
+    "expected": "Call recording",
+    "old": "Capture",
+    "action": "change",
+    "location": "capture/renderer/main.js:374",
+    "oldLiterals": [
+      "Capture"
+    ]
+  },
+  {
+    "id": "CR-340",
+    "owner": "T4",
+    "expected": "Ask to record calls",
+    "old": "Ask to record when a call starts",
+    "action": "change",
+    "location": "capture/renderer/main.js:375",
+    "oldLiterals": [
+      "Ask to record when a call starts"
+    ]
+  },
+  {
+    "id": "CR-341",
+    "owner": "T4",
+    "expected": "Prompts when a call is detected. Recording starts after you approve.",
+    "old": "On: when an app starts using the mic, you’re asked before anything is recorded.",
+    "action": "change",
+    "location": "capture/renderer/main.js:376",
+    "oldLiterals": [
+      "On: when an app starts using the mic, you’re asked before anything is recorded."
+    ]
+  },
+  {
+    "id": "CR-342",
+    "owner": "T4",
+    "expected": "Call prompts are off. Always-on recording is controlled separately.",
+    "old": "Off: calls aren’t noticed and nothing is recorded.",
+    "action": "change",
+    "location": "capture/renderer/main.js:376",
+    "oldLiterals": [
+      "Off: calls aren’t noticed and nothing is recorded."
+    ]
+  },
+  {
+    "id": "CR-343",
+    "owner": "T4",
+    "expected": "Always-on recording",
+    "old": "Always-on",
+    "action": "change",
+    "location": "capture/renderer/main.js:378",
+    "oldLiterals": [
+      "Always-on"
+    ]
+  },
+  {
+    "id": "CR-344",
+    "owner": "T4",
+    "expected": "Stop always-on recording",
+    "old": "Stop always-on recording",
+    "action": "retain",
+    "location": "capture/renderer/main.js:379",
+    "oldLiterals": [
+      "Stop always-on recording"
+    ]
+  },
+  {
+    "id": "CR-345",
+    "owner": "T4",
+    "expected": "Set up always-on…",
+    "old": "Set up always-on…",
+    "action": "retain",
+    "location": "capture/renderer/main.js:379",
+    "oldLiterals": [
+      "Set up always-on…"
+    ]
+  },
+  {
+    "id": "CR-346",
+    "owner": "T4",
+    "expected": "Records mic and system audio beyond calls after a separate confirmation. These transcripts are deleted after 24 hours by default and never added to the folder’s history. Audio is deleted after processing.",
+    "old": "Separate explicit consent. Records beyond calls. 24-hour transcript retention; no audio kept. Ambient files are excluded from git history.",
+    "action": "change",
+    "location": "capture/renderer/main.js:380",
+    "oldLiterals": [
+      "Separate explicit consent. Records beyond calls. 24-hour transcript retention; no audio kept. Ambient files are excluded from git history."
+    ]
+  },
+  {
+    "id": "CR-347",
+    "owner": "T4",
+    "expected": "Speaker labels",
+    "old": "Speaker labels",
+    "action": "retain",
+    "location": "capture/renderer/main.js:382",
+    "oldLiterals": [
+      "Speaker labels"
+    ]
+  },
+  {
+    "id": "CR-348",
+    "owner": "T4",
+    "expected": "Add speaker labels",
+    "old": "Label different speakers locally",
+    "action": "change",
+    "location": "capture/renderer/main.js:383",
+    "oldLiterals": [
+      "Label different speakers locally"
+    ]
+  },
+  {
+    "id": "CR-349",
+    "owner": "T4",
+    "expected": "Speaker labeling ready · 26 MB",
+    "old": "26 MB ONNX model ready.",
+    "action": "change",
+    "location": "capture/renderer/main.js:384",
+    "oldLiterals": [
+      "26 MB ONNX model ready."
+    ]
+  },
+  {
+    "id": "CR-350",
+    "owner": "T4",
+    "expected": "Download speaker labeling · 26 MB",
+    "old": "Download speaker model (26 MB)",
+    "action": "change",
+    "location": "capture/renderer/main.js:384",
+    "oldLiterals": [
+      "Download speaker model (26 MB)"
+    ]
+  },
+  {
+    "id": "CR-351",
+    "owner": "T4",
+    "expected": "Setup downloads the required tools. Speaker labeling then runs on this Mac.",
+    "old": "Setup downloads Python dependencies via uv; processing then runs offline.",
+    "action": "change",
+    "location": "capture/renderer/main.js:384",
+    "oldLiterals": [
+      "Setup downloads Python dependencies via uv; processing then runs offline."
+    ]
+  },
+  {
+    "id": "CR-352",
+    "owner": "T4",
+    "expected": "In Terminal, run brew install uv first.",
+    "old": "Install the Python runner first: brew install uv",
+    "action": "change",
+    "location": "capture/renderer/main.js:384",
+    "oldLiterals": [
+      "Install the Python runner first: brew install uv"
+    ]
+  },
+  {
+    "id": "CR-353",
+    "owner": "T4",
+    "expected": "Call voices get Speaker 1, Speaker 2, and so on. The main mic voice is You. Select a label to rename it, then press Return. One person may receive more than one label.",
+    "old": "Speaker 1/2/… on the far side; primary mic voice stays You. Click a speaker label to rename it, then press Enter. Estimates may split one person into several labels.",
+    "action": "change",
+    "location": "capture/renderer/main.js:385",
+    "oldLiterals": [
+      "Speaker 1/2/… on the far side; primary mic voice stays You. Click a speaker label to rename it, then press Enter. Estimates may split one person into several labels."
+    ]
+  },
+  {
+    "id": "CR-354",
+    "owner": "T4",
+    "expected": null,
+    "old": "{speaker error}",
+    "action": "change",
+    "location": "capture/renderer/main.js:386",
+    "template": "Couldn’t set up speaker labels. {specific detail}",
+    "placeholders": [
+      "specific detail"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-355",
+    "owner": "T4",
+    "expected": "Transcript folder",
+    "old": "Transcript folder",
+    "action": "retain",
+    "location": "capture/renderer/main.js:388",
+    "oldLiterals": [
+      "Transcript folder"
+    ]
+  },
+  {
+    "id": "CR-356",
+    "owner": "T4",
+    "expected": "Each call transcript is a text file on this Mac, and the folder keeps its version history. Capture won’t use a folder that syncs to an online code repository.",
+    "old": "One markdown file per call, committed to this folder’s git repo. Folders with a git remote are refused so calls can’t be pushed by accident.",
+    "action": "change",
+    "location": "capture/renderer/main.js:391",
+    "oldLiterals": [
+      "One markdown file per call, committed to this folder’s git repo. Folders with a git remote are refused so calls can’t be pushed by accident."
+    ]
+  },
+  {
+    "id": "CR-357",
+    "owner": "T4",
+    "expected": "Transcription",
+    "old": "Speech model",
+    "action": "change",
+    "location": "capture/renderer/main.js:393",
+    "oldLiterals": [
+      "Speech model"
+    ]
+  },
+  {
+    "id": "CR-358",
+    "owner": "T4",
+    "expected": null,
+    "old": "{label} · {id} · {size}",
+    "action": "change",
+    "location": "capture/renderer/main.js:398",
+    "template": "{label} · {size}",
+    "placeholders": [
+      "label",
+      "size"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-359",
+    "owner": "T4",
+    "expected": "✓ Ready",
+    "old": "✓ Ready",
+    "action": "retain",
+    "location": "capture/renderer/main.js:400",
+    "oldLiterals": [
+      "✓ Ready"
+    ]
+  },
+  {
+    "id": "CR-360",
+    "owner": "T4",
+    "expected": null,
+    "old": "Download failed: {error}",
+    "action": "change",
+    "location": "capture/renderer/main.js:404",
+    "template": "Couldn’t download. Try again. {diagnostic detail}",
+    "placeholders": [
+      "diagnostic detail"
+    ],
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-361",
+    "owner": "T4",
+    "expected": null,
+    "old": "Runs on this Mac with {path}.",
+    "action": "change",
+    "location": "capture/renderer/main.js:405",
+    "template": "Speech-to-text installed · {path}",
+    "placeholders": [
+      "path"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-362",
+    "owner": "T4",
+    "expected": "Install speech-to-text: run brew install whisper-cpp in Terminal.",
+    "old": "Speech-to-text isn’t installed: run brew install whisper-cpp.",
+    "action": "change",
+    "location": "capture/renderer/main.js:405",
+    "oldLiterals": [
+      "Speech-to-text isn’t installed: run brew install whisper-cpp."
+    ]
+  },
+  {
+    "id": "CR-363",
+    "owner": "T4",
+    "expected": "Transcription data downloads once and stays on this Mac in ~/Library/Application Support/quietpls/models. Calls are transcribed here.",
+    "old": "Models download once from Hugging Face into ~/Library/Application Support/quietpls/models; Capture makes no other network requests.",
+    "action": "change",
+    "location": "capture/renderer/main.js:405",
+    "oldLiterals": [
+      "Models download once from Hugging Face into ~/Library/Application Support/quietpls/models; Capture makes no other network requests."
+    ]
+  },
+  {
+    "id": "CR-364",
+    "owner": "T4",
+    "expected": "Audio retention",
+    "old": "Audio",
+    "action": "change",
+    "location": "capture/renderer/main.js:407",
+    "oldLiterals": [
+      "Audio"
+    ]
+  },
+  {
+    "id": "CR-365",
+    "owner": "T4",
+    "expected": "Delete audio after transcript is saved (default)",
+    "old": "Delete audio once the text is saved (recommended)",
+    "action": "change",
+    "location": "capture/renderer/main.js:408",
+    "oldLiterals": [
+      "Delete audio once the text is saved (recommended)"
+    ]
+  },
+  {
+    "id": "CR-366",
+    "owner": "T4",
+    "expected": null,
+    "old": "Keep audio for {days} days, then delete",
+    "action": "retain",
+    "location": "capture/renderer/main.js:409",
+    "template": "Keep audio for {days} days, then delete",
+    "placeholders": [
+      "days"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-367",
+    "owner": "T4",
+    "expected": "Kept audio is stored on this Mac, separate from your transcripts.",
+    "old": "Audio is never put in the git repo.",
+    "action": "change",
+    "location": "capture/renderer/main.js:410",
+    "oldLiterals": [
+      "Audio is never put in the git repo."
+    ]
+  },
+  {
+    "id": "CR-368",
+    "owner": "T4",
+    "expected": "Call apps",
+    "old": "Apps",
+    "action": "change",
+    "location": "capture/renderer/main.js:412",
+    "oldLiterals": [
+      "Apps"
+    ]
+  },
+  {
+    "id": "CR-369",
+    "owner": "T4",
+    "expected": "Ask",
+    "old": "Ask / Never",
+    "action": "retain",
+    "location": "capture/renderer/main.js:418",
+    "variants": [
+      "Ask",
+      "Never"
+    ],
+    "oldLiterals": [
+      "Ask",
+      "Never"
+    ]
+  },
+  {
+    "id": "CR-370",
+    "owner": "T4",
+    "expected": "Apps appear here when quietpls detects them using the mic.",
+    "old": "Apps show up here after their first call.",
+    "action": "change",
+    "location": "capture/renderer/main.js:421",
+    "oldLiterals": [
+      "Apps show up here after their first call."
+    ]
+  },
+  {
+    "id": "CR-371",
+    "owner": "T4",
+    "expected": "Never blocks call recording while that app is detected. It doesn’t apply to always-on recording.",
+    "old": "“Never” means that app’s calls are ignored: no box, no recording.",
+    "action": "change",
+    "location": "capture/renderer/main.js:423",
+    "oldLiterals": [
+      "“Never” means that app’s calls are ignored: no box, no recording."
+    ]
+  },
+  {
+    "id": "CR-372",
+    "owner": "T4",
+    "expected": "Permissions",
+    "old": "Permissions",
+    "action": "retain",
+    "location": "capture/renderer/main.js:425",
+    "oldLiterals": [
+      "Permissions"
+    ]
+  },
+  {
+    "id": "CR-373",
+    "owner": "T4",
+    "expected": "Microphone:",
+    "old": "Microphone:",
+    "action": "retain",
+    "location": "capture/renderer/main.js:426",
+    "oldLiterals": [
+      "Microphone:"
+    ]
+  },
+  {
+    "id": "CR-374",
+    "owner": "T4",
+    "expected": "✓ Allowed",
+    "old": "✓ Allowed",
+    "action": "retain",
+    "location": "capture/renderer/main.js:426",
+    "oldLiterals": [
+      "✓ Allowed"
+    ]
+  },
+  {
+    "id": "CR-375",
+    "owner": "T4",
+    "expected": "✗ Off",
+    "old": "✗ Off",
+    "action": "retain",
+    "location": "capture/renderer/main.js:426",
+    "oldLiterals": [
+      "✗ Off"
+    ]
+  },
+  {
+    "id": "CR-376",
+    "owner": "T4",
+    "expected": "macOS may ask for access when the mic starts",
+    "old": "macOS asks the first time you record",
+    "action": "change",
+    "location": "capture/renderer/main.js:426",
+    "oldLiterals": [
+      "macOS asks the first time you record"
+    ]
+  },
+  {
+    "id": "CR-377",
+    "owner": "T4",
+    "expected": "System audio:",
+    "old": "Call audio:",
+    "action": "change",
+    "location": "capture/renderer/main.js:427",
+    "oldLiterals": [
+      "Call audio:"
+    ]
+  },
+  {
+    "id": "CR-378",
+    "owner": "T4",
+    "expected": "macOS may request System Audio Recording access when Capture starts",
+    "old": "macOS asks the first time you record (System Audio Recording)",
+    "action": "change",
+    "location": "capture/renderer/main.js:427",
+    "oldLiterals": [
+      "macOS asks the first time you record (System Audio Recording)"
+    ]
+  },
+  {
+    "id": "CR-379",
+    "owner": "T4",
+    "expected": "Fastest · English",
+    "old": "Fastest",
+    "action": "change",
+    "location": "capture/lib/whisper.js:11",
+    "oldLiterals": [
+      "Fastest"
+    ]
+  },
+  {
+    "id": "CR-380",
+    "owner": "T4",
+    "expected": "Fast · English",
+    "old": "Fast",
+    "action": "change",
+    "location": "capture/lib/whisper.js:12",
+    "oldLiterals": [
+      "Fast"
+    ]
+  },
+  {
+    "id": "CR-381",
+    "owner": "T4",
+    "expected": "Larger · English",
+    "old": "Better",
+    "action": "change",
+    "location": "capture/lib/whisper.js:13",
+    "oldLiterals": [
+      "Better"
+    ]
+  },
+  {
+    "id": "CR-382",
+    "owner": "T4",
+    "expected": "Multilingual",
+    "old": "Best, any language",
+    "action": "change",
+    "location": "capture/lib/whisper.js:14",
+    "oldLiterals": [
+      "Best, any language"
+    ]
+  },
+  {
+    "id": "CR-383",
+    "owner": "T4",
+    "expected": "Always-on Recording",
+    "old": "Always-on capture — consent / Always-on capture — explicit consent",
+    "action": "change",
+    "location": "capture/renderer/ambient-consent.html:11; capture/mode.js:608",
+    "oldLiterals": [
+      "Always-on capture — consent",
+      "Always-on capture — explicit consent"
+    ]
+  },
+  {
+    "id": "CR-384",
+    "owner": "T4",
+    "expected": "Record beyond calls?",
+    "old": "Record beyond calls?",
+    "action": "retain",
+    "location": "capture/renderer/ambient-consent.html:14",
+    "oldLiterals": [
+      "Record beyond calls?"
+    ]
+  },
+  {
+    "id": "CR-385",
+    "owner": "T4",
+    "expected": "Always-on records your mic and system audio, including when you’re not on a call.",
+    "old": "Always-on records your microphone and system audio even when you are not in a call.",
+    "action": "change",
+    "location": "capture/renderer/ambient-consent.html:16",
+    "oldLiterals": [
+      "Always-on records your microphone and system audio even when you are not in a call."
+    ]
+  },
+  {
+    "id": "CR-386",
+    "owner": "T4",
+    "expected": "People near your mic may be recorded. Tell them first and get any consent required where you are.",
+    "old": "Anyone near your microphone can be recorded. Tell them first and obtain any consent required where you are.",
+    "action": "change",
+    "location": "capture/renderer/ambient-consent.html:21",
+    "oldLiterals": [
+      "Anyone near your microphone can be recorded. Tell them first and obtain any consent required where you are."
+    ]
+  },
+  {
+    "id": "CR-387",
+    "owner": "T4",
+    "expected": "The ALWAYS ON indicator stays visible. Stop recording there or in the menu bar.",
+    "old": "A persistent red ALWAYS ON indicator stays visible. Stop there or in the menubar at any time.",
+    "action": "change",
+    "location": "capture/renderer/ambient-consent.html:25",
+    "oldLiterals": [
+      "A persistent red ALWAYS ON indicator stays visible. Stop there or in the menubar at any time."
+    ]
+  },
+  {
+    "id": "CR-388",
+    "owner": "T4",
+    "expected": "Audio is processed on this Mac in 10-minute chunks. Recording pauses while each chunk is transcribed.",
+    "old": "Speech is transcribed on this Mac in 10-minute chunks. There are gaps while each chunk is transcribed.",
+    "action": "change",
+    "location": "capture/renderer/ambient-consent.html:29",
+    "oldLiterals": [
+      "Speech is transcribed on this Mac in 10-minute chunks. There are gaps while each chunk is transcribed."
+    ]
+  },
+  {
+    "id": "CR-389",
+    "owner": "T4",
+    "expected": "Always-on transcripts are deleted after 24 hours by default. They’re saved in an ambient folder and never added to the folder’s history. Call transcripts keep a version history.",
+    "old": "Transcripts are deleted after 24 hours by default. They live in ambient/, excluded from git history. Call transcripts keep their normal git history.",
+    "action": "change",
+    "location": "capture/renderer/ambient-consent.html:33",
+    "oldLiterals": [
+      "Transcripts are deleted after 24 hours by default. They live in ambient/, excluded from git history. Call transcripts keep their normal git history."
+    ]
+  },
+  {
+    "id": "CR-390",
+    "owner": "T4",
+    "expected": "Audio is stored while recording and transcribing, then deleted—even if transcription fails.",
+    "old": "Audio exists temporarily while recording/transcribing and is deleted afterward, including on transcription failure.",
+    "action": "change",
+    "location": "capture/renderer/ambient-consent.html:38",
+    "oldLiterals": [
+      "Audio exists temporarily while recording/transcribing and is deleted afterward, including on transcription failure."
+    ]
+  },
+  {
+    "id": "CR-391",
+    "owner": "T4",
+    "expected": "Always-on stays off after you quit and reopen quietpls.",
+    "old": "Always-on does not restart automatically after quitting the app.",
+    "action": "change",
+    "location": "capture/renderer/ambient-consent.html:41",
+    "oldLiterals": [
+      "Always-on does not restart automatically after quitting the app."
+    ]
+  },
+  {
+    "id": "CR-392",
+    "owner": "T4",
+    "expected": "To start recording, type ALWAYS ON",
+    "old": "To start now, type ALWAYS ON",
+    "action": "change",
+    "location": "capture/renderer/ambient-consent.html:44",
+    "oldLiterals": [
+      "To start now, type ALWAYS ON"
+    ]
+  },
+  {
+    "id": "CR-393",
+    "owner": "T4",
+    "expected": "Always-on is separate from call prompts. The call app Never list doesn’t apply.",
+    "old": "This is separate from “Ask when a call starts”.",
+    "action": "change",
+    "location": "capture/renderer/ambient-consent.html:53",
+    "oldLiterals": [
+      "This is separate from “Ask when a call starts”."
+    ]
+  },
+  {
+    "id": "CR-394",
+    "owner": "T4",
+    "expected": "Cancel",
+    "old": "Cancel — keep it off",
+    "action": "retain",
+    "location": "capture/renderer/ambient-consent.html:56",
+    "oldLiterals": [
+      "Cancel — keep it off"
+    ]
+  },
+  {
+    "id": "CR-395",
+    "owner": "T4",
+    "expected": "Start always-on recording",
+    "old": "Start always-on recording",
+    "action": "retain",
+    "location": "capture/renderer/ambient-consent.html:58",
+    "oldLiterals": [
+      "Start always-on recording"
+    ]
+  },
+  {
+    "id": "CR-396",
+    "owner": "T4",
+    "expected": null,
+    "old": "Not recorded: {apps} is/are set to Never record. Change it in Settings to record calls while it’s/they’re on.",
+    "action": "change",
+    "location": "capture/mode.js:484",
+    "template": "Recording blocked by Never for {apps}. Change the app setting in Capture settings to record its calls.",
+    "placeholders": [
+      "apps"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-397",
+    "owner": "T4",
+    "expected": "Recording didn’t start. Your transcript folder syncs to an online code repository. Choose another folder.",
+    "old": "Your transcript folder’s repo has a remote, so nothing was recorded. Pick a folder with no remote.",
+    "action": "change",
+    "location": "capture/mode.js:489",
+    "oldLiterals": [
+      "Your transcript folder’s repo has a remote, so nothing was recorded. Pick a folder with no remote."
+    ]
+  },
+  {
+    "id": "CR-398",
+    "owner": "T4",
+    "expected": "Choose a transcript folder in Capture settings first.",
+    "old": "Choose a transcript folder first.",
+    "action": "change",
+    "location": "capture/mode.js:490; capture/lib/repo.js:84",
+    "oldLiterals": [
+      "Choose a transcript folder first."
+    ]
+  },
+  {
+    "id": "CR-399",
+    "owner": "T4",
+    "expected": "Install speech-to-text: run brew install whisper-cpp in Terminal.",
+    "old": "Speech-to-text isn’t installed (brew install whisper-cpp).",
+    "action": "change",
+    "location": "capture/mode.js:492",
+    "oldLiterals": [
+      "Speech-to-text isn’t installed (brew install whisper-cpp)."
+    ]
+  },
+  {
+    "id": "CR-400",
+    "owner": "T4",
+    "expected": "Download transcription data in Capture settings first.",
+    "old": "Download the speech model first (Settings).",
+    "action": "change",
+    "location": "capture/mode.js:494",
+    "oldLiterals": [
+      "Download the speech model first (Settings)."
+    ]
+  },
+  {
+    "id": "CR-401",
+    "owner": "T4",
+    "expected": "Turn on quietpls in System Settings → Privacy & Security → Microphone, then try recording again.",
+    "old": "Microphone access is off. Turn it on in System Settings → Privacy & Security → Microphone.",
+    "action": "change",
+    "location": "capture/mode.js:628",
+    "oldLiterals": [
+      "Microphone access is off. Turn it on in System Settings → Privacy & Security → Microphone."
+    ]
+  },
+  {
+    "id": "CR-402",
+    "owner": "T4",
+    "expected": "No mic found. Connect or select a mic, then try again.",
+    "old": "No microphone was found.",
+    "action": "change",
+    "location": "capture/mode.js:629",
+    "oldLiterals": [
+      "No microphone was found."
+    ]
+  },
+  {
+    "id": "CR-403",
+    "owner": "T4",
+    "expected": "System audio is unavailable. Check Screen & System Audio Recording in System Settings, then try again.",
+    "old": "macOS didn’t allow system audio recording. Allow it in System Settings → Privacy & Security → Screen & System Audio Recording.",
+    "action": "change",
+    "location": "capture/mode.js:631",
+    "oldLiterals": [
+      "macOS didn’t allow system audio recording. Allow it in System Settings → Privacy & Security → Screen & System Audio Recording."
+    ]
+  },
+  {
+    "id": "CR-404",
+    "owner": "T4",
+    "expected": null,
+    "old": "Recording stopped: {app} was set to Never record. Only your side was saved. / Nothing was saved.",
+    "action": "change",
+    "location": "capture/mode.js:636",
+    "template": "Recording stopped because {app} was set to Never. {savedResult}",
+    "placeholders": [
+      "app",
+      "savedResult"
+    ],
+    "choices": {
+      "savedResult": [
+        "Only the microphone transcript was saved.",
+        "No transcript was saved."
+      ]
+    },
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-405",
+    "owner": "T4",
+    "expected": null,
+    "old": "Recording stopped: quietpls couldn’t check which app the call’s sound comes from. Your side was saved. / Nothing was saved.",
+    "action": "change",
+    "location": "capture/mode.js:638,640",
+    "template": "Recording stopped because the call audio source couldn’t be checked. {savedResult}",
+    "placeholders": [
+      "savedResult"
+    ],
+    "choices": {
+      "savedResult": [
+        "The microphone transcript was saved.",
+        "No transcript was saved."
+      ]
+    },
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": [
+      "Recording stopped: quietpls couldn’t check which app the call’s sound comes from. Your side was saved.",
+      "Nothing was saved."
+    ]
+  },
+  {
+    "id": "CR-406",
+    "owner": "T4",
+    "expected": "Recording didn’t start because the call audio source couldn’t be checked.",
+    "old": "Not recorded: quietpls couldn’t check which app the call’s sound comes from.",
+    "action": "change",
+    "location": "capture/mode.js:641",
+    "oldLiterals": [
+      "Not recorded: quietpls couldn’t check which app the call’s sound comes from."
+    ]
+  },
+  {
+    "id": "CR-407",
+    "owner": "T4",
+    "expected": null,
+    "old": "Recording stopped unexpectedly (exit {code}).",
+    "action": "change",
+    "location": "capture/mode.js:657",
+    "template": "Recording stopped unexpectedly. No transcript was saved. Details: exit {code}.",
+    "placeholders": [
+      "code"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-408",
+    "owner": "T4",
+    "expected": null,
+    "old": "Couldn’t save the transcript: {error} Audio kept at {path}.",
+    "action": "change",
+    "location": "capture/mode.js:724",
+    "template": "Couldn’t finish saving the transcript. Audio kept at {path}. {specific detail}",
+    "placeholders": [
+      "path",
+      "specific detail"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-409",
+    "owner": "T4",
+    "expected": null,
+    "old": "Couldn’t save the transcript: {error} Always-on stopped; audio deleted.",
+    "action": "change",
+    "location": "capture/mode.js:724",
+    "template": "Couldn’t finish saving the transcript. Always-on stopped and its audio was deleted. {specific detail}",
+    "placeholders": [
+      "specific detail"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-410",
+    "owner": "T4",
+    "expected": "Couldn’t open this transcript. The filename isn’t supported.",
+    "old": "Invalid transcript name",
+    "action": "change",
+    "location": "capture/mode.js:786",
+    "oldLiterals": [
+      "Invalid transcript name"
+    ]
+  },
+  {
+    "id": "CR-411",
+    "owner": "T4",
+    "expected": "Choose a Transcript Folder",
+    "old": "Choose where transcripts go",
+    "action": "change",
+    "location": "capture/mode.js:897",
+    "oldLiterals": [
+      "Choose where transcripts go"
+    ]
+  },
+  {
+    "id": "CR-412",
+    "owner": "T4",
+    "expected": "Use This Folder",
+    "old": "Use this folder",
+    "action": "retain",
+    "location": "capture/mode.js:899",
+    "oldLiterals": [
+      "Use this folder"
+    ]
+  },
+  {
+    "id": "CR-413",
+    "owner": "T4",
+    "expected": null,
+    "old": "Model download failed (HTTP {status})",
+    "action": "retain",
+    "location": "capture/lib/whisper.js:41",
+    "template": "Speech model download failed. Try again. Details: HTTP {status}.",
+    "placeholders": [
+      "status"
+    ],
+    "diagnostic": true,
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-414",
+    "owner": "T4",
+    "expected": null,
+    "old": "Speaker {n}",
+    "action": "retain",
+    "location": "capture/lib/speakers.js:30",
+    "template": "Speaker {n}",
+    "placeholders": [
+      "n"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-415",
+    "owner": "T4",
+    "expected": null,
+    "old": "In room {n}",
+    "action": "retain",
+    "location": "capture/lib/speakers.js:31",
+    "template": "In room {n}",
+    "placeholders": [
+      "n"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-416",
+    "owner": "T4",
+    "expected": "Enter a speaker name",
+    "old": "A speaker name can’t be empty.",
+    "action": "change",
+    "location": "capture/lib/speakers.js:44",
+    "oldLiterals": [
+      "A speaker name can’t be empty."
+    ]
+  },
+  {
+    "id": "CR-417",
+    "owner": "T4",
+    "expected": "Install the speaker-labeling tool: run brew install uv in Terminal.",
+    "old": "Install uv first (brew install uv).",
+    "action": "change",
+    "location": "capture/lib/speakers.js:128",
+    "oldLiterals": [
+      "Install uv first (brew install uv)."
+    ]
+  },
+  {
+    "id": "CR-418",
+    "owner": "T4",
+    "expected": null,
+    "old": "Speaker model download failed ({status})",
+    "action": "change",
+    "location": "capture/lib/speakers.js:152",
+    "template": "Speaker model download failed. Try again. Details: HTTP {status}.",
+    "placeholders": [
+      "status"
+    ],
+    "diagnostic": true,
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-419",
+    "owner": "T4",
+    "expected": "Transcript wasn’t written because the folder syncs to an online code repository. Choose another folder.",
+    "old": "The transcript folder’s git repo has a remote ({names}), so nothing was written there.",
+    "action": "change",
+    "location": "capture/lib/repo.js:83",
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-420",
+    "owner": "T4",
+    "expected": "This folder already keeps always-on transcripts in its history. Choose another transcript folder.",
+    "old": "Ambient folder already has tracked files; choose another transcript folder.",
+    "action": "change",
+    "location": "capture/lib/repo.js:123",
+    "oldLiterals": [
+      "Ambient folder already has tracked files; choose another transcript folder."
+    ]
+  },
+  {
+    "id": "CR-421",
+    "owner": "T4",
+    "expected": "Couldn’t keep this transcript out of the folder’s history. No transcript was written. Choose another transcript folder.",
+    "old": "Couldn’t keep the ambient folder out of git; nothing was written.",
+    "action": "change",
+    "location": "capture/lib/repo.js:147",
+    "oldLiterals": [
+      "Couldn’t keep the ambient folder out of git; nothing was written."
+    ]
+  },
+  {
+    "id": "CR-422",
+    "owner": "T4",
+    "expected": null,
+    "old": "{apps} call / Call",
+    "action": "retain",
+    "location": "capture/lib/transcript.js:99",
+    "template": "{apps} call",
+    "placeholders": [
+      "apps"
+    ],
+    "variants": [
+      "{apps} call",
+      "Call"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-423",
+    "owner": "T4",
+    "expected": "No audio was captured from the microphone.",
+    "old": "No sound was heard from your microphone.",
+    "action": "change",
+    "location": "capture/lib/transcript.js:139",
+    "oldLiterals": [
+      "No sound was heard from your microphone."
+    ]
+  },
+  {
+    "id": "CR-424",
+    "owner": "T4",
+    "expected": "No call audio was captured.",
+    "old": "No sound was heard from the other side (system audio).",
+    "action": "change",
+    "location": "capture/lib/transcript.js:139",
+    "oldLiterals": [
+      "No sound was heard from the other side (system audio)."
+    ]
+  },
+  {
+    "id": "CR-425",
+    "owner": "T4",
+    "expected": "No speech was recognized in this recording.",
+    "old": "No speech was recognized in this call.",
+    "action": "change",
+    "location": "capture/lib/transcript.js:142",
+    "oldLiterals": [
+      "No speech was recognized in this call."
+    ]
+  },
+  {
+    "id": "CR-426",
+    "owner": "T4",
+    "expected": "Always-on",
+    "old": "Always-on",
+    "action": "retain",
+    "location": "capture/lib/pipeline.js:66",
+    "oldLiterals": [
+      "Always-on"
+    ]
+  },
+  {
+    "id": "CR-427",
+    "owner": "T4",
+    "expected": "an app",
+    "old": "an app",
+    "action": "retain",
+    "location": "capture/renderer/common.js:22",
+    "oldLiterals": [
+      "an app"
+    ],
+    "variants": [
+      "an app",
+      "{count} apps"
+    ]
+  },
+  {
+    "id": "CR-428",
+    "owner": "T4",
+    "expected": null,
+    "old": "{native/tool/filesystem error detail}",
+    "action": "change",
+    "location": "capture/mode.js:656; capture/renderer/main.js:386,404; native/capture.swift",
+    "template": "{summary} {diagnostic}",
+    "placeholders": [
+      "diagnostic",
+      "summary"
+    ],
+    "diagnostic": true,
+    "override": "spec §9.1 / surface acceptance / §9.2 vocabulary",
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-429",
+    "owner": "T1",
+    "expected": "0m",
+    "old": "0m",
+    "action": "retain",
+    "location": "index.html:73",
+    "oldLiterals": [
+      "0m"
+    ]
+  },
+  {
+    "id": "CR-430",
+    "owner": "T3",
+    "expected": "—",
+    "old": "--",
+    "action": "change",
+    "location": "settings.html:227,231,235",
+    "oldLiterals": [
+      "--"
+    ]
+  },
+  {
+    "id": "CR-431",
+    "owner": "T3",
+    "expected": null,
+    "old": "Microphone ({id prefix})",
+    "action": "change",
+    "location": "settings-logic.js:56",
+    "template": "Unnamed mic ({id prefix})",
+    "placeholders": [
+      "id prefix"
+    ],
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-432",
+    "owner": "T4",
+    "expected": null,
+    "old": "whisper failed: {last stderr line or error}",
+    "action": "change",
+    "location": "capture/lib/whisper.js:91",
+    "template": "Speech-to-text failed. {diagnostic detail}",
+    "placeholders": [
+      "diagnostic detail"
+    ],
+    "diagnostic": true,
+    "oldLiterals": []
+  },
+  {
+    "id": "CR-433",
+    "owner": "T4",
+    "expected": null,
+    "old": "speaker labels failed: {last stderr line or error}",
+    "action": "change",
+    "location": "capture/lib/speakers.js:110",
+    "template": "Speaker labeling failed. {diagnostic detail}",
+    "placeholders": [
+      "diagnostic detail"
+    ],
+    "diagnostic": true,
+    "oldLiterals": []
+  }
+]

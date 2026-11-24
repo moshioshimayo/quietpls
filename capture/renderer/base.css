@@ -1,68 +1,42 @@
-:root {
-  --bg: #ffffff;
-  --bg-2: #f5f5f7;
-  --fg: #1d1d1f;
-  --muted: #6e6e73;
-  --line: #e3e3e8;
-  --red: #e5302a;
-  --amber: #c77700;
-  --green: #1f9d48;
-  --blue: #0a6cdb;
-  --you: #0a6cdb;
-  --them: #8a3ffc;
-  color-scheme: light dark;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1e1e20;
-    --bg-2: #2a2a2d;
-    --fg: #f2f2f4;
-    --muted: #a1a1a8;
-    --line: #3a3a3e;
-    --red: #ff453a;
-    --amber: #ffb340;
-    --green: #32d74b;
-    --blue: #3d9bff;
-    --you: #5aa9ff;
-    --them: #b68cff;
-  }
-}
+/* Capture surfaces on the Direction D tokens (tokens.css + components.css).
+   No colours are defined here; green/red stay only for recording states (K3). */
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
+/* glyphs.js prepends its symbol sprite with an inline style, which this CSP
+   (style-src 'self') blocks; without this it adds an 18 px line above the content. */
+body > svg[aria-hidden="true"]:first-child { position: absolute; width: 0; height: 0; }
 body {
-  font: 13px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-  color: var(--fg);
+  font: 13px/1.4 var(--font-text);
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
   user-select: none;
 }
 button {
-  font: inherit;
-  font-weight: 500;
-  border: 1px solid var(--line);
-  background: var(--bg);
-  color: var(--fg);
-  border-radius: 7px;
-  padding: 5px 12px;
+  font: 500 13px/16px var(--font-text);
+  border: 1px solid var(--ctl-line);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius-control);
+  padding: 4px 12px;
+  box-shadow: 0 .5px 1px var(--ctl);
+  white-space: nowrap;
   cursor: default;
 }
-button:hover { background: var(--bg-2); }
 button:active { transform: translateY(0.5px); }
-button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
-button.primary:hover { filter: brightness(1.08); }
-button.danger { background: var(--red); border-color: var(--red); color: #fff; }
-button.link { border: 0; background: none; color: var(--muted); padding: 5px 4px; text-decoration: underline; text-underline-offset: 2px; }
-button:focus-visible, input:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+button.primary { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--white); }
+/* Red buttons only stop a recording (spec §4.1). */
+button.danger { background: var(--loud-fill); border-color: var(--loud-fill); color: var(--white); }
+button.link { border: 0; background: none; box-shadow: none; color: var(--accent); padding: 4px 2px; }
+button.sm { padding: 2px 8px; font-size: 12px; }
+button:disabled { opacity: 0.5; pointer-events: none; }
+code, .cmd { font: 12px/16px var(--font-command); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; user-select: text; }
 .num { font-variant-numeric: tabular-nums; }
-.muted { color: var(--muted); }
-.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--muted); }
-.dot.recording, .dot.error { background: var(--red); }
-.dot.recording { animation: pulse 1.4s ease-in-out infinite; }
-.dot.transcribing { background: var(--amber); }
-.dot.saved { background: var(--green); }
-.dot.asking { background: var(--blue); }
-.dot.off { background: transparent; border: 1.5px solid var(--muted); }
-.dot.idle { background: transparent; border: 1.5px solid var(--fg); }
-.dot.detected { background: var(--muted); }
-@keyframes pulse { 50% { opacity: 0.35; } }
-@media (prefers-reduced-motion: reduce) { .dot.recording { animation: none; } }
-button:disabled { opacity: 0.45; pointer-events: none; }
+.muted { color: var(--text-2); }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--text-2); }
+.dot.recording, .dot.ambient { background: var(--loud-fill); }
+.dot.error { background: var(--rising-fill); } /* not recording: never the recording red */
+.dot.transcribing { background: var(--rising-fill); box-shadow: inset 0 0 0 1px var(--rising-edge); }
+.dot.saved { background: var(--normal); }
+.dot.off, .dot.asking { background: transparent; border: 1.5px solid var(--text-2); }
+.dot.idle { background: transparent; border: 1.5px solid var(--text); }
+[hidden] { display: none !important; }

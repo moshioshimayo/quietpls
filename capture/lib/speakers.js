@@ -39,9 +39,9 @@ const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 /** Rename a speaker everywhere in one transcript's markdown. */
 function renameSpeaker(markdown, from, to) {
   const name = String(to)
-    .replace(/[()\n"]/g, "")
+    .replace(/[()\n\x22]/g, "")
     .trim();
-  if (!name) throw new Error("A speaker name can't be empty.");
+  if (!name) throw new Error("Enter a speaker name");
   let out = markdown.replace(
     new RegExp(
       `^(\\[\\d\\d:\\d\\d:\\d\\d\\] \\[(?:you|them)\\]) \\(${esc(from)}\\) `,
@@ -107,7 +107,7 @@ function diarizeSide({ uv, model, wavPath, segments }) {
         if (err)
           return reject(
             new Error(
-              `speaker labels failed: ${String(stderr).trim().split("\n").pop() || err.message}`,
+              `Speaker labeling failed. ${String(stderr).trim().split("\n").pop() || err.message}`,
             ),
           );
         try {
@@ -125,7 +125,7 @@ function diarizeSide({ uv, model, wavPath, segments }) {
 
 async function downloadModel(dir) {
   const uv = findUv();
-  if (!uv) throw new Error("Install uv first (brew install uv).");
+  if (!uv) throw new Error("Install the speaker-labeling tool: run brew install uv in Terminal.");
   // Explicit setup download only; transcription later runs uv in offline mode.
   await new Promise((resolve, reject) =>
     execFile(
@@ -149,7 +149,7 @@ async function downloadModel(dir) {
   );
   fs.mkdirSync(dir, { recursive: true });
   const res = await fetch(MODEL.url);
-  if (!res.ok) throw new Error(`Speaker model download failed (${res.status})`);
+  if (!res.ok) throw new Error(`Speaker model download failed. Try again. Details: HTTP ${res.status}.`);
   const file = path.join(dir, MODEL.file);
   fs.writeFileSync(file + ".part", Buffer.from(await res.arrayBuffer()));
   fs.renameSync(file + ".part", file);

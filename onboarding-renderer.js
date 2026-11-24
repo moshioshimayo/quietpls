@@ -1,87 +1,60 @@
-// Onboarding window renderer — US-019 Welcome + Mic Permission (Steps 1-2)
-// Vanilla JS, loaded via <script> tag in onboarding.html
+// Setup window (S5): Welcome · Microphone · Check your mic.
+// Vanilla JS, loaded via <script> tag in onboarding.html.
+//
+// The macOS microphone prompt appears only after Continue on step 2 (B2).
+// Step 2 is skipped when access is already granted (B3). Access off or
+// managed stays a recoverable state here; the window re-checks access when it
+// regains focus and moves on without a restart (B4).
 
-// ---- State ----
-let currentStep = 1;
-const TOTAL_STEPS = 3;
-let micPermissionGranted = false;
-let transitioning = false;
-
-// ---- Demo audio state ----
-let demoAudioCtx = null;
-let demoStream = null;
-let demoAnalyser = null;
-let demoAnimFrameId = null;
-
-// The demo only confirms the mic hears you; it never rates the voice.
+// The check only confirms the mic hears you; it never rates the voice.
 const HEARING_MIN_VOLUME = 20; // computeRmsVolume scale, ~1% RMS
-const HEARING_HOLD_MS = 800; // keep "Hearing you" through short gaps
+const HEARING_HOLD_MS = 800; // keep "Mic is responding" through short gaps
 
 // ---- Pure helpers (exported for testing via globalThis) ----
 
-/**
- * Determine which step the user should land on based on permission state.
- * @param {'granted'|'denied'|'restricted'|'not-determined'|'unknown'} permState
- * @returns {number} step number (1, 2, or 3)
- */
-function resolveInitialStep(permState) {
-  if (permState === "granted") return 3;
-  return 1;
+/** Panel for a microphone status once the user is past Welcome. */
+function panelForStatus(status) {
+  return (
+    {
+      granted: "check",
+      denied: "off",
+      restricted: "managed",
+      "not-determined": "ask",
+    }[status] || "error"
+  );
 }
 
 /**
- * Decide button visibility/state for a given step.
- * @param {number} step
- * @param {boolean} hasMicPermission
- * @returns {{ back: 'hidden'|'visible', skip: 'hidden'|'visible', allowMic: boolean, nextDisabled: boolean }}
+ * First panel. A real first run always starts at Welcome; Voice Setup…
+ * (`?step=check`) opens the mic check, or the access state that blocks it.
  */
-function resolveStepButtons(step, hasMicPermission) {
-  return {
-    back: step > 1 ? "visible" : "hidden",
-    skip: step < TOTAL_STEPS ? "visible" : "hidden",
-    allowMic: step === 2 && !hasMicPermission,
-    nextDisabled: step === 2 && !hasMicPermission,
-  };
+function resolveInitialPanel(status, step) {
+  return step === "check" ? panelForStatus(status) : "welcome";
 }
 
-/**
- * Map a permission result to a UI-friendly status object.
- * @param {'granted'|'denied'|'restricted'|'not-determined'|'error'} state
- * @returns {{ message: string, cssClass: string, showDeniedHelp: boolean }}
- */
-function permissionStateToUI(state) {
-  switch (state) {
+/** One-time announcement for a microphone status change. */
+function statusAnnouncement(status) {
+  switch (status) {
     case "granted":
-      return {
-        message: "Microphone access granted!",
-        cssClass: "success",
-        showDeniedHelp: false,
-      };
+      return "Microphone ready";
     case "denied":
-      return {
-        message: "Microphone access was denied.",
-        cssClass: "error",
-        showDeniedHelp: true,
-      };
+      return "Microphone access is off.";
     case "restricted":
-      return {
-        message: "Microphone access is restricted by system policy.",
-        cssClass: "error",
-        showDeniedHelp: true,
-      };
+      return "Microphone access is managed by your organization.";
     case "not-determined":
-      return {
-        message: "",
-        cssClass: "",
-        showDeniedHelp: false,
-      };
+      return "";
     default:
-      return {
-        message: "Could not determine microphone status.",
-        cssClass: "error",
-        showDeniedHelp: false,
-      };
+      return "Couldn’t check microphone access. Try again.";
   }
+}
+
+/** Explanation under the mic name when Automatic avoids a Bluetooth mic. */
+function micNote(choice, devices) {
+  if (!choice || choice.reason !== "avoid-bluetooth") return "";
+  const airpods = (devices || []).some((d) => /airpods/i.test(d.label || ""));
+  return airpods
+    ? "Automatic keeps AirPods audio clear by using this mic."
+    : "Automatic keeps Bluetooth audio clear by using this mic.";
 }
 
 /**
@@ -118,11 +91,7 @@ function computeRmsVolume(timeDomainData) {
 }
 
 /**
- * Whether the demo should say "Hearing you": a voice-level signal now, or
- * one within the last HEARING_HOLD_MS.
- * @param {number} volume - computeRmsVolume output 0-100
- * @param {number} now - ms timestamp
- * @param {number|null} lastHeardAt - ms timestamp of the last loud enough frame
+ * Whether to say "Mic is responding": input now, or within HEARING_HOLD_MS.
  * @returns {{ hearing: boolean, lastHeardAt: number|null }}
  */
 function updateHearing(volume, now, lastHeardAt) {
@@ -133,12 +102,24 @@ function updateHearing(volume, now, lastHeardAt) {
   };
 }
 
-// Expose pure helpers for unit testing
+/**
+ * Step 3's action for this mic (AC-I7): a saved normal voice is never silently redone.
+ * Idle → Start monitoring with it; monitoring → Reset normal voice (only if chosen); none → Set normal voice.
+ */
+function voiceAction(saved, monitoring) {
+  if (!saved) return { act: "set", label: "Set normal voice", text: "Next, talk normally for about 10 seconds to set your normal voice." };
+  return monitoring
+    ? { act: "reset", label: "Reset normal voice", text: "Reset it after moving the mic or changing its input level." }
+    : { act: "start", label: "Start monitoring", text: "Your normal voice for this mic is saved." };
+}
+
 if (typeof globalThis !== "undefined") {
   globalThis.__onboardingHelpers = {
-    resolveInitialStep,
-    resolveStepButtons,
-    permissionStateToUI,
+    voiceAction,
+    panelForStatus,
+    resolveInitialPanel,
+    statusAnnouncement,
+    micNote,
     computeRmsVolume,
     updateHearing,
   };
@@ -147,410 +128,273 @@ if (typeof globalThis !== "undefined") {
 // ---- DOM wiring (only runs in browser with a document) ----
 
 if (typeof document === "undefined") {
-  // Running in Node (e.g. vitest) — skip all DOM code
   if (typeof module !== "undefined") module.exports = {};
 } else {
-  document.addEventListener("DOMContentLoaded", async () => {
-    await checkExistingPermissions();
-    setupEventHandlers();
-    updateStepDisplay();
+  const api = window.electronAPI || {};
+  const $ = (id) => document.getElementById(id);
+  const panels = () => [...document.querySelectorAll("[data-panel]")];
 
-    // If mic already granted, we landed on step 3 — start the demo
-    if (currentStep === 3) {
-      setTimeout(function () {
-        startDemoAudio();
-      }, 400);
-    }
-  });
+  let panel = null;
+  let sawAsk = false; // Back from the check returns to step 2 only if it was shown
+  let settings = null;
+  let level = null; // { ctx, stream, frame }
+  let announcedHearing = false;
 
-  /**
-   * Raw-capture constraints for the mic quietpls would monitor with (2.1.1):
-   * never a Bluetooth default, which would make the user's headphones tinny.
-   */
-  async function micAudioConstraints() {
-    const base = {
-      echoCancellation: false,
-      noiseSuppression: false,
-      autoGainControl: false,
-    };
-    const MP = window.MicPolicy;
-    if (!MP) return base;
-    const api = window.electronAPI;
-    const choice = await MP.resolveChoice(
-      navigator.mediaDevices,
-      api && api.getInputTransports ? () => api.getInputTransports() : null,
-      "",
-    );
-    return MP.audioConstraints(choice, base);
+  function announce(text) {
+    if (text) $("announce").textContent = text;
   }
 
-  async function checkExistingPermissions() {
+  function show(name) {
+    if (name === panel) return;
+    if (panel === "check") stopLevel();
+    panel = name;
+    if (name === "ask") sawAsk = true;
+    let el = null;
+    for (const p of panels()) {
+      p.hidden = p.dataset.panel !== name;
+      if (!p.hidden) el = p;
+    }
+    const step = el.dataset.step;
+    const count = $("stepCount");
+    count.textContent = step + " of 3";
+    count.setAttribute("aria-valuenow", step);
+    $("skipBtn").hidden = name === "managed";
+    const primary = el.querySelector(".btn.primary");
+    if (primary) primary.focus();
+    if (name === "check") startLevel();
+    resize();
+  }
+
+  function resize() {
+    requestAnimationFrame(() => {
+      // The body's own height: documentElement never reports less than the window.
+      if (api.setupResize) api.setupResize(Math.ceil(document.body.getBoundingClientRect().height));
+    });
+  }
+
+  async function readStatus() {
     try {
-      if (window.electronAPI && window.electronAPI.getMicrophoneStatus) {
-        const status = await window.electronAPI.getMicrophoneStatus();
-        if (status === "granted") {
-          micPermissionGranted = true;
-          currentStep = resolveInitialStep(status);
-        }
-        return;
-      }
-      // Fallback: try Permissions API / getUserMedia
-      try {
-        const result = await navigator.permissions.query({
-          name: "microphone",
-        });
-        if (result.state === "granted") {
-          micPermissionGranted = true;
-          currentStep = 3;
-        }
-      } catch (_e) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            audio: await micAudioConstraints(),
-          });
-          stream.getTracks().forEach((t) => t.stop());
-          micPermissionGranted = true;
-          currentStep = 3;
-        } catch (_err) {
-          // No permission yet
-        }
-      }
-    } catch (_e) {
-      // Ignore — start at step 1
+      return await api.getMicrophoneStatus();
+    } catch (_) {
+      return "error";
     }
   }
 
-  function setupEventHandlers() {
-    const getStartedBtn = document.getElementById("getStartedBtn");
-    const allowMicBtn = document.getElementById("allowMicBtn");
-    const openSettingsBtn = document.getElementById("openSettingsBtn");
-    const backBtn = document.getElementById("backBtn");
-    const skipBtn = document.getElementById("skipBtn");
-    const startMonitoringBtn = document.getElementById("startMonitoringBtn");
-
-    if (getStartedBtn) {
-      getStartedBtn.addEventListener("click", () => goToStep(2));
-    }
-
-    if (allowMicBtn) {
-      allowMicBtn.addEventListener("click", handlePermissionRequest);
-      // If already granted, update the button
-      if (micPermissionGranted) {
-        markMicGranted(allowMicBtn);
-      }
-    }
-
-    if (openSettingsBtn) {
-      openSettingsBtn.addEventListener("click", () => {
-        if (window.electronAPI && window.electronAPI.openSystemSettings) {
-          window.electronAPI.openSystemSettings();
-        }
-      });
-    }
-
-    if (backBtn) {
-      backBtn.addEventListener("click", () => {
-        if (currentStep > 1) goToStep(currentStep - 1);
-      });
-    }
-
-    if (skipBtn) {
-      skipBtn.addEventListener("click", () => completeOnboarding());
-    }
-
-    if (startMonitoringBtn) {
-      startMonitoringBtn.addEventListener("click", () =>
-        completeOnboarding(true),
-      );
-    }
+  // On every status from main (focus, request) or Check again: step 2 moves
+  // on by itself once macOS allows the mic; the check falls back if it goes.
+  async function onStatus(status) {
+    const next = panelForStatus(status);
+    // On step 2 (incl. after Back from the check), Continue moves forward.
+    if (panel === "welcome" || next === panel || (panel === "ask" && next === "check")) return;
+    announce(statusAnnouncement(status));
+    show(next);
   }
 
-  async function handlePermissionRequest() {
-    const allowMicBtn = document.getElementById("allowMicBtn");
-    const permissionStatus = document.getElementById("permissionStatus");
-    const deniedHelp = document.getElementById("deniedHelp");
-
-    if (!allowMicBtn) return;
-    allowMicBtn.disabled = true;
-
-    if (permissionStatus) {
-      permissionStatus.textContent = "Requesting microphone access...";
-      permissionStatus.className = "permission-status";
-    }
-
-    try {
-      // Try electronAPI first (uses native macOS permission prompt)
-      if (window.electronAPI && window.electronAPI.requestMicrophoneAccess) {
-        const granted = await window.electronAPI.requestMicrophoneAccess();
-        if (granted) {
-          micPermissionGranted = true;
-          markMicGranted(allowMicBtn);
-          applyPermissionUI("granted");
-          // Auto-advance after a brief delay
-          setTimeout(() => goToStep(3), 600);
-          return;
-        }
-        // Not granted — check status for specific state
-        const status = window.electronAPI.getMicrophoneStatus
-          ? await window.electronAPI.getMicrophoneStatus()
-          : "denied";
-        applyPermissionUI(status);
-        allowMicBtn.disabled = false;
-        return;
-      }
-
-      // Fallback: getUserMedia
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: await micAudioConstraints(),
-      });
-      stream.getTracks().forEach((t) => t.stop());
-      micPermissionGranted = true;
-      markMicGranted(allowMicBtn);
-      applyPermissionUI("granted");
-      setTimeout(() => goToStep(3), 600);
-    } catch (_error) {
-      applyPermissionUI("denied");
-      allowMicBtn.disabled = false;
-    }
+  function close(data) {
+    stopLevel();
+    if (api.onboardingComplete) api.onboardingComplete(data);
   }
 
-  function applyPermissionUI(state) {
-    const permissionStatus = document.getElementById("permissionStatus");
-    const deniedHelp = document.getElementById("deniedHelp");
-    const ui = permissionStateToUI(state);
-
-    if (permissionStatus) {
-      permissionStatus.textContent = ui.message;
-      permissionStatus.className = "permission-status " + ui.cssClass;
-    }
-
-    if (deniedHelp) {
-      deniedHelp.style.display = ui.showDeniedHelp ? "block" : "none";
-    }
-
-    updateStepDisplay();
-  }
-
-  function markMicGranted(btn) {
-    btn.classList.add("success");
-    btn.innerHTML = `
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-    </svg>
-    Microphone Enabled
-  `;
+  async function onContinue() {
+    const btn = $("continueBtn");
     btn.disabled = true;
-  }
-
-  function goToStep(step) {
-    if (transitioning || step === currentStep || step < 1 || step > TOTAL_STEPS)
-      return;
-    transitioning = true;
-
-    const currentEl = document.getElementById("step" + currentStep);
-    const nextEl = document.getElementById("step" + step);
-
-    if (currentEl) {
-      currentEl.classList.remove("active");
-      currentEl.classList.add("exiting");
-      // Ensure exiting class is always removed — use both animationend and a safety timeout
-      var cleaned = false;
-      function cleanup() {
-        if (cleaned) return;
-        cleaned = true;
-        currentEl.classList.remove("exiting");
-      }
-      currentEl.addEventListener("animationend", cleanup, { once: true });
-      // Safety: force cleanup if animationend doesn't fire within 400ms
-      setTimeout(cleanup, 400);
-    }
-
-    // Small delay so exit animation starts before enter
-    setTimeout(() => {
-      currentStep = step;
-      if (nextEl) {
-        nextEl.classList.add("active");
-      }
-      updateStepDisplay();
-      transitioning = false;
-    }, 200);
-  }
-
-  function updateStepDisplay() {
-    // Sync step content visibility — only the current step should be active
-    for (var s = 1; s <= TOTAL_STEPS; s++) {
-      var stepEl = document.getElementById("step" + s);
-      if (stepEl) {
-        if (s === currentStep) {
-          stepEl.classList.add("active");
-          stepEl.classList.remove("exiting");
-        } else {
-          stepEl.classList.remove("active", "exiting");
-        }
-      }
-    }
-
-    // Update dot indicators
-    document.querySelectorAll(".dot").forEach((dot) => {
-      const dotStep = parseInt(dot.dataset.step, 10);
-      dot.classList.toggle("active", dotStep === currentStep);
-      dot.classList.toggle("completed", dotStep < currentStep);
-    });
-
-    // Update nav buttons
-    const backBtn = document.getElementById("backBtn");
-    const skipBtn = document.getElementById("skipBtn");
-
-    const btnState = resolveStepButtons(currentStep, micPermissionGranted);
-
-    if (backBtn) {
-      backBtn.style.visibility = btnState.back;
-    }
-
-    if (skipBtn) {
-      skipBtn.style.visibility = btnState.skip;
-    }
-  }
-
-  function completeOnboarding(shouldStartMonitoring = false) {
-    if (window.electronAPI && window.electronAPI.onboardingComplete) {
-      window.electronAPI.onboardingComplete({
-        startMonitoring: shouldStartMonitoring,
-      });
-    }
-  }
-
-  // ---- Step 3: Interactive Voice Demo ----
-
-  /**
-   * Start the demo audio pipeline: getUserMedia -> AnalyserNode -> FFT vis + RMS zone detection.
-   */
-  async function startDemoAudio() {
+    $("askStatus").textContent = "Waiting for microphone access…";
+    let status;
     try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      status = await api.requestMicrophoneAccess();
+    } catch (_) {
+      status = "error";
+    }
+    btn.disabled = false;
+    $("askStatus").textContent = "";
+    announce(statusAnnouncement(status));
+    show(panelForStatus(status));
+  }
+
+  // ---- Live level for the actual mic ----
+
+  async function chooseMic() {
+    const MP = window.MicPolicy;
+    const preferred = (settings && settings.audioDeviceId) || "";
+    if (!MP) return { deviceId: preferred, label: "", reason: "explicit" };
+    return MP.resolveChoice(
+      navigator.mediaDevices,
+      api.getInputTransports ? () => api.getInputTransports() : null,
+      preferred,
+    );
+  }
+
+  async function fillMicMenu() {
+    const select = $("micSelect");
+    let devices = [];
+    try {
+      devices = (await navigator.mediaDevices.enumerateDevices()).filter(
+        (d) => d.kind === "audioinput" && d.deviceId !== "default" && d.deviceId !== "communications",
+      );
+    } catch (_) {
+      devices = [];
+    }
+    const current = (settings && settings.audioDeviceId) || "";
+    select.replaceChildren(
+      new Option("Automatic", "", false, current === ""),
+      ...devices.map((d) => new Option(d.label || "Unnamed mic", d.deviceId, false, d.deviceId === current)),
+    );
+    return devices;
+  }
+
+  function setHearing(hearing) {
+    $("hearChip").classList.toggle("on", hearing);
+    $("hearChip").querySelector("use").setAttribute("href", hearing ? "#g-listen" : "#g-off");
+    $("hearLabel").textContent = hearing ? "Mic is responding" : "Waiting for input";
+    if (hearing && !announcedHearing) {
+      announcedHearing = true;
+      announce("Mic is responding");
+    }
+  }
+
+  function setLevel(volume) {
+    $("levelFill").style.width = Math.round(volume) + "%";
+    $("levelFill").parentElement.setAttribute("aria-valuenow", String(Math.round(volume)));
+  }
+
+  // Step 3's button follows this mic's saved normal voice and whether monitoring runs.
+  let voiceAct = "set";
+  async function showVoiceAction(deviceId) {
+    if (!api.getCalibration || !api.getMonitoringStatus) return;
+    const CM = window.CalibrationManager;
+    const [record, monitoring] = await Promise.all([
+      deviceId ? api.getCalibration(deviceId) : null,
+      api.getMonitoringStatus(),
+    ]);
+    const a = voiceAction(!!(CM && CM.isValidCalibrationRecord(record)), monitoring);
+    voiceAct = a.act;
+    $("setVoiceBtn").textContent = a.label;
+    $("checkText").textContent = a.text;
+  }
+
+  async function startLevel() {
+    stopLevel();
+    const token = (level = {});
+    setHearing(false);
+    setLevel(0);
+    $("micError").hidden = true;
+    $("hearChip").hidden = false;
+    try {
+      if (!settings && api.getSettings) settings = await api.getSettings();
+      const devices = await fillMicMenu();
+      const choice = await chooseMic();
+      const MP = window.MicPolicy;
+      const base = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: await micAudioConstraints(),
+        audio: MP ? MP.audioConstraints(choice, base) : base,
       });
-
-      const source = audioCtx.createMediaStreamSource(stream);
-      const analyser = audioCtx.createAnalyser();
+      if (level !== token) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      const track = stream.getAudioTracks()[0];
+      $("micName").textContent = (track && track.label) || choice.label || "Unnamed mic";
+      showVoiceAction(track && track.getSettings ? track.getSettings().deviceId : choice.deviceId);
+      const note = micNote(choice, devices);
+      $("micNote").textContent = note;
+      $("micNote").hidden = !note;
+      const ctx = new AudioContext();
+      const analyser = ctx.createAnalyser();
       analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = 0.8;
-      source.connect(analyser);
-
-      demoAudioCtx = audioCtx;
-      demoStream = stream;
-      demoAnalyser = analyser;
-
-      // Start FFT visualizer on the canvas
-      const canvas = document.getElementById("demoFftCanvas");
-      if (canvas && window.FFTVisualizer) {
-        window.FFTVisualizer.startVisualization(analyser, canvas);
-      }
-
-      // Poll the level only to say whether the mic hears you.
-      const timeDomainData = new Uint8Array(analyser.fftSize);
+      ctx.createMediaStreamSource(stream).connect(analyser);
+      Object.assign(token, { ctx, stream });
+      const data = new Uint8Array(analyser.fftSize);
       let lastHeardAt = null;
-      let shown = null;
-      function pollVolume() {
-        if (!demoAnalyser) return; // cleaned up
-        analyser.getByteTimeDomainData(timeDomainData);
-        const h = updateHearing(
-          computeRmsVolume(timeDomainData),
-          performance.now(),
-          lastHeardAt,
-        );
+      let shown = false;
+      const poll = () => {
+        if (level !== token) return;
+        analyser.getByteTimeDomainData(data);
+        const volume = computeRmsVolume(data);
+        const h = updateHearing(volume, performance.now(), lastHeardAt);
         lastHeardAt = h.lastHeardAt;
-        if (h.hearing !== shown) {
-          shown = h.hearing;
-          updateDemoUI(h.hearing);
-        }
-        demoAnimFrameId = requestAnimationFrame(pollVolume);
-      }
-      pollVolume();
-    } catch (_err) {
-      const label = document.getElementById("demoHearingLabel");
-      if (label) label.textContent = "Could not access the microphone";
+        setLevel(volume);
+        if (h.hearing !== shown) setHearing((shown = h.hearing));
+        token.frame = requestAnimationFrame(poll);
+      };
+      poll();
+    } catch (_) {
+      if (level !== token) return;
+      const status = await readStatus();
+      if (status !== "granted") return onStatus(status);
+      // Access is on but the mic will not start.
+      $("hearChip").hidden = true;
+      $("micError").hidden = false;
+      announce("Couldn’t start the mic. Check System Settings.");
     }
+    resize();
   }
 
-  function updateDemoUI(hearing) {
-    const box = document.getElementById("demoHearing");
-    const mark = document.getElementById("demoHearingMark");
-    const label = document.getElementById("demoHearingLabel");
-    if (box) box.classList.toggle("is-hearing", hearing);
-    if (mark) mark.textContent = hearing ? "\u2713" : "\u00b7";
-    if (label) {
-      label.textContent = hearing ? "Hearing you" : "Waiting for your voice\u2026";
-    }
-    if (window.FFTVisualizer) {
-      window.FFTVisualizer.setVolumeZone(hearing ? "normal" : "quiet");
-    }
+  function stopLevel() {
+    if (!level) return;
+    if (level.frame) cancelAnimationFrame(level.frame);
+    if (level.stream) level.stream.getTracks().forEach((t) => t.stop());
+    if (level.ctx) level.ctx.close().catch(() => {});
+    level = null;
   }
 
-  /**
-   * Stop the demo audio pipeline and clean up all resources.
-   */
-  function stopDemoAudio() {
-    if (demoAnimFrameId) {
-      cancelAnimationFrame(demoAnimFrameId);
-      demoAnimFrameId = null;
+  function onMicChange() {
+    const audioDeviceId = $("micSelect").value;
+    settings = Object.assign({}, settings, { audioDeviceId });
+    if (api.updateSettings) {
+      api.updateSettings({ audioDeviceId }); // only the mic: never a cached sensitivity
     }
-
-    if (window.FFTVisualizer) {
-      window.FFTVisualizer.stopVisualization();
-    }
-
-    if (demoStream) {
-      demoStream.getTracks().forEach(function (t) {
-        t.stop();
-      });
-      demoStream = null;
-    }
-
-    if (demoAudioCtx) {
-      demoAudioCtx.close().catch(function () {});
-      demoAudioCtx = null;
-    }
-
-    demoAnalyser = null;
+    startLevel();
   }
 
-  // Hook into goToStep to start/stop demo audio when entering/leaving step 3
-  const _originalGoToStep = goToStep;
-  goToStep = function (step) {
-    // If leaving step 3, clean up audio
-    if (currentStep === 3 && step !== 3) {
-      stopDemoAudio();
-    }
+  // ---- Wiring ----
 
-    _originalGoToStep(step);
-
-    // If entering step 3, start demo audio after a brief delay for animation
-    if (step === 3) {
-      setTimeout(function () {
-        startDemoAudio();
-      }, 200);
-    }
-  };
-
-  // Also clean up audio on onboarding complete
-  const _originalCompleteOnboarding = completeOnboarding;
-  completeOnboarding = function (shouldStartMonitoring) {
-    stopDemoAudio();
-    _originalCompleteOnboarding(shouldStartMonitoring);
-  };
-
-  // Listen for close command from main process
-  if (
-    typeof window !== "undefined" &&
-    window.electronAPI &&
-    window.electronAPI.onCloseWindow
-  ) {
-    window.electronAPI.onCloseWindow(() => {
-      stopDemoAudio();
-      window.close();
+  document.addEventListener("DOMContentLoaded", async () => {
+    $("getStartedBtn").addEventListener("click", async () => show(panelForStatus(await readStatus())));
+    $("continueBtn").addEventListener("click", onContinue);
+    $("setVoiceBtn").addEventListener("click", () => {
+      stopLevel();
+      if (voiceAct === "start") close({ startMonitoring: true });
+      else if (api.setNormalVoice) api.setNormalVoice();
     });
-  }
-} // end of document guard
+    $("micSelect").addEventListener("change", onMicChange);
+    document.querySelectorAll("[data-back]").forEach((b) =>
+      b.addEventListener("click", () => show(panel === "check" && sawAsk ? "ask" : "welcome")),
+    );
+    document.querySelectorAll("[data-later]").forEach((b) =>
+      b.addEventListener("click", () => close({ startMonitoring: false })),
+    );
+    document.querySelectorAll("[data-open-settings]").forEach((b) =>
+      b.addEventListener("click", () => api.openSystemSettings && api.openSystemSettings()),
+    );
+    document.querySelectorAll("[data-check-again]").forEach((b) =>
+      b.addEventListener("click", async () => onStatus(await readStatus())),
+    );
+
+    // Return = primary, Escape = Set up later (Close when managed).
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close({ startMonitoring: false });
+      } else if (e.key === "Enter" && !e.target.closest("button, select, a, label")) {
+        const primary = document.querySelector("[data-panel]:not([hidden]) .btn.primary");
+        if (primary && !primary.disabled) {
+          e.preventDefault();
+          primary.click();
+        }
+      }
+    });
+
+    // main.js sends the status on every window focus and after a request.
+    if (api.onMicrophoneStatusChanged) api.onMicrophoneStatusChanged(onStatus);
+    if (api.onCloseWindow) {
+      api.onCloseWindow(() => {
+        stopLevel();
+        window.close();
+      });
+    }
+    window.addEventListener("beforeunload", stopLevel);
+
+    const step = new URLSearchParams(location.search).get("step");
+    show(resolveInitialPanel(step === "check" ? await readStatus() : null, step));
+  });
+}

@@ -26,12 +26,21 @@ const W = require("./lib/whisper");
 const repo = require("./lib/repo");
 const policy = require("./lib/audio-policy");
 const { finishCall, purgeScratch } = require("./lib/pipeline");
-const { parseMarkdown, clock } = require("./lib/transcript");
+const { parseMarkdown } = require("./lib/transcript");
+
+// Menu-bar timer in the recording pill's format: mm:ss, then h:mm:ss after an hour.
+function timer(total) {
+  const s = Math.max(0, Math.floor(total));
+  const h = Math.floor(s / 3600);
+  const mmss = [Math.floor(s / 60) % 60, s % 60].map((n) => String(n).padStart(2, "0")).join(":");
+  return h ? `${h}:${mmss}` : mmss;
+}
 const { dotBitmap } = require("./lib/tray-icon");
 const speakers = require("./lib/speakers");
 const ambient = require("./lib/ambient");
 const { transcriptFiles } = require("./lib/search");
 const { startCapture: realStartCapture } = require("./lib/recorder");
+const { WIDGET_INSETS } = require("../widget-animator");
 
 const DEFAULTS = {
   enabled: false,
@@ -158,6 +167,7 @@ function createCaptureMode({
         ready: fs.existsSync(W.modelPath(MODEL_DIR, m.id)),
       })),
       elapsed: capture ? (Date.now() - capture.start.getTime()) / 1000 : 0,
+      micOnly: Boolean(capture && capture.micOnly), // call audio lost: only the mic is recorded
     };
   }
 
@@ -208,12 +218,61 @@ function createCaptureMode({
     return { x: area.x + area.width - width - 12, y: area.y + y };
   }
 
+  // quietpls's own pill window (main.js owns it; same lookup as Settings below).
+  function pillWindow() {
+    return BrowserWindow.getAllWindows().find(
+      (w) => !w.isDestroyed() && w.webContents.getURL().endsWith("/index.html"),
+    );
+  }
+
+  // The pill window reserves transparent shadow space around what you see.
+  function visiblePill(b) {
+    const m = WIDGET_INSETS;
+    return {
+      x: b.x + m.left,
+      y: b.y + m.top,
+      width: b.width - m.left - m.right,
+      height: b.height - m.top - m.bottom,
+    };
+  }
+
+  // AC-X10: the call banner and recording pill stack under the pill and its open
+  // details panel (an 8 pt gap), right edges aligned, never on top of them.
+  // FLOAT_MARGIN is the transparent margin that holds the card's CSS shadow
+  // (tokens.css --shadow reaches 8 up, 20 sideways, 32 down; sides and bottom keep
+  // headroom for the blur's tail; body padding matches).
+  const FLOAT_MARGIN = { top: 8, side: 24, bottom: 40 };
+  const placed = new WeakSet();
+  function place(win) {
+    if (!win || win.isDestroyed()) return;
+    const [w, h] = win.getSize();
+    const pill = pillWindow();
+    const b = pill && pill.isVisible() ? visiblePill(pill.getBounds()) : null;
+    if (!b) return win.setPosition(...Object.values(topRight(w, 8)));
+    if (!placed.has(pill)) {
+      placed.add(pill);
+      const follow = () => [banner, indicator].forEach((f) => f && !f.isDestroyed() && f.isVisible() && place(f));
+      pill.on("resize", follow);
+      pill.on("move", follow);
+    }
+    const area = screen.getDisplayMatching(b).workArea;
+    // Keep the visible card on screen; its transparent margin may hang off the edge.
+    const x = Math.min(
+      Math.max(b.x + b.width - w + FLOAT_MARGIN.side, area.x - FLOAT_MARGIN.side),
+      area.x + area.width - w + FLOAT_MARGIN.side,
+    );
+    let y = b.y + b.height + 8 - FLOAT_MARGIN.top;
+    // No room below (pill dragged to the bottom): stack above it instead.
+    if (y + h > area.y + area.height) y = Math.max(area.y, b.y - h - 8 + FLOAT_MARGIN.bottom);
+    win.setPosition(Math.round(x), Math.round(y));
+  }
+
   function floating(page, width, height, y) {
     const win = makeWindow(page, {
       width,
       height,
       ...topRight(width, y),
-      title: `quietpls capture ${page}`,
+      title: `quietpls — ${page === "banner" ? "Record call?" : "Recording"}`,
       frame: false,
       transparent: true,
       resizable: false,
@@ -221,7 +280,9 @@ function createCaptureMode({
       alwaysOnTop: true,
       skipTaskbar: true,
       focusable: page === "banner",
-      hasShadow: true,
+      // The card draws its own CSS shadow inside the transparent margin; a native
+      // shadow would trace that margin as a second outline.
+      hasShadow: false,
       fullscreenable: false,
     });
     win.setAlwaysOnTop(true, "screen-saver");
@@ -232,9 +293,9 @@ function createCaptureMode({
   // The banner and indicator only exist once capture has been turned on.
   function ensureFloating() {
     if (!banner || banner.isDestroyed())
-      banner = floating("banner", 430, 180, 8);
+      banner = floating("banner", 398, 288, 8);
     if (!indicator || indicator.isDestroyed())
-      indicator = floating("indicator", 300, 52, 8);
+      indicator = floating("indicator", 408, 78, 8);
   }
 
   function openMain(tab) {
@@ -246,8 +307,6 @@ function createCaptureMode({
         minHeight: 420,
         title: "quietpls — Transcripts",
         titleBarStyle: "hiddenInset",
-        backgroundColor: "#00000000",
-        vibrancy: "sidebar",
       });
       main.once("ready-to-show", () => main.show());
       main.on("closed", () => {
@@ -279,12 +338,12 @@ function createCaptureMode({
   function trayTitle(phase, elapsed) {
     return (
       {
-        recording: ` REC ${clock(elapsed)}`,
+        recording: capture && capture.micOnly ? ` REC mic only ${timer(elapsed)}` : ` REC ${timer(elapsed)}`,
         transcribing: " Transcribing…",
         asking: " Record call?",
         saved: " Saved",
-        error: " Needs attention",
-        ambient: ` ALWAYS ON ${capture ? clock(elapsed) : "· transcribing"}`,
+        error: " Not recording",
+        ambient: ` ALWAYS ON ${capture ? timer(elapsed) : "· transcribing"}`,
       }[phase] || ""
     );
   }
@@ -313,6 +372,7 @@ function createCaptureMode({
     if (phase === "asking" || TRAY_PHASES.includes(phase)) ensureFloating();
     if (banner && !banner.isDestroyed()) {
       if (phase === "asking" && !banner.isVisible()) {
+        place(banner);
         banner.showInactive();
         banner.moveTop();
       }
@@ -324,7 +384,10 @@ function createCaptureMode({
           phase,
         ) &&
         (phase !== "error" || capture || state.startedAt);
-      if (show && !indicator.isVisible()) indicator.showInactive();
+      if (show && !indicator.isVisible()) {
+        place(indicator);
+        indicator.showInactive();
+      }
       if (!show && indicator.isVisible()) indicator.hide();
     }
     const key = JSON.stringify([
@@ -343,17 +406,18 @@ function createCaptureMode({
 
   function phaseWords(phase) {
     return {
-      off: "Capture off",
-      idle: "Capture on — waiting for a call",
-      detected: `Call on (${state.apps.join(", ")}) — not recording`,
-      asking: `Call on (${state.apps.join(", ")}) — waiting for your OK`,
+      off: "Call prompts off",
+      // Not ready to record yet: never claim to be waiting for a call.
+      idle: health.whisper && health.modelReady && health.folder.ok ? "Waiting for a call" : "Set up transcripts",
+      detected: `Not recording · ${state.apps.join(", ")}`,
+      asking: `Record this call? · ${state.apps.join(", ")}`,
       recording: capture && capture.micOnly
-        ? `Recording your side only — ${capture.apps.join(", ")}`
-        : `Recording ${state.apps.join(", ")}`,
-      transcribing: "Turning the call into text",
+        ? `Recording mic only · ${capture.apps.join(", ")}`
+        : `Recording · ${state.apps.join(", ")}`,
+      transcribing: "Creating transcript…",
       saved: "Transcript saved",
-      error: state.error || "Something went wrong",
-      ambient: "ALWAYS ON — microphone + system audio",
+      error: state.error || "Recording needs attention",
+      ambient: "ALWAYS ON · mic + system audio",
     }[phase];
   }
 
@@ -366,21 +430,21 @@ function createCaptureMode({
       { label: phaseWords(state.phase), enabled: false },
     ];
     if (state.phase === "recording")
-      items.push({ label: "Stop recording", click: () => stopRecording() });
+      items.push({ label: "Stop Recording", click: () => stopRecording() });
     if (state.phase === "asking")
       items.push(
-        { label: "Record this call", click: () => accept() },
-        { label: "Not this time", click: () => dispatch({ type: "skip" }) },
+        { label: "Record This Call", click: () => accept() },
+        { label: "Skip This Call", click: () => dispatch({ type: "skip" }) },
       );
     items.push(
       ambientActive
-        ? { label: "Stop always-on capture", click: stopAmbient }
+        ? { label: "Stop Always-on Recording", click: stopAmbient }
         : {
-            label: "Always-on capture…",
+            label: "Always-on Recording…",
             click: openConsent,
             enabled: !capture && !processing,
           },
-      { label: "View transcripts…", click: () => openMain("calls") },
+      { label: "View Transcripts…", click: () => openMain("calls") },
     );
     return items;
   }
@@ -481,17 +545,17 @@ function createCaptureMode({
     // Never for one app on the call outranks a yes to the others.
     const neverMessage = () => {
       const names = isAmbient ? [] : state.apps.filter((a) => settings.neverApps.includes(a));
-      return names.length ? `Not recorded: ${names.join(" and ")} ${names.length === 1 ? "is" : "are"} set to Never record. Change it in Settings to record calls while ${names.length === 1 ? "it's" : "they're"} on.` : null;
+      return names.length ? `Recording blocked by Never for ${names.join(" and ")}. Change the app setting in Capture settings to record its calls.` : null;
     };
     const never = neverMessage();
     const blocker = never || (!health.folder.ok
         ? health.folder.reason === "has-remote"
-          ? "Your transcript folder's repo has a remote, so nothing was recorded. Pick a folder with no remote."
-          : "Choose a transcript folder first."
+          ? "Recording didn’t start. Your transcript folder syncs to an online code repository. Choose another folder."
+          : "Choose a transcript folder in Capture settings first."
         : !health.whisper
-          ? "Speech-to-text isn't installed (brew install whisper-cpp)."
+          ? "Install speech-to-text: run brew install whisper-cpp in Terminal."
           : !health.modelReady
-            ? "Download the speech model first (Settings)."
+            ? "Download transcription data in Capture settings first."
             : null);
     if (blocker) {
       if (isAmbient) {
@@ -591,8 +655,10 @@ function createCaptureMode({
     clearTimeout(chunkTimer);
     log("stopping recording");
     capture.end = new Date();
-    dispatch({ type: "stopped" });
+    // Signal the recorder first: the dispatch below updates windows and menus, and
+    // nothing there may delay the actual stop.
     capture.child.kill("SIGINT");
+    dispatch({ type: "stopped" });
   }
 
   function openConsent() {
@@ -605,7 +671,7 @@ function createCaptureMode({
       width: 560,
       height: 650,
       resizable: false,
-      title: "Always-on capture — explicit consent",
+      title: "Always-on Recording",
       parent: main || undefined,
       modal: Boolean(main),
     });
@@ -625,20 +691,20 @@ function createCaptureMode({
 
   const ERRORS = {
     "mic-denied":
-      "Microphone access is off. Turn it on in System Settings → Privacy & Security → Microphone.",
-    "mic-unavailable": "No microphone was found.",
+      "Turn on quietpls in System Settings → Privacy & Security → Microphone, then try recording again.",
+    "mic-unavailable": "No mic found. Connect or select a mic, then try again.",
     "system-audio-unavailable":
-      "macOS didn't allow system audio recording. Allow it in System Settings → Privacy & Security → Screen & System Audio Recording.",
+      "System audio is unavailable. Check Screen & System Audio Recording in System Settings, then try again.",
   };
 
+  // Each message keeps the real cause and what was (or wasn't) saved.
   function ending(c, youSaved) {
     if (c.revoked)
-      return `Recording stopped: ${c.revoked} was set to Never record. ${youSaved ? "Only your side was saved." : "Nothing was saved."}`;
+      return `Recording stopped because ${c.revoked} was set to Never. ${youSaved ? "Only the microphone transcript was saved." : "No transcript was saved."}`;
     if (c.error && c.error.code === "source-check-failed") {
-      const cause = "quietpls couldn't check which app the call's sound comes from.";
       return c.started
-        ? `Recording stopped: ${cause} ${youSaved ? "Your side was saved." : "Nothing was saved."}`
-        : `Not recorded: ${cause}`;
+        ? `Recording stopped because the call audio source couldn’t be checked. ${youSaved ? "The microphone transcript was saved." : "No transcript was saved."}`
+        : "Recording didn’t start because the call audio source couldn’t be checked.";
     }
     return null;
   }
@@ -654,7 +720,7 @@ function createCaptureMode({
       fs.rmSync(c.wavPath, { force: true });
       const err = ending(c, false) || (c.error
         ? ERRORS[c.error.code] || c.error.detail
-        : `Recording stopped unexpectedly (exit ${code}).`);
+        : `Recording stopped unexpectedly. No transcript was saved. Details: exit ${code}.`);
       if (c.error && c.error.code === "mic-denied") health.mic = "denied";
       processing = false;
       if (c.ambient) {
@@ -721,7 +787,9 @@ function createCaptureMode({
       }
       dispatch({
         type: "failed",
-        error: ending(c, false) || `Couldn't save the transcript: ${e.message} ${c.ambient ? "Always-on stopped; audio deleted." : `Audio kept at ${c.wavPath}.`}`,
+        error: ending(c, false) || (c.ambient
+          ? `Couldn’t finish saving the transcript. Always-on stopped and its audio was deleted. ${e.message}`
+          : `Couldn’t finish saving the transcript. Audio kept at ${c.wavPath}. ${e.message}`),
       });
     }
     purgeScratch(SCRATCH_DIR);
@@ -743,10 +811,17 @@ function createCaptureMode({
       capture.revoked = added.join(" and ");
       capture.end ||= new Date();
       clearTimeout(chunkTimer);
+      capture.child.revoke(); // revoke before any state/UI work
       dispatch({ type: "stopped" });
-      capture.child.revoke();
     }
-    saveSettings();
+    try {
+      saveSettings();
+    } catch (e) {
+      // The change applies for now; say it wasn't kept (the Capture window's alert).
+      log(`settings not saved: ${e.message}`);
+      if (!capture && !processing && !ambientActive && state.phase !== "asking")
+        dispatch({ type: "failed", error: "Couldn’t save Capture settings. They apply until quietpls quits. Try again." });
+    }
     applyDetection();
     dispatch({ type: "settings" });
     await refreshHealth();
@@ -783,7 +858,7 @@ function createCaptureMode({
   function transcriptPath(name) {
     const safe = String(name);
     if (!/^(ambient\/)?[^/\\\\]+\.md$/.test(safe) || safe.includes(".."))
-      throw new Error("Invalid transcript name");
+      throw new Error("Couldn’t open this transcript. The filename isn’t supported.");
     return path.join(settings.folder || "", safe);
   }
 
@@ -894,9 +969,9 @@ function createCaptureMode({
   handle("settings", (_e, patch) => updateSettings(patch));
   handle("choose-folder", async () => {
     const r = await dialog.showOpenDialog(main, {
-      title: "Choose where transcripts go",
+      title: "Choose a Transcript Folder",
       properties: ["openDirectory", "createDirectory"],
-      buttonLabel: "Use this folder",
+      buttonLabel: "Use This Folder",
     });
     if (r.canceled || !r.filePaths[0]) return;
     await setFolder(r.filePaths[0]);

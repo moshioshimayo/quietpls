@@ -56,17 +56,17 @@ test.describe("Widget State Transitions", () => {
     const compactPill = mainWindow.locator("#compactPill");
     await expect(compactPill).toBeVisible();
     expect(await compactPill.evaluate((el) => el.tagName)).toBe("BUTTON");
-    await expect(compactPill).toHaveText(/^\s*○\s*Start monitoring\s*$/);
+    await expect(compactPill).toHaveText(/^\s*Set normal voice\s*$/);
     await expect(compactPill).toHaveAttribute(
       "aria-label",
-      "quietpls: Start monitoring. Show details",
+      "quietpls: Set normal voice. Show details",
     );
     expect(await widgetBounds(electronApp)).toMatchObject({
-      width: 188,
-      height: 32,
+      width: 240,
+      height: 94,
     });
     const box = await compactPill.boundingBox();
-    expect(box).toMatchObject({ width: 188, height: 32 });
+    expect(box).toMatchObject({ width: 176, height: 30 });
 
     await expect(mainWindow.locator("#expandedPanel")).not.toBeVisible();
     await expect(mainWindow.locator("#sessionCompletePanel")).not.toBeVisible();
@@ -81,26 +81,24 @@ test.describe("Widget State Transitions", () => {
 
     await compactPill.click();
     await expect(expandedPanel).toBeVisible();
-    await expect(compactPill).not.toBeVisible();
+    await expect(compactPill).toBeVisible();
 
     // A fresh profile has no normal voice for this mic yet.
     await expect(mainWindow.locator("#calibrationView")).toBeVisible();
-    await expect(mainWindow.locator("#calStep")).toHaveText(
-      /Step 1 of 2 · Set your normal voice/i,
-    );
+    // One counted sequence: the setup window's "n of 3"; the panel names its step.
+    await expect(mainWindow.locator("#calStep")).toHaveText("Normal voice");
     await expect(mainWindow.locator("#calText")).toHaveText(
-      /of 10 seconds of talking heard · Mic: Fake Built-in Mic/,
+      /Talk the way you would on a call/,
     );
-    await expect(mainWindow.locator("#calSecondaryBtn")).toHaveText("Stop");
+    await expect(mainWindow.locator("#calSecondaryBtn")).toHaveText("Cancel");
+    await expect(mainWindow.locator("#calPrimaryBtn")).toBeFocused();
     await expect
       .poll(() => widgetBounds(electronApp))
-      .toMatchObject({ width: 320, height: 240 });
-    expect(await expandedPanel.boundingBox()).toMatchObject({
-      x: 0,
-      y: 0,
-      width: 320,
-      height: 240,
-    });
+      .toMatchObject({ width: 368 });
+    const panelBox = await expandedPanel.boundingBox();
+    expect(panelBox.width).toBe(304);
+    expect(panelBox.y).toBeGreaterThan(30);
+    expect(panelBox.height).toBeGreaterThan(100);
   });
 
   test("Stop during calibration returns to the idle pill (nothing recorded)", async () => {
@@ -110,12 +108,12 @@ test.describe("Widget State Transitions", () => {
 
     await mainWindow.locator("#calSecondaryBtn").click(); // Stop
     await expect(compactPill).toBeVisible();
-    await expect(compactPill).toHaveText(/Start monitoring/);
+    await expect(compactPill).toHaveText(/Set normal voice/);
     await expect(mainWindow.locator("#expandedPanel")).not.toBeVisible();
     await expect(mainWindow.locator("#sessionCompletePanel")).not.toBeVisible();
     await expect
       .poll(() => widgetBounds(electronApp))
-      .toMatchObject({ width: 188, height: 32 });
+      .toMatchObject({ width: 240, height: 94 });
   });
 
   test("Escape and Hide return to the compact pill without stopping", async () => {
@@ -125,9 +123,9 @@ test.describe("Widget State Transitions", () => {
 
     await mainWindow.keyboard.press("Escape");
     await expect(compactPill).toBeVisible();
-    // Still calibrating: the pill shows its progress, monitoring continues.
+    // Ready for explicit Start; hiding does not take a normal voice.
     await expect(mainWindow.locator("#pillWord")).toHaveText(
-      /Set normal voice \d+%/,
+      /Set normal voice/,
     );
     await expect(compactPill).toHaveClass(/monitoring/);
 
@@ -155,7 +153,7 @@ test.describe("Widget State Transitions", () => {
   });
 
   test("long session shows sessionComplete summary after stop", async () => {
-    test.slow(); // needs a real >=60s monitoring session for the summary
+    test.setTimeout(150000); // real session plus hover and auto-dismiss intervals
     const compactPill = mainWindow.locator("#compactPill");
     const expandedPanel = mainWindow.locator("#expandedPanel");
     const sessionCompletePanel = mainWindow.locator("#sessionCompletePanel");
@@ -163,7 +161,12 @@ test.describe("Widget State Transitions", () => {
     await compactPill.click();
     // Calibration and its rehearsal are not session time.
     await finishCalibration(mainWindow);
+    await expect(mainWindow.locator("#firstRunTip")).toBeVisible();
+    await mainWindow.locator("#firstRunTip").focus();
+    await mainWindow.keyboard.press("Enter");
+    await expect(mainWindow.locator("#firstRunTip")).not.toBeVisible();
     await expect(compactPill).toBeVisible({ timeout: 6000 }); // auto-collapse
+    await expect(mainWindow.locator("#expandedPanel")).not.toBeVisible();
     await expect(mainWindow.locator("#pillWord")).toHaveText("Normal", {
       timeout: 10000,
     });
@@ -176,6 +179,16 @@ test.describe("Widget State Transitions", () => {
     await mainWindow.locator("#stopBtn").click();
 
     await expect(sessionCompletePanel).toBeVisible();
+    await expect.poll(async () => {
+      const result = await mainWindow.evaluate(() => window.electronAPI.getSessions());
+      console.log("SUMMARY_SAVED", JSON.stringify({ success: result.success, count: result.data?.length, error: result.error }));
+      expect(result.success).toBe(true);
+      return result.data.length;
+    }).toBe(1);
+    const session = await mainWindow.evaluate(async () => (await window.electronAPI.getSessions()).data[0]);
+    const shares = require("../../settings-history-logic").computeSessionZonePercentages(session);
+    await expect(mainWindow.locator("#sessionSplit")).toHaveAttribute("aria-label",
+      `Normal ${shares.normal}%, Getting loud ${shares.loud}%, Ease your voice ${shares.danger}%`);
     // Summary speaks in speaking-time terms, never acoustic dB
     await expect(mainWindow.locator("#insightList")).toContainText(
       /ease your voice|speaking time/i,
@@ -184,12 +197,23 @@ test.describe("Widget State Transitions", () => {
       /Too loud|lawn|80 dB/,
     );
     await expect(expandedPanel).not.toBeVisible();
-    await expect(compactPill).not.toBeVisible();
-
-    // sessionComplete -> compact (via close)
-    await mainWindow.locator("#sessionCloseBtn").click();
     await expect(compactPill).toBeVisible();
-    await expect(sessionCompletePanel).not.toBeVisible();
+
+    // Hover pauses the twenty-second clock. Leaving resumes it.
+    await sessionCompletePanel.hover();
+    await mainWindow.waitForTimeout(21000);
+    await expect(sessionCompletePanel).toBeVisible();
+    await mainWindow.mouse.move(1, 1);
+    await expect(sessionCompletePanel).not.toBeVisible({ timeout: 22000 });
+    await expect(compactPill).toBeVisible();
+  });
+
+  test("summary closes on the first click", async () => {
+    await mainWindow.evaluate(() => window.electronAPI.widgetTransition("sessionComplete"));
+    await expect(mainWindow.locator("#sessionCompletePanel")).toBeVisible();
+    await mainWindow.locator("#summaryDoneBtn").click();
+    await expect(mainWindow.locator("#sessionCompletePanel")).not.toBeVisible();
+    await expect(mainWindow.locator("#compactPill")).toBeVisible();
   });
 
   // An undismissed summary, then Recalibrate (Settings/context menu) or a
@@ -215,10 +239,8 @@ test.describe("Widget State Transitions", () => {
       await expect(summary).not.toBeVisible();
       await expect
         .poll(() => widgetBounds(electronApp))
-        .toMatchObject({ width: 320, height: 240 });
-      expect(
-        await mainWindow.evaluate(() => [innerWidth, innerHeight]),
-      ).toEqual([320, 240]);
+        .toMatchObject({ width: 368 });
+      expect(await mainWindow.evaluate(() => innerWidth)).toBe(368);
       expect(
         await mainWindow.evaluate(() => window.electronAPI.widgetGetState()),
       ).toBe("expanded");
@@ -298,6 +320,60 @@ test.describe("Widget State Transitions", () => {
       .poll(() => electronApp.evaluate(() => global.__contextMenuReceived))
       .toBe(true);
     const labels = await electronApp.evaluate(() => global.__contextMenuLabels);
-    expect(labels).toContain("Recalibrate");
+    expect(labels).toContain("Voice Setup…");
+  });
+
+  test("an automatic call with undetermined access stays compact and asks for setup without prompting", async () => {
+    const { setMicAccess } = require("./helpers");
+    await setMicAccess(electronApp, "not-determined");
+    await electronApp.evaluate(({ systemPreferences }) => {
+      globalThis.__promptCount = 0;
+      systemPreferences.askForMediaAccess = async () => { globalThis.__promptCount++; return false; };
+    });
+    await sendToWidget("meeting-detection-changed", { detected: true });
+    await expect(mainWindow.locator("#pillWord")).toHaveText("Set normal voice");
+    await expect(mainWindow.locator("#expandedPanel")).not.toBeVisible();
+    expect(await electronApp.evaluate(() => globalThis.__promptCount)).toBe(0);
+  });
+
+  test("access off recovers on focus without restarting", async () => {
+    const { setMicAccess } = require("./helpers");
+    await setMicAccess(electronApp, "denied");
+    await mainWindow.locator("#compactPill").click();
+    await expect(mainWindow.locator("#pillWord")).toHaveText("Mic access off");
+    await expect(mainWindow.locator("#accessBtn")).toBeVisible();
+    await expect(mainWindow.locator("#checkAccessBtn")).toBeVisible();
+    await setMicAccess(electronApp, "granted");
+    await electronApp.evaluate(({ app, BrowserWindow }) => app.emit("browser-window-focus", {}, BrowserWindow.getAllWindows()[0]));
+    await expect(mainWindow.locator("#calTitle")).toHaveText("Use your normal call voice");
+    await expect(mainWindow.locator("#calPrimaryBtn")).toHaveText("Start");
+    expect(await mainWindow.evaluate(() => window.__fakeMic.gumCalls().length)).toBe(1);
+  });
+
+  test("a call on a saved mic starts quietly and replaces an old summary", async () => {
+    await mainWindow.evaluate(async () => {
+      const device = { deviceId: "fake-builtin", label: "Fake Built-in Mic" };
+      const record = window.CalibrationManager.makeCalibrationRecord({ baselineDb: -40, speechMs: 10000 }, device);
+      window.electronAPI.saveCalibration(device.deviceId, record);
+      await window.electronAPI.getCalibration(device.deviceId);
+      await window.electronAPI.widgetTransition("sessionComplete");
+    });
+    await sendToWidget("meeting-detection-changed", { detected: true });
+    await expect(mainWindow.locator("#compactPill")).toHaveClass(/\bmonitoring\b/);
+    await expect(mainWindow.locator("#pillWord")).toHaveText(/Listening|Normal|Getting loud|Ease your voice/);
+    await expect(mainWindow.locator("#expandedPanel")).not.toBeVisible();
+    await expect(mainWindow.locator("#sessionCompletePanel")).not.toBeVisible();
+  });
+
+  test("granted access with an input-start error offers a working retry", async () => {
+    await mainWindow.evaluate(() => window.__fakeMic.setDenied(true));
+    await mainWindow.locator("#compactPill").click();
+    await expect(mainWindow.locator("#pillWord")).toHaveText("Mic unavailable");
+    await expect(mainWindow.locator("#stateNote")).toContainText("Restart quietpls");
+    await expect(mainWindow.locator("#accessBtn")).not.toBeVisible();
+    await mainWindow.evaluate(() => window.__fakeMic.setDenied(false));
+    await mainWindow.locator("#retryBtn").click();
+    await expect(mainWindow.locator("#calTitle")).toHaveText("Use your normal call voice");
+    await expect(mainWindow.locator("#calPrimaryBtn")).toHaveText("Start");
   });
 });

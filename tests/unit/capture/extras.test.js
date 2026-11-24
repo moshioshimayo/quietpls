@@ -53,7 +53,7 @@ it("keeps channel attribution while labeling far-side voices; rename merges labe
   });
   const merged = speakers.renameSpeaker(renamed, "Speaker 2", "Alice");
   expect(T.parseMarkdown(merged).meta.speakers).toEqual(["Alice", "In room 1"]);
-  expect(() => speakers.renameSpeaker(md, "Speaker 1", "()")).toThrow(/empty/);
+  expect(() => speakers.renameSpeaker(md, "Speaker 1", "()")).toThrow(/Enter a speaker name/);
 });
 
 it("doesn't mistake a parenthetical speech prefix for a speaker name", () => {

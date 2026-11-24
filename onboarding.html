@@ -4,127 +4,138 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Welcome to quietpls</title>
-  <link rel="stylesheet" href="design-system.css">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="components.css">
   <link rel="stylesheet" href="onboarding-styles.css">
 </head>
 <body>
-  <div class="onboarding-container">
-    <!-- Step Indicator Dots -->
-    <div class="step-dots">
-      <div class="dot active" data-step="1"></div>
-      <div class="dot" data-step="2"></div>
-      <div class="dot" data-step="3"></div>
-    </div>
+  <div class="tbar" aria-hidden="true"></div>
 
-    <!-- Steps Wrapper (for animated transitions) -->
-    <div class="steps-wrapper">
+  <main aria-label="Welcome to quietpls">
+    <!-- 1 of 3: Welcome -->
+    <section class="cols" data-panel="welcome" data-step="1">
+      <div class="txt">
+        <div class="eyebrow">Welcome to quietpls</div>
+        <h1>Notice when your voice gets louder on calls.</h1>
+        <p>Set your normal voice once for this mic. After that, a small cue shows when you go above it.</p>
+        <div class="acts"><button class="btn primary" id="getStartedBtn">Get started</button></div>
+      </div>
+      <div class="spec" aria-label="The cue you’ll see on calls">
+        <div class="pill normal"><svg class="g" aria-hidden="true"><use href="#g-ok"/></svg>Normal<span class="mm"><i style="width:52%"></i></span></div>
+        <small>Near your normal voice</small>
+        <div class="pill rising"><svg class="g" aria-hidden="true"><use href="#g-rise"/></svg>Getting loud<span class="mm"><i style="width:76%"></i></span></div>
+        <small>A bit above it</small>
+        <div class="pill loud"><svg class="g" aria-hidden="true"><use href="#g-loud"/></svg>Ease your voice<span class="mm"><i style="width:96%"></i></span></div>
+        <small>Well above it</small>
+      </div>
+    </section>
 
-      <!-- Step 1: Welcome -->
-      <div class="step-content active" id="step1">
-        <div class="step-inner">
-          <!-- Hero illustration: CSS art gradient orb -->
-          <div class="hero-illustration">
-            <div class="hero-orb">
-              <div class="orb-ring orb-ring-1"></div>
-              <div class="orb-ring orb-ring-2"></div>
-              <div class="orb-ring orb-ring-3"></div>
-              <div class="orb-core"></div>
-            </div>
-          </div>
+    <!-- 2 of 3: before the macOS prompt -->
+    <section class="cols" data-panel="ask" data-step="2" hidden>
+      <div class="txt">
+        <div class="eyebrow">Microphone</div>
+        <h1>Check your voice level.</h1>
+        <p>quietpls uses your mic to compare your voice with your normal call voice.</p>
+        <div class="acts">
+          <button class="btn primary" id="continueBtn">Continue</button>
+          <button class="btn" data-back>Back</button>
+        </div>
+        <p class="small status" id="askStatus" role="status"></p>
+      </div>
+      <div class="side">
+        <b>Voice monitoring doesn't save audio.</b>
+        <p class="small">Capture recording is optional.</p>
+        <p class="small gap">macOS asks for microphone access next.</p>
+      </div>
+    </section>
 
-          <h1 class="welcome-heading">Welcome to <span class="brand-text">quietpls</span></h1>
-          <p class="welcome-tagline">You have no idea how you sound to others. Let's fix that.</p>
-
-          <button class="btn-primary" id="getStartedBtn">
-            Get Started
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
+    <!-- 2 of 3: access off -->
+    <section class="cols" data-panel="off" data-step="2" hidden>
+      <div class="txt">
+        <div class="eyebrow muted">Microphone</div>
+        <h1>Microphone access is off.</h1>
+        <p>quietpls needs the mic to monitor your voice level. Turn it on in System Settings, then come back here.</p>
+        <div class="acts">
+          <button class="btn primary" data-open-settings>Open System Settings</button>
+          <button class="btn" data-check-again>Check again</button>
         </div>
       </div>
+      <div class="side">
+        <b>Turn on microphone access in System Settings:</b>
+        <ol>
+          <li>Choose <b>Privacy &amp; Security → Microphone</b></li>
+          <li>Turn on <b>quietpls</b></li>
+        </ol>
+        <p class="small gap">quietpls checks again when you come back.</p>
+      </div>
+    </section>
 
-      <!-- Step 2: Microphone Permission -->
-      <div class="step-content" id="step2">
-        <div class="step-inner">
-          <div class="mic-icon-wrapper">
-            <div class="mic-icon-bg">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 14C13.66 14 15 12.66 15 11V5C15 3.34 13.66 2 12 2C10.34 2 9 3.34 9 5V11C9 12.66 10.34 14 12 14Z" fill="white"/>
-                <path d="M17 11C17 13.76 14.76 16 12 16C9.24 16 7 13.76 7 11H5C5 14.53 7.61 17.46 11 17.93V21H13V17.93C16.39 17.46 19 14.53 19 11H17Z" fill="white"/>
-              </svg>
-            </div>
-          </div>
+    <!-- 2 of 3: managed by an organization -->
+    <section class="cols" data-panel="managed" data-step="2" hidden>
+      <div class="txt">
+        <div class="eyebrow muted">Microphone</div>
+        <h1>Microphone access is managed by your organization.</h1>
+        <p>Your organization manages microphone access. Contact your administrator if you can’t enable quietpls in System Settings → Privacy &amp; Security → Microphone.</p>
+        <div class="acts"><button class="btn primary" data-later>Close</button></div>
+      </div>
+      <div class="side">
+        <b>Why this happens</b>
+        <p class="small">A device management profile on this Mac controls which apps can use the microphone.</p>
+      </div>
+    </section>
 
-          <h1 class="step-heading">We need your microphone</h1>
-          <p class="step-description">
-            quietpls listens to your mic volume levels (never records audio) to help you sound your best.
-          </p>
-
-          <div class="privacy-card glass-panel">
-            <svg class="privacy-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 1L3 5V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V5L12 1Z" fill="var(--color-brand)"/>
-            </svg>
-            <span class="privacy-text">Your audio never leaves your device.</span>
-          </div>
-
-          <button class="btn-primary" id="allowMicBtn">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 14C13.66 14 15 12.66 15 11V5C15 3.34 13.66 2 12 2C10.34 2 9 3.34 9 5V11C9 12.66 10.34 14 12 14Z" fill="currentColor"/>
-              <path d="M17 11C17 13.76 14.76 16 12 16C9.24 16 7 13.76 7 11H5C5 14.53 7.61 17.46 11 17.93V21H13V17.93C16.39 17.46 19 14.53 19 11H17Z" fill="currentColor"/>
-            </svg>
-            Allow Microphone
-          </button>
-
-          <div class="permission-status" id="permissionStatus"></div>
-
-          <!-- Denied help text (hidden by default) -->
-          <div class="denied-help" id="deniedHelp" style="display: none;">
-            <p class="denied-help-text">
-              Microphone access was denied. To enable it:
-            </p>
-            <ol class="denied-steps">
-              <li>Open <strong>System Settings</strong></li>
-              <li>Go to <strong>Privacy &amp; Security &gt; Microphone</strong></li>
-              <li>Enable access for <strong>quietpls</strong></li>
-              <li>Restart the app</li>
-            </ol>
-            <button class="btn-secondary" id="openSettingsBtn">Open System Settings</button>
-          </div>
+    <!-- 2 of 3: status unreadable -->
+    <section class="cols" data-panel="error" data-step="2" hidden>
+      <div class="txt">
+        <div class="eyebrow muted">Microphone</div>
+        <h1>Check your voice level.</h1>
+        <p>Couldn’t check microphone access. Try again.</p>
+        <div class="acts">
+          <button class="btn primary" data-check-again>Check again</button>
+          <button class="btn" data-back>Back</button>
         </div>
       </div>
+      <div class="side">
+        <b>Voice monitoring doesn't save audio.</b>
+        <p class="small">Capture recording is optional.</p>
+      </div>
+    </section>
 
-      <!-- Step 3: Interactive Voice Demo -->
-      <div class="step-content" id="step3">
-        <div class="step-inner step-inner-demo">
-          <h1 class="step-heading demo-heading">Try it out</h1>
-
-          <!-- Live level shimmer: confirms the mic hears you, never rates the voice -->
-          <div class="demo-canvas-wrapper">
-            <canvas id="demoFftCanvas" class="demo-fft-canvas"></canvas>
-          </div>
-
-          <div class="demo-hearing" id="demoHearing" role="status">
-            <span class="demo-hearing-mark" id="demoHearingMark" aria-hidden="true">·</span>
-            <span id="demoHearingLabel">Waiting for your voice…</span>
-          </div>
-
-          <p class="demo-coaching-text" id="demoCoachingText">Next time you start, quietpls learns your normal voice from about 10 seconds of talking. After that it tells you when you get louder than that.</p>
-
-          <button class="btn-primary" id="startMonitoringBtn">Start Monitoring</button>
+    <!-- 3 of 3: the mic responds -->
+    <section class="cols" data-panel="check" data-step="3" hidden>
+      <div class="txt">
+        <div class="eyebrow">Check your mic</div>
+        <h1>Say a few words.</h1>
+        <p id="checkText">Next, talk normally for about 10 seconds to set your normal voice.</p>
+        <div class="acts">
+          <button class="btn primary" id="setVoiceBtn">Set normal voice</button>
+          <button class="btn" data-back>Back</button>
         </div>
       </div>
+      <div class="spec">
+        <div class="pill off" id="hearChip">
+          <svg class="g" aria-hidden="true"><use href="#g-off"/></svg><span id="hearLabel">Waiting for input</span>
+        </div>
+        <div class="bar level" role="meter" aria-label="Mic level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="levelFill"></i></div>
+        <p class="small error" id="micError" hidden>Couldn’t start the mic. Check System Settings.<br>Restart quietpls if it still doesn’t respond.</p>
+        <small id="micName"></small>
+        <small id="micNote" hidden></small>
+        <label class="btn sm change">Change mic<select id="micSelect" aria-label="Change mic"></select></label>
+      </div>
+    </section>
+  </main>
 
-    </div>
+  <footer class="ft">
+    <span id="stepCount" role="progressbar" aria-label="Setup" aria-valuemin="1" aria-valuemax="3" aria-valuenow="1">1 of 3</span>
+    <span class="sp"></span>
+    <button class="link" data-later id="skipBtn">Set up later</button>
+  </footer>
 
-    <!-- Navigation -->
-    <div class="onboarding-nav">
-      <button class="btn-ghost" id="backBtn" style="visibility: hidden;">Back</button>
-      <button class="btn-ghost" id="skipBtn">Skip</button>
-    </div>
-  </div>
-  <script src="fft-visualizer.js"></script>
+  <div class="sr-only" role="status" aria-live="polite" id="announce"></div>
+
+  <script src="glyphs.js" defer></script>
   <script src="mic-policy.js"></script>
+  <script src="calibration-manager.js"></script>
   <script src="onboarding-renderer.js"></script>
 </body>
 </html>

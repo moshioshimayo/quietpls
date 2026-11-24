@@ -6,55 +6,57 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; style-src 'self'"
     />
+    <link rel="stylesheet" href="../../tokens.css">
+    <link rel="stylesheet" href="../../components.css">
     <link rel="stylesheet" href="base.css" />
     <link rel="stylesheet" href="ambient-consent.css" />
-    <title>Always-on capture — consent</title>
+    <title>Always-on Recording</title>
   </head>
   <body>
-    <h1>Record beyond calls?</h1>
-    <p class="danger-note">
-      Always-on records your microphone and system audio even when you are not
-      in a call.
+    <h1 class="rd">Record beyond calls?</h1>
+    <p class="lead">
+      Always-on records your mic and system audio, including when you’re not on
+      a call.
     </p>
-    <ul>
-      <li>
-        Anyone near your microphone can be recorded. Tell them first and obtain
-        any consent required where you are.
+    <ul class="group">
+      <li class="kv">
+        People near your mic may be recorded. Tell them first and get any
+        consent required where you are.
       </li>
-      <li>
-        A persistent red <strong>ALWAYS ON</strong> indicator stays visible.
-        Stop there or in the menubar at any time.
+      <li class="kv">
+        The ALWAYS ON indicator stays visible. Stop recording there or in the
+        menu bar.
       </li>
-      <li>
-        Speech is transcribed on this Mac in 10-minute chunks. There are gaps
+      <li class="kv">
+        Audio is processed on this Mac in 10-minute chunks. Recording pauses
         while each chunk is transcribed.
       </li>
-      <li>
-        Transcripts are deleted after 24 hours by default. They live in
-        <code>ambient/</code>, excluded from git history. Call transcripts keep
-        their normal git history.
+      <li class="kv">
+        Always-on transcripts are deleted after 24 hours by default. They’re
+        saved in an ambient folder and never added to the folder’s history.
+        Call transcripts keep a version history.
       </li>
-      <li>
-        Audio exists temporarily while recording/transcribing and is deleted
-        afterward, including on transcription failure.
+      <li class="kv">
+        Audio is stored while recording and transcribing, then deleted—even if
+        transcription fails.
       </li>
-      <li>Always-on does not restart automatically after quitting the app.</li>
+      <li class="kv">Always-on stays off after you quit and reopen quietpls.</li>
     </ul>
-    <label for="confirmation"
-      >To start now, type <strong>ALWAYS ON</strong></label
-    >
+    <label for="confirmation">To start recording, type ALWAYS ON</label>
     <input
       id="confirmation"
       autocomplete="off"
       spellcheck="false"
       aria-describedby="notice"
     />
-    <p id="notice" class="muted">
-      This is separate from “Ask when a call starts”.
+    <p id="notice" class="small">
+      Always-on is separate from call prompts. The call app Never list doesn’t
+      apply.
     </p>
-    <footer>
-      <button id="cancel">Cancel — keep it off</button
-      ><button id="start" class="danger" disabled>
+    <footer class="foot">
+      <span class="sp"></span>
+      <button id="cancel">Cancel</button
+      ><button id="start" class="primary" disabled>
         Start always-on recording
       </button>
     </footer>
