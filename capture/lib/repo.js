@@ -120,7 +120,7 @@ async function saveAmbient(dir, name, markdown) {
   }
   if ((await git(dir, ["ls-files", "--", "ambient/"])).trim())
     throw new Error(
-      "Always-on transcripts are already tracked by git in this folder. Choose another transcript folder.",
+      "This folder already keeps always-on transcripts in its history. Choose another transcript folder.",
     );
   const prefix = (await git(dir, ["rev-parse", "--show-prefix"])).trim();
   const ignore = `/${prefix}ambient/`;
@@ -144,7 +144,7 @@ async function saveAmbient(dir, name, markdown) {
     await git(dir, ["check-ignore", "-q", "--", `ambient/${name}`]);
   } catch {
     throw new Error(
-      "Couldn’t save outside git history. No transcript was written. Choose another transcript folder.",
+      "Couldn’t keep this transcript out of the folder’s history. No transcript was written. Choose another transcript folder.",
     );
   }
   fs.mkdirSync(path.join(dir, "ambient"), { recursive: true });

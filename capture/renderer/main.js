@@ -340,7 +340,7 @@ function setupHtml() {
         ? `<span title="${esc(tilde(settings.folder, home))}">${esc(shortPath(settings.folder, home))}</span> · on this Mac`
         : folderBad
           ? "Choose a folder that exists and doesn’t sync to an online code repository"
-          : "Saves each call transcript as a Markdown file on this Mac. The folder can’t sync to an online code repository (no git remote).",
+          : "Saves each call transcript as a text file on this Mac. Choose a folder that doesn’t sync to an online code repository.",
       action: `<button class="sm${health.folder.ok ? "" : " primary"}" data-do="folder">${health.folder.ok ? "Change…" : "Choose…"}</button>`,
     },
     {
@@ -415,7 +415,7 @@ function renderSettings() {
     </div></section>
     <section><h3>Always-on recording</h3><div class="body">
       <div><button id="ambient" class="sm${snap.state.phase === "ambient" ? " danger" : ""}">${snap.state.phase === "ambient" ? "Stop always-on recording" : "Set up always-on…"}</button></div>
-      <span class="hint">Records mic and system audio beyond calls after a separate confirmation. Transcripts are kept for 24 hours by default, outside git history. Audio is deleted after processing.</span>
+      <span class="hint">Records mic and system audio beyond calls after a separate confirmation. These transcripts are deleted after 24 hours by default and never added to the folder’s history. Audio is deleted after processing.</span>
     </div></section>
     <section><h3>Speaker labels</h3><div class="body">
       <label class="switch"><input id="speakers" type="checkbox" role="switch" ${settings.speakerLabels ? "checked" : ""} ${!health.speakerModelReady || !health.uv ? "disabled" : ""}> Add speaker labels</label>
@@ -427,7 +427,7 @@ function renderSettings() {
     <section><h3>Transcript folder</h3><div class="body">
       <span class="path" title="${esc(tilde(settings.folder, home))}">${esc(shortPath(settings.folder, home)) || "—"}</span>${folderLine}
       <div><button id="folder" class="sm">Choose folder…</button></div>
-      <span class="hint">Each call transcript is a Markdown file on this Mac, with version history kept by git. Capture won’t use a folder that has a git remote, so transcripts aren’t pushed online.</span>
+      <span class="hint">Each call transcript is a text file on this Mac, and the folder keeps its version history. Capture won’t use a folder that syncs to an online code repository.</span>
     </div></section>
     <section><h3>Transcription</h3><div class="body">
       <div class="models">${models
@@ -446,7 +446,7 @@ function renderSettings() {
     <section><h3>Audio retention</h3><div class="body">
       <label class="choice"><input type="radio" name="keep" value="no" ${settings.keepAudio ? "" : "checked"}> Delete audio after transcript is saved (default)</label>
       <label class="choice"><input type="radio" name="keep" value="yes" ${settings.keepAudio ? "checked" : ""}> Keep audio for <input type="number" id="days" min="1" max="365" value="${settings.keepDays}" aria-label="Days to keep audio"> days, then delete</label>
-      <span class="hint">Audio is stored separately from transcript git history.</span>
+      <span class="hint">Kept audio is stored on this Mac, separate from your transcripts.</span>
     </div></section>
     <section><h3>Call apps</h3><div class="body">
       ${

@@ -3882,7 +3882,7 @@
   {
     "id": "CR-328",
     "owner": "T4",
-    "expected": "Saves each call transcript as a Markdown file on this Mac. The folder can’t sync to an online code repository (no git remote).",
+    "expected": "Saves each call transcript as a text file on this Mac. Choose a folder that doesn’t sync to an online code repository.",
     "old": "Each call is saved there as a markdown file and committed with git. It must not have a git remote.",
     "action": "change",
     "location": "capture/renderer/main.js:326",
@@ -4083,7 +4083,7 @@
   {
     "id": "CR-346",
     "owner": "T4",
-    "expected": "Records mic and system audio beyond calls after a separate confirmation. Transcripts are kept for 24 hours by default, outside git history. Audio is deleted after processing.",
+    "expected": "Records mic and system audio beyond calls after a separate confirmation. These transcripts are deleted after 24 hours by default and never added to the folder’s history. Audio is deleted after processing.",
     "old": "Separate explicit consent. Records beyond calls. 24-hour transcript retention; no audio kept. Ambient files are excluded from git history.",
     "action": "change",
     "location": "capture/renderer/main.js:380",
@@ -4195,7 +4195,7 @@
   {
     "id": "CR-356",
     "owner": "T4",
-    "expected": "Each call transcript is a Markdown file on this Mac, with version history kept by git. Capture won’t use a folder that has a git remote, so transcripts aren’t pushed online.",
+    "expected": "Each call transcript is a text file on this Mac, and the folder keeps its version history. Capture won’t use a folder that syncs to an online code repository.",
     "old": "One markdown file per call, committed to this folder’s git repo. Folders with a git remote are refused so calls can’t be pushed by accident.",
     "action": "change",
     "location": "capture/renderer/main.js:391",
@@ -4326,7 +4326,7 @@
   {
     "id": "CR-367",
     "owner": "T4",
-    "expected": "Audio is stored separately from transcript git history.",
+    "expected": "Kept audio is stored on this Mac, separate from your transcripts.",
     "old": "Audio is never put in the git repo.",
     "action": "change",
     "location": "capture/renderer/main.js:410",
@@ -4574,7 +4574,7 @@
   {
     "id": "CR-389",
     "owner": "T4",
-    "expected": "Always-on transcripts are deleted after 24 hours by default. They’re saved in ambient/, outside git history. Call transcripts keep their git history.",
+    "expected": "Always-on transcripts are deleted after 24 hours by default. They’re saved in an ambient folder and never added to the folder’s history. Call transcripts keep a version history.",
     "old": "Transcripts are deleted after 24 hours by default. They live in ambient/, excluded from git history. Call transcripts keep their normal git history.",
     "action": "change",
     "location": "capture/renderer/ambient-consent.html:33",
@@ -4954,7 +4954,7 @@
   {
     "id": "CR-420",
     "owner": "T4",
-    "expected": "Always-on transcripts are already tracked by git in this folder. Choose another transcript folder.",
+    "expected": "This folder already keeps always-on transcripts in its history. Choose another transcript folder.",
     "old": "Ambient folder already has tracked files; choose another transcript folder.",
     "action": "change",
     "location": "capture/lib/repo.js:123",
@@ -4965,7 +4965,7 @@
   {
     "id": "CR-421",
     "owner": "T4",
-    "expected": "Couldn’t save outside git history. No transcript was written. Choose another transcript folder.",
+    "expected": "Couldn’t keep this transcript out of the folder’s history. No transcript was written. Choose another transcript folder.",
     "old": "Couldn’t keep the ambient folder out of git; nothing was written.",
     "action": "change",
     "location": "capture/lib/repo.js:147",
