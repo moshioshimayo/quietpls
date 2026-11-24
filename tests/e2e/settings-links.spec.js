@@ -44,7 +44,8 @@ test.describe("Settings links and navigation lock", () => {
     await dismissOnboardingIfNeeded(electronApp);
     page = await getWidgetWindow(electronApp, 10000);
     await page.evaluate(() => window.electronAPI.openSettings());
-    settings = await getWindow(electronApp, "Settings");
+    await expect.poll(() => electronApp.windows().find((w) => w.url().endsWith("/settings.html"))).toBeTruthy();
+    settings = electronApp.windows().find((w) => w.url().endsWith("/settings.html"));
     await settings.waitForLoadState("domcontentloaded");
   });
 

@@ -151,7 +151,7 @@ describe('filterAudioInputDevices', () => {
     ];
     const result = filterAudioInputDevices(devices);
     expect(result).toHaveLength(1);
-    expect(result[0].label).toBe('Microphone (abcdefgh)');
+    expect(result[0].label).toBe('Unnamed mic (abcdefgh)');
   });
 
   it('returns empty array for non-array input', () => {

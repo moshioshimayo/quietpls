@@ -12,11 +12,12 @@
   function show(s) {
     toggle.checked = s.enabled;
     actions.hidden = !s.enabled && !s.ambient;
+    window.dispatchEvent(new Event("settings-content-changed"));
     description.textContent = !s.enabled
-      ? "Off. Monitoring never records anything."
+      ? "Call prompts off. Voice monitoring doesn’t save audio."
       : s.setupDone
-        ? "On. You're asked before any call is recorded."
-        : "On, but not set up yet. Open Capture settings to finish.";
+        ? "Call prompts on. Choose which calls to record."
+        : "Finish setup in Capture settings";
   }
 
   toggle.addEventListener("change", async () => {
@@ -26,8 +27,6 @@
   });
   document.getElementById("captureSettingsBtn").onclick = () =>
     api.openTranscripts("settings");
-  document.getElementById("captureTranscriptsBtn").onclick = () =>
-    api.openTranscripts("calls");
   window.addEventListener("focus", () => api.captureSummary().then(show));
   api.captureSummary().then(show);
 })();

@@ -67,6 +67,16 @@ describe('session IPC sender check', () => {
     });
   }
 
+  it('reports unreadable history through IPC without rewriting it', () => {
+    const file = path.join(tmp, 'sessions.json');
+    fs.writeFileSync(file, 'unreadable history');
+    const event = ev(topFrame(pageUrl('settings.html')));
+    expect(handlers['get-sessions'](event).success).toBe(false);
+    expect(handlers['get-session-stats'](event).success).toBe(false);
+    expect(handlers['delete-session'](event, 'kept').success).toBe(false);
+    expect(fs.readFileSync(file, 'utf8')).toBe('unreadable history');
+  });
+
   for (const page of ['index.html', 'settings.html']) {
     it(`serves the packaged ${page} top frame`, () => {
       const event = ev(topFrame(pageUrl(page) + '#history'));

@@ -35,21 +35,21 @@ function generateInsights(sessionData) {
   );
 
   if (speaking <= 0) {
-    return ["No speech detected this session"];
+    return ["No talking detected this session"];
   }
 
   // 1. Ease your voice (red) share of speaking time
   const redPct = Math.round(((zoneTime.danger || 0) / speaking) * 100);
   const yellowPct = Math.round(((zoneTime.warning || 0) / speaking) * 100);
   if (redPct > 0) {
-    insights.push(`Ease your voice for ${redPct}% of your speaking time`);
+    insights.push(`“Ease your voice” shown for ${redPct}% of talking time`);
   } else {
-    insights.push("You never needed to ease your voice");
+    insights.push("“Ease your voice” shown for under 1% of talking time");
   }
 
   // 2. Getting loud (yellow) share, if any
   if (yellowPct > 0) {
-    insights.push(`Getting loud for ${yellowPct}% of your speaking time`);
+    insights.push(`“Getting loud” shown for ${yellowPct}% of talking time`);
   }
 
   // 3. Trend: first half vs second half of speech, in dB
@@ -57,10 +57,10 @@ function generateInsights(sessionData) {
   if (insights.length < 3 && samples && samples.length > 20) {
     const mid = Math.floor(samples.length / 2);
     const change = average(samples.slice(mid)) - average(samples.slice(0, mid));
-    if (change > TREND_DB) insights.push("You got louder in the second half");
+    if (change > TREND_DB) insights.push("Voice level was higher in the second half");
     else if (change < -TREND_DB)
-      insights.push("You got quieter toward the end");
-    else insights.push("Your level was consistent throughout");
+      insights.push("Voice level was lower in the second half");
+    else insights.push("Average voice level was similar in both halves");
   }
 
   // 4. Loudest moment
@@ -74,7 +74,7 @@ function generateInsights(sessionData) {
   ) {
     const at = formatTimeSinceStart(peaks[0].timestamp, s.startTime);
     insights.push(
-      `Loudest at ${at}: +${Math.round(peaks[0].value)} dB above your normal`,
+      `Peak at ${at} · +${Math.round(peaks[0].value)} dB above normal`,
     );
   }
 

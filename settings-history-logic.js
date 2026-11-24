@@ -10,9 +10,9 @@
  * @returns {string}
  */
 function formatDate(isoString) {
-  if (!isoString) return "--";
+  if (!isoString) return "—";
   const d = new Date(isoString);
-  if (isNaN(d.getTime())) return "--";
+  if (isNaN(d.getTime())) return "—";
   const months = [
     "Jan",
     "Feb",
@@ -37,9 +37,9 @@ function formatDate(isoString) {
  * @returns {string}
  */
 function formatTime(isoString) {
-  if (!isoString) return "--";
+  if (!isoString) return "—";
   const d = new Date(isoString);
-  if (isNaN(d.getTime())) return "--";
+  if (isNaN(d.getTime())) return "—";
   let hours = d.getHours();
   const minutes = d.getMinutes();
   const ampm = hours >= 12 ? "PM" : "AM";
@@ -56,7 +56,7 @@ function formatTime(isoString) {
  * @returns {string}
  */
 function formatDuration(seconds) {
-  if (typeof seconds !== "number" || isNaN(seconds) || seconds < 0) return "--";
+  if (typeof seconds !== "number" || isNaN(seconds) || seconds < 0) return "—";
   const totalSec = Math.round(seconds);
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
@@ -71,7 +71,7 @@ function formatDuration(seconds) {
  * @returns {string}
  */
 function formatTotalMinutes(minutes) {
-  if (typeof minutes !== "number" || isNaN(minutes) || minutes < 0) return "--";
+  if (typeof minutes !== "number" || isNaN(minutes) || minutes < 0) return "—";
   if (minutes < 60) return `${Math.round(minutes)}m`;
   const h = Math.floor(minutes / 60);
   const m = Math.round(minutes % 60);
@@ -88,7 +88,7 @@ function formatTotalMinutes(minutes) {
  */
 function computeGrade(zoneTime) {
   if (!zoneTime || typeof zoneTime !== "object") {
-    return { letter: "--", color: "tertiary", score: 0 };
+    return { letter: "—", color: "tertiary", score: 0 };
   }
 
   const quiet = (zoneTime.silent || 0) + (zoneTime.quiet || 0);
@@ -98,7 +98,7 @@ function computeGrade(zoneTime) {
   const total = quiet + normal + loud + danger;
 
   if (total === 0) {
-    return { letter: "--", color: "tertiary", score: 0 };
+    return { letter: "—", color: "tertiary", score: 0 };
   }
 
   const score =
@@ -202,7 +202,7 @@ function computeSessionGrade(session) {
     return computeGrade(session && session.zoneTime);
   const z = speakingZones(session);
   const speaking = z.speaking;
-  if (speaking <= 0) return { letter: "--", color: "tertiary", score: 0 };
+  if (speaking <= 0) return { letter: "—", color: "tertiary", score: 0 };
   const score = (z.normal + 0.6 * z.warning) / speaking;
   return { ...letterFor(score), score: Math.round(score * 100) / 100 };
 }
@@ -233,19 +233,19 @@ function computeSessionZonePercentages(session) {
  * @returns {string} Average grade letter
  */
 function computeAverageGrade(sessions) {
-  if (!Array.isArray(sessions) || sessions.length === 0) return "--";
+  if (!Array.isArray(sessions) || sessions.length === 0) return "—";
 
   let totalScore = 0;
   let count = 0;
   for (const s of sessions) {
     const grade = computeSessionGrade(s);
-    if (grade.letter !== "--") {
+    if (grade.letter !== "—") {
       totalScore += grade.score;
       count++;
     }
   }
 
-  if (count === 0) return "--";
+  if (count === 0) return "—";
   const avgScore = totalScore / count;
 
   if (avgScore >= 0.85) return "A";
@@ -266,6 +266,7 @@ const _settingsHistoryExports = {
   isLegacySession,
   computeSessionGrade,
   computeSessionZonePercentages,
+  speakingZones,
 };
 
 if (typeof module !== "undefined" && module.exports) {
