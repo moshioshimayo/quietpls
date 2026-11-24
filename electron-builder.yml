@@ -29,6 +29,9 @@ files:
 # Native helper that lists which apps are using the mic (meeting-detector.js).
 # Built by scripts/build-native.sh (predist).
 extraResources:
+  # AppKit loads this for the standard About panel, including the GitHub link.
+  - from: assets/Credits.html
+    to: Credits.html
   - from: bin/mic-users
     to: mic-users
   # Capture (beta) stereo recorder (native/capture.swift): mic + system-audio tap.
