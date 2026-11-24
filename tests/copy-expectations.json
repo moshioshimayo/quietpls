@@ -445,7 +445,7 @@
   {
     "id": "CR-040",
     "owner": "T1",
-    "expected": "1 of 2 · Normal voice",
+    "expected": "Normal voice",
     "old": "Step 1 of 2 · Set your normal voice",
     "action": "change",
     "location": "renderer.js:790",
@@ -536,7 +536,7 @@
   {
     "id": "CR-048",
     "owner": "T1",
-    "expected": "2 of 2 · Try the feedback",
+    "expected": "Try the feedback",
     "old": "Step 2 of 2 · Quick check",
     "action": "change",
     "location": "renderer.js:812",

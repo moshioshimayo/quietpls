@@ -85,9 +85,8 @@ test.describe("Widget State Transitions", () => {
 
     // A fresh profile has no normal voice for this mic yet.
     await expect(mainWindow.locator("#calibrationView")).toBeVisible();
-    await expect(mainWindow.locator("#calStep")).toHaveText(
-      /1 of 2 · Normal voice/i,
-    );
+    // One counted sequence: the setup window's "n of 3"; the panel names its step.
+    await expect(mainWindow.locator("#calStep")).toHaveText("Normal voice");
     await expect(mainWindow.locator("#calText")).toHaveText(
       /Talk the way you would on a call/,
     );

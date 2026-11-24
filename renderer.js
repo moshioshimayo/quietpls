@@ -968,7 +968,7 @@ if (typeof window !== "undefined") {
     };
     let hint = "";
     if (calib === "ready" || calib === "talk") {
-      t.step = "1 of 2 · Normal voice";
+      t.step = "Normal voice";
       t.title = "Use your normal call voice";
       t.secondary = calib === "ready" ? "Cancel" : "Stop";
       if (calib === "ready") {
@@ -986,7 +986,7 @@ if (typeof window !== "undefined") {
       }
     } else if (calib === "failed") {
       const r = calibFail || {};
-      t.step = "1 of 2 · Normal voice";
+      t.step = "Normal voice";
       t.title = "Try voice setup again";
       t.text = r.reason === "clipping" || r.status === "clipping"
         ? "Mic input is too strong. Move a little farther from the mic."
@@ -996,7 +996,7 @@ if (typeof window !== "undefined") {
       t.primary = "Try again";
       t.secondary = "Cancel";
     } else if (calib === "saved") {
-      t.step = "1 of 2 · Normal voice";
+      t.step = "Normal voice";
       t.title = "Normal voice saved";
       t.text = "Saved for " + micLabel + ". Feedback compares your voice with this level.";
       t.mark = true;
@@ -1004,7 +1004,7 @@ if (typeof window !== "undefined") {
       if (resetOnly) t.secondary = "Done";
       else t.note = "Next: try the feedback";
     } else if (calib === "louder" || calib === "back") {
-      t.step = "2 of 2 · Try the feedback";
+      t.step = "Try the feedback";
       t.title = calib === "louder" ? "Normal voice saved" : "That's the cue you'll see on calls";
       t.text = calib === "louder" ? "Try a slightly louder voice." : "Return to your normal voice";
       t.mark = true;
@@ -1012,7 +1012,7 @@ if (typeof window !== "undefined") {
       t.secondary = "Skip check";
     } else if (calib === "done" || calib === "skipped") {
       t.mark = true;
-      t.step = "2 of 2 · Try the feedback";
+      t.step = "Try the feedback";
       t.title = checkSkipped ? "Normal voice saved" : "All set";
       t.text = checkSkipped ? "Louder check skipped. Your normal voice is saved."
         : "That's the cue you'll see on calls. Return to your normal voice.";
