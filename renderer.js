@@ -968,7 +968,8 @@ if (typeof window !== "undefined") {
         t.text = Math.floor(progress * CALIBRATION_SECONDS) + " of 10 seconds heard · " + micLabel;
         hint = details.hint === "too-strong" ? "Mic input is too strong. Move a little farther from the mic."
           : details.hint === "noise" ? "Hearing steady noise, not talking. Move away from fans or music, or talk a little closer."
-          : details.extended ? "Almost there. Keep talking." : "";
+          : "";
+        if (details.extended) hint = "Almost there. Keep talking." + (hint ? " " + hint : "");
       }
     } else if (calib === "failed") {
       const r = calibFail || {};
