@@ -316,7 +316,7 @@ function setupHtml() {
       what: "Install speech-to-text",
       why: health.whisper
         ? `<span title="${esc(health.whisper)}">Installed</span>`
-        : `quietpls uses the free whisper-cpp tool to turn calls into text on this Mac. Install it once in Terminal with Homebrew:<br>${command("brew install whisper-cpp")}`,
+        : `quietpls uses the free whisper-cpp tool to turn calls into text. Install it once in Terminal with Homebrew:<br>${command("brew install whisper-cpp")}`,
       action: health.whisper
         ? ""
         : '<button class="sm" data-do="refresh">Check again</button>',
@@ -328,7 +328,7 @@ function setupHtml() {
         ? "Transcription data ready"
         : dl && dl.error
           ? `Couldn’t download. Try again. ${esc(dl.error)}`
-          : "Saved on this Mac, so calls are transcribed here.",
+          : "Downloaded once, then used for every call.",
       action: health.modelReady
         ? ""
         : dl && !dl.error
@@ -339,10 +339,10 @@ function setupHtml() {
       state: health.folder.ok ? "done" : folderBad ? "bad" : "",
       what: "Choose a transcript folder",
       why: health.folder.ok
-        ? `<span title="${esc(tilde(settings.folder, home))}">${esc(shortPath(settings.folder, home))}</span> · on this Mac`
+        ? `<span title="${esc(tilde(settings.folder, home))}">${esc(shortPath(settings.folder, home))}</span>`
         : folderBad
           ? "Choose a folder that exists and doesn’t sync to an online code repository"
-          : "Saves each call transcript as a text file on this Mac. Choose a folder that doesn’t sync to an online code repository.",
+          : "Saves each call transcript as a text file. Choose a folder that doesn’t sync to an online code repository.",
       action: `<button class="sm${health.folder.ok ? "" : " primary"}" data-do="folder">${health.folder.ok ? "Change…" : "Choose…"}</button>`,
     },
     {
@@ -371,7 +371,7 @@ function setupHtml() {
       <div class="l"><div class="what">${s.what}</div><div class="why">${s.why}</div></div><div class="act">${s.action}</div></li>`,
       )
       .join("")}</ol>
-    <p class="privacy">Capture processes recordings on this Mac. By default, audio is deleted after the transcript is saved.</p>
+    <p class="privacy">By default, audio is deleted after the transcript is saved.</p>
   </div>`;
 }
 

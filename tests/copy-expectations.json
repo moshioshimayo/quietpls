@@ -3824,7 +3824,7 @@
   {
     "id": "CR-323",
     "owner": "T4",
-    "expected": "Saved on this Mac, so calls are transcribed here.",
+    "expected": "Downloaded once, then used for every call.",
     "old": "Downloaded once from Hugging Face and kept in ~/Library/Application Support/quietpls/models. Capture makes no other network requests.",
     "action": "change",
     "location": "capture/renderer/main.js:311",
@@ -3861,7 +3861,7 @@
     "old": "{folder} · local git repo, no remote",
     "action": "change",
     "location": "capture/renderer/main.js:323",
-    "template": "{folder} · on this Mac",
+    "template": "{folder}",
     "placeholders": [
       "folder"
     ],
@@ -3881,7 +3881,7 @@
   {
     "id": "CR-328",
     "owner": "T4",
-    "expected": "Saves each call transcript as a text file on this Mac. Choose a folder that doesn’t sync to an online code repository.",
+    "expected": "Saves each call transcript as a text file. Choose a folder that doesn’t sync to an online code repository.",
     "old": "Each call is saved there as a markdown file and committed with git. It must not have a git remote.",
     "action": "change",
     "location": "capture/renderer/main.js:326",
@@ -3952,7 +3952,7 @@
   {
     "id": "CR-334",
     "owner": "T4",
-    "expected": "Capture processes recordings on this Mac. By default, audio is deleted after the transcript is saved.",
+    "expected": "By default, audio is deleted after the transcript is saved.",
     "old": "Recordings and transcripts stay on this Mac. Audio is deleted once the text is saved (change this in Settings).",
     "action": "change",
     "location": "capture/renderer/main.js:341",
