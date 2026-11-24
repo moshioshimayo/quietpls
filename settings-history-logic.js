@@ -57,12 +57,12 @@ function formatTime(isoString) {
  */
 function formatDuration(seconds) {
   if (typeof seconds !== "number" || isNaN(seconds) || seconds < 0) return "—";
-  const totalSec = Math.round(seconds);
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m ${s}s`;
+  // The session summary's format: "< 1m", "24m", "1h 5m".
+  if (seconds < 60) return "< 1m";
+  const total = Math.round(seconds / 60);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
 /**

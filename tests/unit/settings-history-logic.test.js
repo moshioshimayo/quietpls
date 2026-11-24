@@ -81,12 +81,13 @@ describe('formatTime', () => {
 // ============================================================
 
 describe('formatDuration', () => {
-  it('formats seconds only', () => {
-    expect(formatDuration(45)).toBe('0m 45s');
+  it('shows under a minute like the session summary', () => {
+    expect(formatDuration(45)).toBe('< 1m');
   });
 
-  it('formats minutes and seconds', () => {
-    expect(formatDuration(125)).toBe('2m 5s');
+  it('formats whole minutes like the session summary', () => {
+    expect(formatDuration(125)).toBe('2m');
+    expect(formatDuration(3599)).toBe('1h 0m');
   });
 
   it('formats hours and minutes', () => {
@@ -98,7 +99,7 @@ describe('formatDuration', () => {
   });
 
   it('formats zero seconds', () => {
-    expect(formatDuration(0)).toBe('0m 0s');
+    expect(formatDuration(0)).toBe('< 1m');
   });
 
   it('returns -- for negative numbers', () => {

@@ -2264,17 +2264,15 @@
     "owner": "T3",
     "expected": null,
     "old": "{h}h {m}m / {m}m {s}s / {m}m / < 1m",
-    "action": "retain",
+    "action": "change",
     "location": "settings-history-logic.js:65,78; renderer.js:14",
     "template": "{h}h {m}m",
     "placeholders": [
       "h",
-      "m",
-      "s"
+      "m"
     ],
     "variants": [
       "{h}h {m}m",
-      "{m}m {s}s",
       "{m}m",
       "< 1m"
     ],

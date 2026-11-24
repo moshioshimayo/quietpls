@@ -13,12 +13,11 @@
  */
 function formatDuration(durationSec) {
   if (durationSec == null || durationSec < 60) return "< 1m";
-  const hours = Math.floor(durationSec / 3600);
-  const minutes = Math.round((durationSec % 3600) / 60);
-  if (hours > 0) {
-    return hours + "h " + minutes + "m";
-  }
-  return minutes + "m";
+  // Whole minutes first, so 59:59 reads "1h 0m", never "60m" (History uses the same rule).
+  const total = Math.round(durationSec / 60);
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  return hours > 0 ? hours + "h " + minutes + "m" : minutes + "m";
 }
 
 function decisionExplanation(decision, sensitivity = 0) {
