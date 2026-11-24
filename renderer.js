@@ -1010,7 +1010,7 @@ if (typeof window !== "undefined") {
     }
     $("calStep").textContent = t.step;
     $("calStep").hidden = !t.step;
-    $("calMark").hidden = !t.mark;
+    $("calMark").toggleAttribute("hidden", !t.mark);
     $("calTitle").textContent = t.title;
     $("calProgress").hidden = t.progress === false;
     $("calProgressFill").style.width = (t.progress || 0) * 100 + "%";

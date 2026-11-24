@@ -13,7 +13,7 @@ function renderer() {
   const elements=new Map();
   const element=id=>{
     if (!elements.has(id)) elements.set(id, {id,textContent:"",hidden:false,style:{display:"",setProperty(){}},attributes:{},className:"",classList:{toggle(){},add(){},remove(){}},
-      setAttribute(k,v){this.attributes[k]=v;},querySelector(){return element(id+":use");},addEventListener(){},focus(){}});
+      setAttribute(k,v){this.attributes[k]=v;},toggleAttribute(k,on){if(on)this.attributes[k]="";else delete this.attributes[k];},querySelector(){return element(id+":use");},addEventListener(){},focus(){}});
     return elements.get(id);
   };
   const context={console, setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){},performance:{now:()=>0},

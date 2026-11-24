@@ -43,6 +43,7 @@ test.describe("Set your normal voice with real nonstop speech", () => {
       await page.locator("#calPrimaryBtn").click();
       const started = Date.now();
       await expect(page.locator("#calTitle")).toHaveText("Normal voice saved", { timeout: 40000 });
+      await expect(page.locator("#calMark")).toBeVisible();
       const elapsedMs = Date.now() - started;
       console.log("E2E REAL SPEECH", JSON.stringify({ levelDb, elapsedMs }));
       expect(elapsedMs).toBeLessThanOrEqual(boundMs);
