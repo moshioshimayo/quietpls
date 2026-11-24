@@ -73,7 +73,7 @@ test.describe("Bluetooth mic policy — widget and Settings", () => {
       "MacBook Pro Microphone (Built-in)",
     );
     await expect(page.locator("#micNote")).toHaveText(
-      "Headset mic skipped — keeps call audio clear",
+      "Using a mic that keeps headset audio clear",
     );
     await finishCalibration(page);
     await expect(label()).toHaveText(/Normal/, { timeout: 10000 });
@@ -111,7 +111,7 @@ test.describe("Bluetooth mic policy — widget and Settings", () => {
     );
     const select = settingsPage.locator("#audioDeviceSelect");
     await expect(select.locator("option")).toHaveText([
-      "System Default (skips Bluetooth mics)",
+      "Automatic (keeps headset audio clear)",
       "MacBook Pro Microphone (Built-in)",
       "AirPods (Bluetooth)",
     ]);
@@ -124,9 +124,11 @@ test.describe("Bluetooth mic policy — widget and Settings", () => {
     await settingsPage.locator("#testMicBtn").click();
 
     await select.selectOption("fake-airpods");
+    await expect(page.locator("#newMicView")).toBeVisible();
+    await page.locator("#newMicSetup").click();
     await expect(note).toBeVisible();
     await expect(note).toHaveText(
-      "Using a Bluetooth mic switches your headphones to call-quality audio.",
+      "Headset audio may sound less clear while this mic is in use.",
     );
     await expect
       .poll(() => gumIds(page))
@@ -205,7 +207,7 @@ test.describe("Bluetooth mic policy — only a Bluetooth mic", () => {
       expect(await gumIds(page)).toEqual(["fake-airpods"]);
       await expect
         .poll(notes)
-        .toEqual(["quietpls is using your Bluetooth mic"]);
+        .toEqual(["Using Your Bluetooth Mic"]);
 
       // Second session: no second note.
       await stopFromWidget(page);
@@ -249,9 +251,7 @@ test.describe("Bluetooth mic policy — onboarding", () => {
         defaultId: "fake-airpods",
       });
       // (Re)enter the demo step so it opens a mic with the mock in place.
-      await onboarding.evaluate(() => window.goToStep(2));
-      await onboarding.waitForTimeout(500);
-      await onboarding.evaluate(() => window.goToStep(3));
+      await onboarding.click("#getStartedBtn");
       await expect.poll(() => gumIds(onboarding)).toEqual(["fake-builtin"]);
     } finally {
       await app.close();

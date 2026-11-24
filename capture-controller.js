@@ -108,6 +108,9 @@ function createCaptureController(options) {
   };
 
   let preferredId = "";
+  let pinnedId = null;
+  let pendingSwitch = null;
+  let approvedSwitchId = null;
   let state = "idle";
   let reason = null;
   let device = null;
@@ -132,6 +135,7 @@ function createCaptureController(options) {
       fallback,
       attempt: attempts,
       preferredId,
+      pendingSwitch,
       policy: choice ? choice.reason : null,
     };
   }
@@ -260,8 +264,7 @@ function createCaptureController(options) {
   async function acquire() {
     const gen = ++generation;
     clearRetry();
-    teardown();
-    if (state !== "reconnecting") setState("starting");
+    // Keep a connected previous stream until the user accepts a new mic.
     let stream = null;
     let ctx = null;
     const unsubs = [];
@@ -269,7 +272,21 @@ function createCaptureController(options) {
       const devices = await enumerate();
       const known = await transports();
       if (gen !== generation) return false;
-      let next = CaptureMicPolicy.chooseInput(preferredId, devices, known);
+      let next = CaptureMicPolicy.chooseInput(pinnedId || preferredId, devices, known);
+      if (device && next.deviceId && next.deviceId !== device.deviceId &&
+          next.deviceId !== approvedSwitchId && o.onDeviceSwitch) {
+        if (pendingSwitch?.device.deviceId === next.deviceId) return false;
+        const target = devices.find(d => d.deviceId === next.deviceId) || next;
+        pendingSwitch = { device: target, previous: device,
+          previousConnected: devices.some(d => d.deviceId === device.deviceId) };
+        const accepted = await o.onDeviceSwitch(pendingSwitch);
+        if (gen !== generation) return false;
+        if (!accepted) return false;
+      }
+      pendingSwitch = null;
+      approvedSwitchId = null;
+      teardown();
+      if (state !== "reconnecting") setState("starting");
       try {
         stream = await getStream(next.deviceId);
       } catch (err) {
@@ -424,7 +441,7 @@ function createCaptureController(options) {
   }
 
   async function onDeviceChange() {
-    if (state === "idle" || state === "starting") return;
+    if (state === "idle" || state === "starting" || pendingSwitch) return;
     if (state === "reconnecting" || state === "unavailable") {
       if (reason === "permission") return;
       attempts = 0;
@@ -461,6 +478,8 @@ function createCaptureController(options) {
 
   async function start(deviceId) {
     preferredId = deviceId || "";
+    pinnedId = null;
+    pendingSwitch = null;
     attempts = 0;
     if (
       !deviceListener &&
@@ -478,7 +497,9 @@ function createCaptureController(options) {
   /** Change the selected mic. Reacquires immediately when capture is active. */
   async function setDevice(deviceId) {
     const next = deviceId || "";
-    if (next === preferredId && state === "running" && !fallback) return true;
+    pinnedId = null;
+    pendingSwitch = null;
+    if (next === preferredId && device?.deviceId === next && state === "running" && !fallback) return true;
     preferredId = next;
     if (state === "idle") return true;
     attempts = 0;
@@ -505,6 +526,7 @@ function createCaptureController(options) {
       mediaDevices.removeEventListener("devicechange", deviceListener);
     }
     deviceListener = null;
+    pinnedId = pendingSwitch = approvedSwitchId = null;
     device = null;
     choice = null;
     fallback = false;
@@ -516,6 +538,25 @@ function createCaptureController(options) {
     start,
     stop,
     setDevice,
+    async acceptDeviceSwitch() {
+      if (!pendingSwitch) return false;
+      approvedSwitchId = pendingSwitch.device.deviceId;
+      pinnedId = approvedSwitchId;
+      pendingSwitch = null;
+      attempts = 0;
+      return acquire();
+    },
+    async deferDeviceSwitch() {
+      if (!pendingSwitch) return false;
+      const previous = pendingSwitch.previous;
+      pendingSwitch = null;
+      const connected = (await enumerate()).some(d => d.deviceId === previous.deviceId);
+      if (!connected) { stop(); return false; }
+      pinnedId = previous.deviceId;
+      if (current && current.track.readyState !== "ended" && state === "running") return true;
+      attempts = 0;
+      return acquire();
+    },
     retry,
     getStatus: status,
     getAnalyser: () => (current ? current.analyser : null),

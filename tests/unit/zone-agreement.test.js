@@ -81,3 +81,27 @@ describe("stored ratios and displayed percentages share one denominator", () => 
     expect(grade).toBeCloseTo(1 - r.tooLoudRatio - 0.4 * r.gettingLoudRatio, 2);
   });
 });
+
+const { decisionExplanation } = require("../../renderer");
+it("explains alert delay, rounded thresholds, hysteresis and recovery without changing a decision", () => {
+  const t = LL.createDecisionTracker({ baselineDb: -30 });
+  const feed = (db, ms) => { let d; for (let i = 0; i < ms; i += 20) d = t.update({ dbfs: db, voiced: true, frameMs: 20 }); return d; };
+  feed(-30, 3000);
+  const pending = feed(-18, 1000);
+  expect(pending.zone).toBe("normal");
+  const before = JSON.stringify(pending);
+  expect(decisionExplanation(pending)).toBe("Feedback waits for a sustained change");
+  expect(JSON.stringify(pending)).toBe(before);
+  const loud = feed(-18, 5000);
+  expect(loud.zone).toBe("danger");
+  expect(decisionExplanation(loud)).toBe("");
+  const held = feed(-21, 5000);
+  expect(held.zone).toBe("danger");
+  expect(decisionExplanation(held)).toContain("sustained change");
+  const recovery = feed(-30, 500);
+  expect(decisionExplanation(recovery)).toContain("sustained change");
+  const normal = feed(-30, 5000);
+  expect(normal.zone).toBe("normal");
+  expect(decisionExplanation(normal)).toBe("");
+  expect(decisionExplanation({ zone: "normal", relDb: 5.8 })).toContain("sustained change");
+});

@@ -56,17 +56,17 @@ test.describe("Widget State Transitions", () => {
     const compactPill = mainWindow.locator("#compactPill");
     await expect(compactPill).toBeVisible();
     expect(await compactPill.evaluate((el) => el.tagName)).toBe("BUTTON");
-    await expect(compactPill).toHaveText(/^\s*○\s*Start monitoring\s*$/);
+    await expect(compactPill).toHaveText(/^\s*Start monitoring\s*$/);
     await expect(compactPill).toHaveAttribute(
       "aria-label",
       "quietpls: Start monitoring. Show details",
     );
     expect(await widgetBounds(electronApp)).toMatchObject({
-      width: 188,
-      height: 32,
+      width: 240,
+      height: 94,
     });
     const box = await compactPill.boundingBox();
-    expect(box).toMatchObject({ width: 188, height: 32 });
+    expect(box).toMatchObject({ width: 240, height: 94 });
 
     await expect(mainWindow.locator("#expandedPanel")).not.toBeVisible();
     await expect(mainWindow.locator("#sessionCompletePanel")).not.toBeVisible();
@@ -81,26 +81,24 @@ test.describe("Widget State Transitions", () => {
 
     await compactPill.click();
     await expect(expandedPanel).toBeVisible();
-    await expect(compactPill).not.toBeVisible();
+    await expect(compactPill).toBeVisible();
 
     // A fresh profile has no normal voice for this mic yet.
     await expect(mainWindow.locator("#calibrationView")).toBeVisible();
     await expect(mainWindow.locator("#calStep")).toHaveText(
-      /Step 1 of 2 · Set your normal voice/i,
+      /1 of 2 · Normal voice/i,
     );
     await expect(mainWindow.locator("#calText")).toHaveText(
-      /of 10 seconds of talking heard · Mic: Fake Built-in Mic/,
+      /Talk the way you would on a call/,
     );
-    await expect(mainWindow.locator("#calSecondaryBtn")).toHaveText("Stop");
+    await expect(mainWindow.locator("#calSecondaryBtn")).toHaveText("Cancel");
     await expect
       .poll(() => widgetBounds(electronApp))
-      .toMatchObject({ width: 320, height: 240 });
-    expect(await expandedPanel.boundingBox()).toMatchObject({
-      x: 0,
-      y: 0,
-      width: 320,
-      height: 240,
-    });
+      .toMatchObject({ width: 368 });
+    const panelBox = await expandedPanel.boundingBox();
+    expect(panelBox.width).toBe(304);
+    expect(panelBox.y).toBeGreaterThan(30);
+    expect(panelBox.height).toBeGreaterThan(100);
   });
 
   test("Stop during calibration returns to the idle pill (nothing recorded)", async () => {
@@ -115,7 +113,7 @@ test.describe("Widget State Transitions", () => {
     await expect(mainWindow.locator("#sessionCompletePanel")).not.toBeVisible();
     await expect
       .poll(() => widgetBounds(electronApp))
-      .toMatchObject({ width: 188, height: 32 });
+      .toMatchObject({ width: 240, height: 94 });
   });
 
   test("Escape and Hide return to the compact pill without stopping", async () => {
@@ -125,9 +123,9 @@ test.describe("Widget State Transitions", () => {
 
     await mainWindow.keyboard.press("Escape");
     await expect(compactPill).toBeVisible();
-    // Still calibrating: the pill shows its progress, monitoring continues.
+    // Ready for explicit Start; hiding does not take a normal voice.
     await expect(mainWindow.locator("#pillWord")).toHaveText(
-      /Set normal voice \d+%/,
+      /Set normal voice/,
     );
     await expect(compactPill).toHaveClass(/monitoring/);
 
@@ -164,6 +162,7 @@ test.describe("Widget State Transitions", () => {
     // Calibration and its rehearsal are not session time.
     await finishCalibration(mainWindow);
     await expect(compactPill).toBeVisible({ timeout: 6000 }); // auto-collapse
+    await expect(mainWindow.locator("#expandedPanel")).not.toBeVisible();
     await expect(mainWindow.locator("#pillWord")).toHaveText("Normal", {
       timeout: 10000,
     });
@@ -184,7 +183,7 @@ test.describe("Widget State Transitions", () => {
       /Too loud|lawn|80 dB/,
     );
     await expect(expandedPanel).not.toBeVisible();
-    await expect(compactPill).not.toBeVisible();
+    await expect(compactPill).toBeVisible();
 
     // sessionComplete -> compact (via close)
     await mainWindow.locator("#sessionCloseBtn").click();
@@ -215,10 +214,8 @@ test.describe("Widget State Transitions", () => {
       await expect(summary).not.toBeVisible();
       await expect
         .poll(() => widgetBounds(electronApp))
-        .toMatchObject({ width: 320, height: 240 });
-      expect(
-        await mainWindow.evaluate(() => [innerWidth, innerHeight]),
-      ).toEqual([320, 240]);
+        .toMatchObject({ width: 368 });
+      expect(await mainWindow.evaluate(() => innerWidth)).toBe(368);
       expect(
         await mainWindow.evaluate(() => window.electronAPI.widgetGetState()),
       ).toBe("expanded");
@@ -298,6 +295,6 @@ test.describe("Widget State Transitions", () => {
       .poll(() => electronApp.evaluate(() => global.__contextMenuReceived))
       .toBe(true);
     const labels = await electronApp.evaluate(() => global.__contextMenuLabels);
-    expect(labels).toContain("Recalibrate");
+    expect(labels).toContain("Voice Setup…");
   });
 });

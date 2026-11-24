@@ -760,3 +760,45 @@ describe("capture controller — stale transport snapshot (2.1.1 review P1)", ()
     });
   });
 });
+
+describe("new mic handoff", () => {
+  for (const source of ["settings", "automatic"]) {
+    it(`${source}: retains the previous connected stream until Set up`, async () => {
+      const env=makeEnv(), prompts=[];
+      const {ctrl}=makeController(env,{onDeviceSwitch: async s => {prompts.push(s);return false;}});
+      await ctrl.start("");
+      const previous=env.tracks[0];
+      if (source==="settings") await ctrl.setDevice(HEADSET.deviceId);
+      else {env.systemDefault=HEADSET;await ctrl._onDeviceChange();await flush();}
+      expect(prompts).toHaveLength(1);
+      expect(ctrl.getStatus().device.deviceId).toBe(BUILTIN.deviceId);
+      expect(previous.stopped).toBe(false);
+      expect(env.gumCalls).toHaveLength(1);
+      await ctrl.acceptDeviceSwitch();
+      expect(previous.stopped).toBe(true);
+      expect(ctrl.getStatus().device.deviceId).toBe(HEADSET.deviceId);
+      ctrl.stop();
+    });
+  }
+  it("Later pins the previous mic for this run while retaining the preference", async () => {
+    const env=makeEnv();
+    const {ctrl}=makeController(env,{onDeviceSwitch: async () => false});
+    await ctrl.start("");
+    await ctrl.setDevice(HEADSET.deviceId);
+    expect(await ctrl.deferDeviceSwitch()).toBe(true);
+    expect(ctrl.getStatus().preferredId).toBe(HEADSET.deviceId);
+    await ctrl.retry();
+    expect(ctrl.getStatus().device.deviceId).toBe(BUILTIN.deviceId);
+    ctrl.stop();
+  });
+  it("Later stops when the previous mic is disconnected", async () => {
+    const env=makeEnv();
+    const {ctrl}=makeController(env,{onDeviceSwitch:async()=>false});
+    await ctrl.start("");
+    env.inputs=[HEADSET];env.systemDefault=HEADSET;
+    await ctrl._onDeviceChange();await flush();
+    expect(await ctrl.deferDeviceSwitch()).toBe(false);
+    expect(ctrl.getStatus().state).toBe("idle");
+    expect(env.tracks[0].stopped).toBe(true);
+  });
+});

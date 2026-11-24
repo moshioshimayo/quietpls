@@ -14,13 +14,13 @@ const { STATES } = require('./widget-state-machine');
 
 // Target dimensions for each widget state
 const STATE_BOUNDS = Object.freeze({
-  [STATES.COMPACT]:          { width: 188, height: 32 },
-  [STATES.EXPANDED]:         { width: 320, height: 240 },
-  [STATES.SESSION_COMPLETE]: { width: 300, height: 120 },
+  [STATES.COMPACT]:          { width: 240, height: 94 },
+  [STATES.EXPANDED]:         { width: 368, height: 330 },
+  [STATES.SESSION_COMPLETE]: { width: 368, height: 300 },
 });
 
 // Animation configuration
-const ANIMATION_DURATION_MS = 350;
+const ANIMATION_DURATION_MS = 180;
 const FRAME_INTERVAL_MS = 16; // ~60fps for smoother spring
 const TOTAL_FRAMES = Math.round(ANIMATION_DURATION_MS / FRAME_INTERVAL_MS);
 
@@ -31,11 +31,7 @@ const TOTAL_FRAMES = Math.round(ANIMATION_DURATION_MS / FRAME_INTERVAL_MS);
  * @returns {number} eased value (may exceed 1 briefly)
  */
 function easeOutCubic(t) {
-  // Spring-damped overshoot: peaks ~1.04 at t≈0.7, settles to 1.0
-  if (t <= 0) return 0;
-  if (t >= 1) return 1;
-  var c4 = (2 * Math.PI) / 4.5;
-  return 1 + Math.pow(2, -8 * t) * Math.sin((t * 8 - 1.2) * c4) * 0.15 + (1 - Math.pow(1 - t, 3)) - 1;
+  return 1 - Math.pow(1 - Math.max(0, Math.min(1, t)), 3);
 }
 
 /**
@@ -83,12 +79,15 @@ function interpolateBounds(start, end, progress) {
  * @param {import('electron').BrowserWindow} browserWindow
  * @returns {object} animator API: { transitionTo, connectStateMachine, destroy }
  */
-function createWidgetAnimator(browserWindow) {
+function createWidgetAnimator(browserWindow, options = {}) {
   if (!browserWindow) {
     throw new Error('createWidgetAnimator requires a BrowserWindow instance');
   }
 
   let currentTimer = null;
+  let currentState = STATES.COMPACT;
+  let reducedMotion = false;
+  const heights = {};
   let unsubscribeStateMachine = null;
 
   /**
@@ -109,6 +108,7 @@ function createWidgetAnimator(browserWindow) {
    */
   function transitionTo(state) {
     cancelAnimation();
+    currentState = state;
 
     // If the window has been destroyed, bail out silently
     if (browserWindow.isDestroyed()) {
@@ -118,6 +118,16 @@ function createWidgetAnimator(browserWindow) {
     const currentBounds = browserWindow.getBounds();
     const centerX = currentBounds.x + currentBounds.width / 2;
     const targetBounds = calculateTargetBounds(state, centerX, currentBounds.y);
+    if (heights[state]) targetBounds.height = heights[state];
+    const area = options.getWorkArea && options.getWorkArea(currentBounds);
+    if (area) {
+      targetBounds.x = Math.max(area.x, Math.min(targetBounds.x, area.x + area.width - targetBounds.width));
+      targetBounds.y = Math.max(area.y, Math.min(targetBounds.y, area.y + area.height - targetBounds.height));
+    }
+    if (reducedMotion) {
+      browserWindow.setBounds(targetBounds);
+      return Promise.resolve();
+    }
 
     // If already at target bounds, nothing to animate
     if (
@@ -198,6 +208,13 @@ function createWidgetAnimator(browserWindow) {
   }
 
   return {
+    setContentHeight(height) {
+      const next = Math.round(Math.max(94, Math.min(800, height)));
+      if (heights[currentState] === next) return;
+      heights[currentState] = next;
+      transitionTo(currentState);
+    },
+    setReducedMotion(value) { reducedMotion = !!value; },
     transitionTo: transitionTo,
     connectStateMachine: connectStateMachine,
     destroy: destroy,
