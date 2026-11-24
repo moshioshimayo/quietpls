@@ -231,7 +231,14 @@ function resizeContentWindow(win, event, width, height) {
   if (!win || win.isDestroyed() || event.sender !== win.webContents ||
       !Number.isFinite(height)) return;
   const display = screen.getDisplayMatching(win.getBounds());
-  win.setContentSize(width, Math.round(Math.max(200, Math.min(height, display.workArea.height - 48))));
+  const area = display.workArea;
+  const frameHeight = win.getBounds().height - win.getContentBounds().height;
+  win.setContentSize(width, Math.round(Math.max(200, Math.min(height, area.height - frameHeight))));
+  const bounds = win.getBounds();
+  win.setPosition(
+    Math.max(area.x, Math.min(bounds.x, area.x + area.width - bounds.width)),
+    Math.max(area.y, Math.min(bounds.y, area.y + area.height - bounds.height)),
+  );
 }
 
 function createOnboardingWindow(query) {
