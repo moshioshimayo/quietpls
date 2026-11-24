@@ -109,7 +109,9 @@ document.addEventListener("DOMContentLoaded", () => {
 // ============================================================
 
 function loadSettings() {
-  window.electronAPI.onSettingsData((settings) => {
+  // The first load and every later change from elsewhere (the widget's mic menu), so a
+  // save from here never writes a stale mic back.
+  const apply = (settings) => {
     if (settings) {
       config.sensitivity = LL.clampSensitivity(settings.sensitivity);
       if (settings.audioDeviceId !== undefined) {
@@ -121,7 +123,9 @@ function loadSettings() {
       updateUI();
       refreshIdleMicrophone();
     }
-  });
+  };
+  window.electronAPI.onSettingsData(apply);
+  if (window.electronAPI.onSettingsUpdated) window.electronAPI.onSettingsUpdated(apply);
   window.electronAPI.requestSettings();
 }
 

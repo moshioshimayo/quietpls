@@ -65,6 +65,20 @@ test.describe("Settings Monitoring and History", () => {
     await settings.locator("#showInMenubar").check();
   });
 
+  test("a mic chosen from the widget is kept when Settings saves next", async () => {
+    // What the widget's mic menu sends after it saves mic B (main.js show-input-menu).
+    await app.evaluate(({ BrowserWindow }) => {
+      const s = BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().endsWith("/settings.html"));
+      s.webContents.send("settings-updated", { sensitivity: 0, audioDeviceId: "fake-headset" });
+    });
+    await expect(settings.locator("#audioDeviceSelect")).toHaveValue("fake-headset");
+    await settings.locator("#sensitivity").fill("1");
+    await settings.locator("#sensitivity").dispatchEvent("input");
+    await expect.poll(() => getSettingsStore(app)).toMatchObject({ sensitivity: 1, audioDeviceId: "fake-headset" });
+    await settings.getByRole("button", { name: "Reset sensitivity", exact: true }).click();
+    await settings.locator("#audioDeviceSelect").selectOption("");
+  });
+
   test("Test mic releases its stream when History opens, including a pending access request", async () => {
     await settings.getByRole("button", { name: "Test mic", exact: true }).click();
     await expect(settings.getByRole("button", { name: "Stop test", exact: true })).toBeVisible();
