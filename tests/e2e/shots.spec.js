@@ -421,6 +421,8 @@ const CELLS = [
     async run(c) {
       await open(c, { profile: "warm", mic: { wav: H.SPEECH_WAV } });
       await level(c, null);
+      // The idle pill resolves the saved normal voice after launch.
+      await reach(c, c.w, /Start monitoring/, 8000);
       await shoot(c, c.w, "off", { fullScreen: false });
       await startMonitoring(c);
       if (await reachPill(c, /Listening/)) await shoot(c, c.w, "listening", { fullScreen: false });
@@ -568,7 +570,8 @@ const CELLS = [
     async run(c) {
       await open(c, { mic: { wav: H.SPEECH_WAV } });
       await startVoiceSetup(c);
-      await reach(c, c.w, /Normal voice saved|a bit louder/i, 50000);
+      // The saved state's own line: the louder check that follows keeps the title.
+      await reach(c, c.w, /Saved for |a bit louder/i, 50000);
       if (/a bit louder/i.test(await c.w.evaluate(() => document.body.innerText))) {
         // 2.4.3 says "saved" only after its rehearsal.
         await level(c, 8);
@@ -675,6 +678,7 @@ const CELLS = [
   // S5 setup window
   {
     id: "P1.S5.default",
+    screen: true, // the setup window over the desktop, with the pill
     async run(c) {
       await open(c, { onboarding: true });
       const o = await H.findWindowByUrl(c.app, "onboarding.html", 10000);
