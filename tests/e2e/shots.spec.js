@@ -62,8 +62,10 @@ function build() {
   };
   return {
     version: require(path.join(APP_ROOT, "package.json")).version,
-    sha: git("rev-parse", "HEAD"),
-    dirty: Boolean(git("status", "--porcelain")),
+    // The product under test: the last commit outside tests/ (harness commits don't change it).
+    sha: git("log", "-1", "--format=%H", "--", ".", ":!tests", ":!playwright.config.js"),
+    head: git("rev-parse", "HEAD"),
+    dirty: Boolean(git("status", "--porcelain", "--", ".", ":!tests", ":!playwright.config.js")),
     takenAt: new Date().toISOString(),
     themes: THEMES,
   };
@@ -736,7 +738,7 @@ const CELLS = [
       await startMonitoring(c);
       await sleep(63000);
       await stopFromDetails(c);
-      await reach(c, c.w, /No talking detected/i, 5000);
+      await reach(c, c.w, /No (talking|speech) detected/i, 5000);
       await shoot(c, c.w);
     },
   },
@@ -769,8 +771,11 @@ const CELLS = [
     async run(c) {
       await open(c, { profile: "warm", mic: { wav: H.SPEECH_WAV } });
       await startMonitoring(c);
-      await c.app.evaluate(() => {
-        const { autoUpdater } = process.mainModule.require("electron-updater");
+      await c.app.evaluate(({ app }) => {
+        // The app's own electron-updater singleton (same module cache as main.js).
+        const { createRequire } = process.getBuiltinModule("module");
+        const req = createRequire(process.getBuiltinModule("path").join(app.getAppPath(), "main.js"));
+        const { autoUpdater } = req("electron-updater");
         setTimeout(() => autoUpdater.emit("update-downloaded", { version: "2.5.1" }), 0);
       });
       await sleep(1200);
