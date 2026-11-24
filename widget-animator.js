@@ -9,6 +9,8 @@
  */
 
 const { STATES } = require('./widget-state-machine');
+// Transparent space around the visible pill/panel; shared with Capture placement.
+const WIDGET_INSETS = Object.freeze({ left: 32, right: 32, top: 24, bottom: 40 });
 
 // Target dimensions for each widget state
 const STATE_BOUNDS = Object.freeze({
@@ -117,8 +119,10 @@ function createWidgetAnimator(browserWindow, options = {}) {
     if (heights[state]) targetBounds.height = heights[state];
     const area = options.getWorkArea && options.getWorkArea(currentBounds);
     if (area) {
-      targetBounds.x = Math.max(area.x, Math.min(targetBounds.x, area.x + area.width - targetBounds.width));
-      targetBounds.y = Math.max(area.y, Math.min(targetBounds.y, area.y + area.height - targetBounds.height));
+      targetBounds.x = Math.max(area.x - WIDGET_INSETS.left + 22,
+        Math.min(targetBounds.x, area.x + area.width - targetBounds.width + WIDGET_INSETS.right - 22));
+      targetBounds.y = Math.max(area.y - WIDGET_INSETS.top + 8,
+        Math.min(targetBounds.y, area.y + area.height - targetBounds.height + WIDGET_INSETS.bottom - 22));
     }
     if (reducedMotion) {
       browserWindow.setBounds(targetBounds);
@@ -218,6 +222,7 @@ function createWidgetAnimator(browserWindow, options = {}) {
 }
 
 module.exports = {
+  WIDGET_INSETS,
   createWidgetAnimator,
   // Exported for testing
   STATE_BOUNDS,

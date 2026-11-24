@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
-const { createWidgetAnimator, STATE_BOUNDS, TOTAL_FRAMES, easeOutCubic, calculateTargetBounds, interpolateBounds } = require("../../widget-animator");
+const { createWidgetAnimator, STATE_BOUNDS, WIDGET_INSETS, TOTAL_FRAMES, easeOutCubic, calculateTargetBounds, interpolateBounds } = require("../../widget-animator");
 const { createWidgetStateMachine } = require("../../widget-state-machine");
 afterEach(() => vi.useRealTimers());
 function mockWindow(bounds = {x:380,y:40,width:240,height:94}) {
@@ -40,8 +40,9 @@ describe("floating window geometry and motion", () => {
     a.setContentHeight(400);
     const b=win.getBounds();
     expect(b.height).toBe(400);
-    expect(b.x+b.width).toBeLessThanOrEqual(1024);
-    expect(b.y+b.height).toBeLessThanOrEqual(768);
+    expect(b.x+b.width-WIDGET_INSETS.right).toBeLessThanOrEqual(1024-22);
+    expect(b.y+WIDGET_INSETS.top).toBeGreaterThanOrEqual(25+8);
+    expect(b.y+b.height-WIDGET_INSETS.bottom).toBeLessThanOrEqual(768-22);
     a.destroy();
   });
   it("honors Reduce Motion without scheduling an animation", async () => {

@@ -71,7 +71,7 @@ function clampSensitivity(value) {
   if (!Number.isFinite(n)) return 0;
   return Math.min(4, Math.max(-4, n));
 }
-const { createWidgetAnimator, STATE_BOUNDS } = require("./widget-animator");
+const { createWidgetAnimator, STATE_BOUNDS, WIDGET_INSETS } = require("./widget-animator");
 const { registerSessionIpc } = require("./session-ipc");
 const PermissionManager = require("./permission-manager");
 let trayIconRenderer;
@@ -159,8 +159,8 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: windowWidth,
     height: windowHeight,
-    x: savedPosition ? savedPosition.x : area.x + width - windowWidth - 16,
-    y: savedPosition ? savedPosition.y : area.y + 8,
+    x: savedPosition ? savedPosition.x : area.x + width - windowWidth + WIDGET_INSETS.right - 22,
+    y: savedPosition ? savedPosition.y : area.y + 8 - WIDGET_INSETS.top,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
