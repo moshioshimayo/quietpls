@@ -136,6 +136,18 @@ describe("recording pill (CAPB)", () => {
 });
 
 describe("Capture window (CAPS)", () => {
+  it("the Always-on card follows the live phase, so its button does what it says", () => {
+    const calls = [];
+    const m = load("main.js", { ambientStop: () => calls.push("stop"), ambientDialog: () => calls.push("dialog") });
+    m.run(`tab = "settings"; snap = ${JSON.stringify(snap())}; render()`);
+    expect(text(m.els["#settings"].innerHTML)).toContain("Set up always-on…");
+    // Always-on starts: nothing else in Settings changed.
+    m.run(`snap = ${JSON.stringify(snap({ state: { phase: "ambient" } }))}; render()`);
+    expect(text(m.els["#settings"].innerHTML)).toContain("Stop always-on recording");
+    m.els["#ambient"].onclick();
+    expect(calls).toEqual(["stop"]);
+  });
+
   it("status line names the phase", () => {
     for (const [phase, id, values] of [
       ["off", "CR-268", null], ["idle", "CR-269", null], ["detected", "CR-270", null],

@@ -524,7 +524,8 @@ function render() {
   if (!snap) return;
   renderStatus();
   renderAlerts();
-  const settingsKey = JSON.stringify([snap.settings, snap.health, snap.models]);
+  // The phase too: the Always-on card's label and action depend on it.
+  const settingsKey = JSON.stringify([snap.settings, snap.health, snap.models, snap.state.phase]);
   if (tab === "settings" && settingsKey !== lastKey.settings) {
     lastKey.settings = settingsKey;
     renderSettings();
