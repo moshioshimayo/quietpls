@@ -3126,7 +3126,7 @@
   {
     "id": "CR-266",
     "owner": "T4",
-    "expected": "Check recording",
+    "expected": "Not recording · Check recording",
     "old": "Not saved",
     "action": "change",
     "location": "capture/renderer/indicator.js:42",

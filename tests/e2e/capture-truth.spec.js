@@ -152,7 +152,7 @@ test.describe("Capture state truth", () => {
           const indicator = await H.findWindowByUrl(app, "indicator.html", 10000);
           r[key] = { captureWindowChip: await chip(main), captureWindowAlert: await alerts(main), indicator: await indicator.locator("body").innerText() };
           r[key].files = await shoot(app, "c-cant-start", { capture: main, indicator });
-          expect(r[key].indicator).not.toMatch(/Recording \d/);
+          expect(r[key].indicator).toMatch(/^Not recording/);
           expect(r[key].captureWindowChip).not.toMatch(/^Recording/);
         }
       } finally {
@@ -192,6 +192,8 @@ test.describe("Capture state truth", () => {
       expect(r.alwaysOnCard).toBe("Stop always-on recording");
       expect(r.callPromptsSwitch).toBe(false);
       expect(r.indicator).toMatch(/^ALWAYS ON/);
+      // The open Settings window's Capture row follows always-on without a refocus.
+      expect(r.settingsCaptureSubtitle).toBe("Always-on recording is on.");
       await main.locator("#status-action").click();
     } finally {
       await H.closeApp(app);

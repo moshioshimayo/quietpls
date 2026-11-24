@@ -42,7 +42,7 @@ function show(snap) {
   }
   if (phase === "error") {
     // The error names what was (or wasn't) saved; the full text is one hover away.
-    $("#label").textContent = "Check recording";
+    $("#label").textContent = "Not recording · Check recording"; // never reads like a recording
     $("#detail").textContent = error || "";
     $("#detail").title = error || "";
     $("#open").textContent = "Open";
