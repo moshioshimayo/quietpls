@@ -11,14 +11,14 @@
 <body>
   <div class="pill" id="pill">
     <span class="dot" id="dot"></span>
-    <span class="label num" id="label">REC 00:00</span>
-    <div class="meters" id="meters">
-      <div class="meter you"><span>you</span><div class="bar"><i id="you"></i></div></div>
-      <div class="meter them"><span>them</span><div class="bar"><i id="them"></i></div></div>
+    <span class="label num" id="label">Recording 00:00</span>
+    <div class="meters" id="meters" aria-hidden="true">
+      <div class="meter you"><span>you</span><div class="lvl"><i id="you"></i></div></div>
+      <div class="meter them"><span>them</span><div class="lvl"><i id="them"></i></div></div>
     </div>
     <span class="detail" id="detail" hidden></span>
-    <button class="danger" id="stop">Stop</button>
-    <button id="open" hidden>Open</button>
+    <button class="danger sm" id="stop">Stop</button>
+    <button class="sm" id="open" hidden>Open</button>
   </div>
 <script src="common.js"></script>
 <script src="indicator.js"></script>

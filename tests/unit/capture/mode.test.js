@@ -12,6 +12,7 @@ const require = createRequire(import.meta.url);
 const electron = require("electron");
 const Wav = require("../../../capture/lib/wav.js");
 const repo = require("../../../capture/lib/repo.js");
+const copy = require("../copy-helpers.js");
 
 const made = [];
 const mkdtemp = (prefix) => {
@@ -25,9 +26,15 @@ afterAll(() =>
 
 const windows = [];
 class FakeWindow {
-  constructor() {
+  static getAllWindows() {
+    return windows;
+  }
+  constructor(opts = {}) {
     this.visible = false;
     this.snap = null;
+    this.url = "";
+    this.events = {};
+    this.bounds = { x: opts.x || 0, y: opts.y || 0, width: opts.width || 0, height: opts.height || 0 };
     windows.push(this);
     this.webContents = {
       send: (channel, data) => {
@@ -36,12 +43,28 @@ class FakeWindow {
       on() {},
       once() {},
       isLoading: () => false,
+      getURL: () => this.url,
     };
   }
   loadFile(file) {
     this.page = path.basename(file, ".html");
+    this.url = `file://${file}`;
   }
-  on() {}
+  on(event, fn) {
+    this.events[event] = fn;
+  }
+  getBounds() {
+    return { ...this.bounds };
+  }
+  getSize() {
+    return [this.bounds.width, this.bounds.height];
+  }
+  setSize(width, height) {
+    Object.assign(this.bounds, { width, height });
+  }
+  setPosition(x, y) {
+    Object.assign(this.bounds, { x, y });
+  }
   once() {}
   isDestroyed() {
     return false;
@@ -72,6 +95,9 @@ Object.assign(electron, {
   screen: {
     getPrimaryDisplay: () => ({
       workArea: { x: 0, y: 0, width: 1440, height: 900 },
+    }),
+    getDisplayMatching: () => ({
+      workArea: { x: 0, y: 25, width: 1440, height: 875 },
     }),
   },
   dialog: {
@@ -256,6 +282,41 @@ function renderBanner(snap) {
   };
 }
 
+describe("call banner placement (AC-X10)", () => {
+  it("stacks under quietpls's pill and its open details panel, then follows it", async () => {
+    // quietpls's pill window with its details panel open (main.js owns it).
+    const pill = new FakeWindow({ x: 1100, y: 33, width: 330, height: 260 });
+    pill.url = "file:///app/index.html";
+    pill.visible = true;
+    try {
+      const t = makeMode();
+      t.micUsers = ZOOM;
+      await inCall(t);
+      const banner = windows.findLast((w) => w.page === "banner");
+      expect(banner.visible).toBe(true);
+      const card = banner.getBounds();
+      // Visible card top (window y + 6 px shadow margin) is 8 px under the pill window.
+      expect(card.y + 6).toBe(33 + 260 + 8);
+      // Right edges line up (16 px transparent side margin) and stay on screen.
+      expect(card.x + card.width - 16).toBe(1100 + 330);
+      expect(card.x + card.width - 16).toBeLessThanOrEqual(1440);
+
+      // Details close: the pill window shrinks and the banner moves up with it.
+      pill.bounds.height = 40;
+      pill.events.resize();
+      expect(banner.getBounds().y + 6).toBe(33 + 40 + 8);
+
+      // Pill dragged to the bottom of the screen: the banner goes above it instead.
+      Object.assign(pill.bounds, { y: 850, height: 40 });
+      pill.events.move();
+      expect(banner.getBounds().y + banner.getBounds().height).toBeLessThanOrEqual(850);
+      await t.handlers["set-enabled"]({}, false);
+    } finally {
+      windows.splice(windows.indexOf(pill), 1);
+    }
+  });
+});
+
 describe("an app set to Never is on the call", () => {
   it("doesn't record when Zoom (Never) is on the mic with Teams (Ask), and the banner names both", async () => {
     const t = makeMode({ settings: { neverApps: ["Zoom"] } });
@@ -267,7 +328,7 @@ describe("an app set to Never is on the call", () => {
     expect(shown.apps).toContain("Microsoft Teams");
     expect(shown.apps).toContain("Zoom");
     expect(shown.warn).toMatch(/Zoom is set to Never/);
-    expect(shown.accept).toBe("Fix in Settings");
+    expect(shown.accept).toBe("Open settings");
 
     await t.handlers.accept(); // e.g. "Record this call" from the tray menu
     expect(t.launches).toBe(0);
@@ -513,7 +574,7 @@ describe('approved app capture contract', () => {
       release();
       await accepting;
       expect(t.launches).toBe(0);
-      expect(messageOf(t)).toMatch(/Not recorded: Zoom is set to Never/);
+      copy.assertRenderedCopy("CR-396", messageOf(t), { apps: "Zoom" });
     } finally {
       spy.mockRestore();
       await t.handlers['set-enabled']({}, false);
@@ -526,7 +587,7 @@ describe('approved app capture contract', () => {
     await acceptBeforeStarted(t);
     t.child.opts.onMessage(sourceError);
     await t.child.opts.onExit(2);
-    expect(messageOf(t)).toBe("Not recorded: quietpls couldn't check which app the call's sound comes from.");
+    copy.assertRenderedCopy("CR-406", messageOf(t));
     expect(transcriptsOf(t)).toEqual([]);
     await t.handlers['set-enabled']({}, false);
   });
@@ -539,7 +600,7 @@ describe('approved app capture contract', () => {
       expect(t.mode.summary().phase).toBe('recording');
       t.handlers.skip();
       expect(t.mode.summary().phase).toBe('recording');
-      t.mode.menuItems().find((i) => i.label === 'Stop recording').click();
+      t.mode.menuItems().find((i) => i.label === 'Stop Recording').click();
       expect(t.child.kills).toEqual(['SIGINT']);
       await finish(t);
     });
@@ -554,7 +615,7 @@ describe('approved app capture contract', () => {
       t.child.opts.onMessage({ type: 'started' });
       savedMic(t);
       await t.child.opts.onExit(0);
-      expect(messageOf(t)).toBe('Recording stopped: Zoom was set to Never record. Only your side was saved.');
+      copy.assertRenderedCopy("CR-404", messageOf(t), { app: "Zoom", savedResult: "Only the microphone transcript was saved." });
       expect(Wav.splitCall(fs.readFileSync(t.child.opts.output)).them.peak).toBe(0);
       await t.handlers['set-enabled']({}, false);
     });
@@ -577,7 +638,7 @@ describe('approved app capture contract', () => {
     await inCall(t);
     await t.handlers.accept();
     t.child.opts.onMessage({ type: 'notice', code: 'mic-only' });
-    expect(t.mode.menuItems().some((i) => i.label === 'Recording your side only — Zoom')).toBe(true);
+    expect(t.mode.menuItems().some((i) => i.label === 'Recording mic only · Zoom')).toBe(true);
     expect(snapOf(t).health.lastCallMicOnly).toBe('Zoom');
     // Run the production alert function (with the real escaping helper), not a
     // copied text template. Bootstrapping the full window isn't needed here.
@@ -585,8 +646,8 @@ describe('approved app capture contract', () => {
     vm.createContext(ctx);
     vm.runInContext(fs.readFileSync(new URL('../../../capture/renderer/main.js', import.meta.url), 'utf8'), ctx);
     const notices = vm.runInContext('snap = inputSnap; alerts()', ctx);
-    expect(notices).toContainEqual({ kind: 'warn', html: "<b>Your side only.</b> quietpls couldn't tell that the call's sound was coming from Zoom, so this call records only your microphone." });
-    expect(notices.some((notice) => notice.html.includes('no sound from the other side'))).toBe(false);
+    expect(notices).toContainEqual({ kind: 'warn', text: 'Call audio unavailable for Zoom. Only your microphone was recorded.' });
+    expect(notices.some((notice) => notice.text.includes('No call audio was captured'))).toBe(false);
     savedMic(t);
     await t.child.opts.onExit(0);
     expect(snapOf(t).health.lastCallSilent).not.toContain('them');
@@ -609,7 +670,7 @@ describe('approved app capture contract', () => {
       expect(t.transcriptions).toHaveLength(1);
       expect(t.transcriptions[0]).toMatch(/-you.wav$/);
       expect(transcriptsOf(t)).toHaveLength(1);
-      expect(messageOf(t)).toBe("Recording stopped: quietpls couldn't check which app the call's sound comes from. Your side was saved.");
+      copy.assertRenderedCopy("CR-405", messageOf(t), { savedResult: "The microphone transcript was saved." });
       await t.handlers['set-enabled']({}, false);
     });
   }
@@ -626,7 +687,7 @@ describe('approved app capture contract', () => {
       savedMic(t);
       await t.child.opts.onExit(0);
       expect(t.transcriptions).toHaveLength(1);
-      expect(messageOf(t)).toBe(`Recording stopped: ${app} was set to Never record. Only your side was saved.`);
+      expect(messageOf(t)).toBe(`Recording stopped because ${app} was set to Never. Only the microphone transcript was saved.`);
       expect(Wav.splitCall(fs.readFileSync(t.child.opts.output)).them.peak).toBe(0);
       await t.handlers['set-enabled']({}, false);
     });
@@ -647,7 +708,7 @@ describe('approved app capture contract', () => {
       expect(fs.existsSync(t.child.opts.output)).toBe(false);
       expect(t.transcriptions).toEqual([]);
       expect(transcriptsOf(t)).toEqual([]);
-      expect(messageOf(t)).toBe('Recording stopped: Microsoft Teams was set to Never record. Nothing was saved.');
+      expect(messageOf(t)).toBe('Recording stopped because Microsoft Teams was set to Never. No transcript was saved.');
       await t.handlers['set-enabled']({}, false);
     });
   }
@@ -660,8 +721,8 @@ describe('approved app capture contract', () => {
       if (revoked) await t.handlers.settings({}, { neverApps: ['Zoom'] });
       else t.child.opts.onMessage(sourceError);
       await t.child.opts.onExit(2);
-      expect(messageOf(t)).toMatch(/^Recording stopped: .*Nothing was saved\.$/);
-      expect(messageOf(t)).not.toMatch(/Your side was saved/);
+      expect(messageOf(t)).toMatch(/^Recording stopped because .*No transcript was saved\.$/);
+      expect(messageOf(t)).not.toMatch(/microphone transcript was saved/);
       await t.handlers['set-enabled']({}, false);
     });
   }

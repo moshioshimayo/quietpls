@@ -9,16 +9,23 @@ let query = "";
 let lastKey = { settings: "", calls: "", alerts: "" };
 
 const STATUS = {
-  off: ["Off — not listening for calls", "Turn on"],
+  off: ["Call prompts off", "Turn on"],
   idle: ["Waiting for a call", null],
-  detected: ["Call on — not recording", null],
-  asking: ["Call on — asking to record", "Record"],
+  detected: ["Not recording this call", null],
+  asking: ["Record this call?", "Record"],
   recording: ["Recording", "Stop"],
   transcribing: ["Transcribing…", null],
-  saved: ["Transcript saved", "Show"],
-  error: ["Needs attention", null],
-  ambient: ["ALWAYS ON — microphone + system audio", "Stop"],
+  saved: ["Transcript saved", "View"],
+  error: ["Check recording", null],
+  ambient: ["ALWAYS ON · mic + system audio", "Stop"],
 };
+
+const glyph = (id) =>
+  `<svg class="g" aria-hidden="true"><use href="#g-${id}"></use></svg>`;
+
+// The one Terminal command in the UI, with a Copy button (installing it for you is Later).
+const command = (cmd) =>
+  `<span class="cmd">${esc(cmd)}</span> <button class="sm" data-copy="${esc(cmd)}">Copy</button>`;
 
 function setupDone(s) {
   return Boolean(s.health.whisper && s.health.modelReady && s.health.folder.ok);
@@ -30,7 +37,7 @@ function renderStatus() {
   const { phase, apps, file } = snap.state;
   const [text, wanted] = STATUS[phase];
   const action = phase === "off" && !setupDone(snap) ? null : wanted;
-  $("#status").className = `status ${phase}`;
+  $("#status").className = `cstatus ${phase}`;
   $("#status-dot").className = `dot ${phase}`;
   const appText =
     apps.length && ["detected", "asking", "recording"].includes(phase)
@@ -44,11 +51,11 @@ function renderStatus() {
   btn.hidden = !action;
   btn.textContent = action || "";
   btn.className =
-    phase === "recording"
-      ? "danger"
+    phase === "recording" || phase === "ambient"
+      ? "sm danger"
       : phase === "asking" || phase === "off"
-        ? "primary"
-        : "";
+        ? "sm primary"
+        : "sm";
   btn.onclick = () => {
     if (phase === "off") api.setSettings({ enabled: true });
     if (phase === "asking") api.accept();
@@ -66,49 +73,50 @@ function renderStatus() {
 function alerts() {
   const { health, state, settings, home } = snap;
   const out = [];
+  // Plain text (rendered with textContent): file names and remotes are never markup.
   if (state.phase === "error" && state.error)
     out.push({
       kind: "bad",
-      html: esc(state.error),
-      action: ["OK", () => api.dismiss()],
+      text: state.error,
+      action: ["Dismiss", () => api.dismiss()],
     });
   if (health.folder.reason === "has-remote") {
     const r = health.folder.remotes
-      .map((x) => `${esc(x.name)} → ${esc(x.url)}`)
+      .map((x) => `${x.name} → ${x.url}`)
       .join(", ");
     out.push({
       kind: "bad",
-      html: `<b>Transcripts are paused.</b> ${esc(tilde(settings.folder, home))} is a git repo with a remote (${r}). Calls are never written to a repo that can be pushed. Remove the remote or pick another folder.`,
+      text: `Capture can’t save to ${tilde(settings.folder, home)} because it has a git remote (${r}). Choose a folder with no remote.`,
       action: ["Choose folder…", () => api.chooseFolder()],
     });
   } else if (health.folder.reason === "missing") {
     out.push({
       kind: "bad",
-      html: `<b>Transcript folder not found:</b> ${esc(tilde(settings.folder, home))}`,
+      text: `Transcript folder not found: ${tilde(settings.folder, home)}`,
       action: ["Choose folder…", () => api.chooseFolder()],
     });
   }
   if (health.mic === "denied")
     out.push({
       kind: "bad",
-      html: "<b>Microphone access is off,</b> so your side can't be recorded. Turn it on in System Settings → Privacy &amp; Security → Microphone.",
+      text: "Microphone access is off. Turn on quietpls in System Settings → Privacy & Security → Microphone.",
       action: ["Open System Settings", () => api.openPrivacy("mic")],
     });
   if (!health.whisper && setupStarted())
     out.push({
       kind: "warn",
-      html: "<b>Speech-to-text isn't installed.</b> In Terminal, run <code>brew install whisper-cpp</code>, then check again.",
+      text: "Install speech-to-text. In Terminal, run brew install whisper-cpp, then choose Check again.",
       action: ["Check again", () => api.refresh()],
     });
   if (health.lastCallMicOnly)
     out.push({
       kind: "warn",
-      html: `<b>Your side only.</b> quietpls couldn't tell that the call's sound was coming from ${esc(health.lastCallMicOnly)}, so this call records only your microphone.`,
+      text: `Call audio unavailable for ${health.lastCallMicOnly}. Only your microphone was recorded.`,
     });
   else if ((health.lastCallSilent || []).includes("them"))
     out.push({
       kind: "warn",
-      html: "<b>The last call had no sound from the other side.</b> macOS may be blocking system audio. Allow it in System Settings → Privacy &amp; Security → Screen &amp; System Audio Recording.",
+      text: "No call audio was captured in the last recording. Check Screen & System Audio Recording in System Settings.",
       action: ["Open System Settings", () => api.openPrivacy("audio")],
     });
   return out;
@@ -120,7 +128,7 @@ function setupStarted() {
 
 function renderAlerts() {
   const list = alerts();
-  const key = JSON.stringify(list.map((a) => a.html));
+  const key = JSON.stringify(list.map((a) => a.text));
   if (key === lastKey.alerts) return;
   lastKey.alerts = key;
   const box = $("#alerts");
@@ -128,7 +136,8 @@ function renderAlerts() {
   for (const a of list) {
     const el = document.createElement("div");
     el.className = `alert ${a.kind}`;
-    el.innerHTML = `<span class="msg">${a.html}</span>`;
+    el.innerHTML = `${glyph(a.kind === "bad" ? "x" : "unsure")}<span class="msg"></span>`;
+    el.querySelector(".msg").textContent = a.text;
     if (a.action) {
       const b = document.createElement("button");
       b.textContent = a.action[0];
@@ -206,19 +215,18 @@ function renderCalls() {
             c,
           ) => `<li class="row${c.name === selected ? " sel" : ""}" data-name="${esc(c.name)}">
         <span class="t">${esc(c.meta.title || c.name)}</span><span class="muted num">${esc(dur(c.meta.duration))}</span>
-        <span class="p muted">${esc(when(c.meta))} · ${mark(snippet(c) || "no speech")}</span></li>`,
+        <span class="p muted">${esc(when(c.meta))} · ${snippet(c) ? mark(snippet(c)) : "No transcript text"}</span></li>`,
         )
         .join("")
-    : `<li class="none">${calls.length ? `No calls match “${esc(query)}”.` : "No calls yet."}</li>`;
+    : `<li class="none">${calls.length ? `No transcripts match “${esc(query)}”. Try another search.` : "No transcripts yet"}</li>`;
   rows
     .querySelectorAll(".row")
     .forEach((r) => (r.onclick = () => select(r.dataset.name)));
   if (!calls.length) {
     reading = null;
-    reader.innerHTML = `<div class="empty"><h2>No calls yet</h2>
-      <p>When a call starts (Zoom, Meet, Teams, FaceTime…), a small box asks before anything is recorded.
-      Say yes and the transcript shows up here, newest first.</p>
-      <p>${snap.settings.enabled ? "Listening for calls now." : "Asking is off. Turn it on in the top right."}</p></div>`;
+    reader.innerHTML = `<div class="empty"><h2 class="rd">No transcripts yet</h2>
+      <p>When a call is detected, choose Record this call. Its transcript appears here after recording stops.</p>
+      <p>${snap.settings.enabled ? "Call prompts are on." : "Call prompts are off. Choose Turn on to enable them."}</p></div>`;
     return;
   }
   if (!selected || !calls.some((c) => c.name === selected))
@@ -236,15 +244,16 @@ async function select(name) {
   const t = await api.transcript(name);
   const reader = $("#reader");
   if (!t) {
-    reader.innerHTML = `<div class="empty"><h2>That call's file is gone</h2><p>${esc(name)}</p></div>`;
+    reader.innerHTML = `<div class="empty"><h2 class="rd">Transcript file not found</h2><p>${esc(name)}</p></div>`;
     return;
   }
   const m = t.meta;
-  reader.innerHTML = `<h1>${esc(m.title || name)}</h1>
-    <div class="meta"><span>${esc(when(m))}</span>·<span class="num">${esc(dur(m.duration))}</span>·<span>${esc((m.apps || []).join(", "))}</span>·<span>audio ${esc(m.audio || "")}</span>
-      <span class="tools"><button id="copy">Copy text</button><button id="reveal">Show in Finder</button></span></div>
-    ${t.notes.map((n) => `<p class="note">${esc(n)}</p>`).join("")}
-    <div class="lines">${t.lines.map((l) => `<span class="at">${esc(l.at)}</span><span class="who ${l.who}">${l.speaker ? `<button class="speaker" data-speaker="${esc(l.speaker)}" title="${l.who} channel — click to rename">${esc(l.speaker)}</button>` : l.who === "you" ? "You" : "Them"}</span><span>${mark(l.text)}</span>`).join("")}</div>`;
+  const channel = (who) => (who === "you" ? "You" : "Call audio");
+  reader.innerHTML = `<h1 class="rd">${esc(m.title || name)}</h1>
+    <div class="meta"><span>${esc(when(m))}</span>·<span class="num">${esc(dur(m.duration))}</span>·<span>${esc((m.apps || []).join(", "))}</span>·<span>Audio: ${esc(m.audio || "")}</span>
+      <span class="tools"><button id="copy" class="sm">Copy text</button><button id="reveal" class="sm">Show in Finder</button></span></div>
+    ${t.notes.map((n) => `<p class="tnote">${esc(n)}</p>`).join("")}
+    <div class="lines">${t.lines.map((l) => `<span class="at">${esc(l.at)}</span><span class="who ${l.who}">${l.speaker ? `<button class="speaker" data-speaker="${esc(l.speaker)}" title="Rename speaker · ${channel(l.who)}">${esc(l.speaker)}</button>` : channel(l.who)}</span><span>${mark(l.text)}</span>`).join("")}</div>`;
   $("#copy").onclick = () =>
     api.copy(
       t.lines
@@ -265,6 +274,11 @@ async function select(name) {
         b.replaceWith(input);
         input.focus();
         input.select();
+        // A failed rename says why beside the field and keeps what was typed (AC-I7).
+        const why = document.createElement("span");
+        why.className = "rename-error";
+        why.setAttribute("role", "alert");
+        input.after(why);
         input.onkeydown = async (e) => {
           if (e.key === "Escape") return select(name);
           if (e.key !== "Enter") return;
@@ -274,75 +288,102 @@ async function select(name) {
             await select(name);
           } catch (err) {
             input.disabled = false;
-            input.title = err.message;
+            why.textContent = renameError(err);
+            input.focus();
           }
         };
       }),
   );
 }
 
+// "Error invoking remote method 'capture:speaker-rename': Error: Enter a speaker name" → readable.
+function renameError(err) {
+  const detail = String((err && err.message) || err || "").replace(
+    /^Error invoking remote method \S+: (?:\w*Error: )?/,
+    "",
+  );
+  return `Couldn’t rename speaker. ${detail}`.trim();
+}
+
 function setupHtml() {
   const { health, settings, home, models } = snap;
   const model = models.find((m) => m.id === settings.model) || models[0];
   const dl = health.download;
-  const step = (
-    state,
-    n,
-    what,
-    why,
-    action,
-  ) => `<li class="${state}"><span class="mark">${state === "done" ? "✓" : state === "bad" ? "!" : n}</span>
-    <div><div class="what">${what}</div><div class="why">${why}</div></div><div>${action || ""}</div></li>`;
   const folderBad =
     health.folder.reason === "has-remote" || health.folder.reason === "missing";
+  const steps = [
+    {
+      state: health.whisper ? "done" : "",
+      what: "Install speech-to-text",
+      why: health.whisper
+        ? `Installed · ${esc(health.whisper)}`
+        : `quietpls uses the free whisper-cpp tool to turn calls into text on this Mac. Install it once in Terminal with Homebrew:<br>${command("brew install whisper-cpp")}`,
+      action: health.whisper
+        ? ""
+        : '<button class="sm" data-do="refresh">Check again</button>',
+    },
+    {
+      state: health.modelReady ? "done" : dl && dl.error ? "bad" : "",
+      what: `Download a speech model · ${esc(model.size)}`,
+      why: health.modelReady
+        ? `${esc(model.id)} ready`
+        : dl && dl.error
+          ? `Couldn’t download. Try again. ${esc(dl.error)}`
+          : "Downloaded from Hugging Face; stored on this Mac for local transcription.",
+      action: health.modelReady
+        ? ""
+        : dl && !dl.error
+          ? `<progress max="1" value="${dl.progress}"></progress>`
+          : '<button class="sm primary" data-do="download">Download</button>',
+    },
+    {
+      state: health.folder.ok ? "done" : folderBad ? "bad" : "",
+      what: "Choose a transcript folder",
+      why: health.folder.ok
+        ? `${esc(tilde(settings.folder, home))} · no git remote`
+        : folderBad
+          ? "Choose an existing folder with no git remote"
+          : "Saves each call transcript as a Markdown file with local git history. Choose a folder with no git remote.",
+      action: `<button class="sm${health.folder.ok ? "" : " primary"}" data-do="folder">${health.folder.ok ? "Change…" : "Choose…"}</button>`,
+    },
+    {
+      state: settings.enabled ? "done" : "",
+      what: "Turn on call prompts",
+      why: settings.enabled
+        ? "On. Choose which detected calls to record."
+        : "Call recording starts only after you choose Record this call.",
+      action: settings.enabled
+        ? ""
+        : `<button ${setupDone(snap) ? 'class="sm primary"' : 'class="sm" disabled'} data-do="enable">Turn on</button>`,
+    },
+  ];
+  // Lead with the next missing step; finished steps follow in their usual order.
+  const ordered = [
+    ...steps.filter((s) => s.state !== "done"),
+    ...steps.filter((s) => s.state === "done"),
+  ];
+  const icon = { done: glyph("ok"), bad: glyph("x"), "": glyph("off") };
   return `<div class="setup">
-    <h2>${setupDone(snap) ? "Ready" : "Set up call transcripts"}</h2>
-    <p>Records your calls only when you say yes, turns them into text on this Mac, and saves one file per call to a folder you pick.</p>
-    <ol class="steps">
-      ${step(health.whisper ? "done" : "", 1, "Install speech-to-text", health.whisper ? `Found ${esc(health.whisper)}` : "In Terminal, run <code>brew install whisper-cpp</code>", health.whisper ? "" : '<button data-do="refresh">Check again</button>')}
-      ${step(
-        health.modelReady ? "done" : dl && dl.error ? "bad" : "",
-        2,
-        `Download the speech model (${esc(model.size)})`,
-        health.modelReady
-          ? `${esc(model.id)} is ready`
-          : dl && dl.error
-            ? esc(dl.error)
-            : "Downloaded once from Hugging Face and kept in ~/Library/Application Support/quietpls/models. Capture makes no other network requests.",
-        health.modelReady
-          ? ""
-          : dl && !dl.error
-            ? `<progress max="1" value="${dl.progress}"></progress>`
-            : `<button class="primary" data-do="download">Download</button>`,
-      )}
-      ${step(
-        health.folder.ok ? "done" : folderBad ? "bad" : "",
-        3,
-        "Choose a transcript folder",
-        health.folder.ok
-          ? `${esc(tilde(settings.folder, home))} · local git repo, no remote`
-          : folderBad
-            ? "That folder's repo has a remote. Pick one that can't be pushed."
-            : "Each call is saved there as a markdown file and committed with git. It must not have a git remote.",
-        `<button ${health.folder.ok ? "" : 'class="primary"'} data-do="folder">${health.folder.ok ? "Change…" : "Choose…"}</button>`,
-      )}
-      ${step(
-        settings.enabled ? "done" : "",
-        4,
-        "Turn on “ask when a call starts”",
-        settings.enabled
-          ? "On. You'll be asked at the start of every call."
-          : "Nothing is recorded unless you say yes to that call.",
-        settings.enabled
-          ? ""
-          : `<button ${setupDone(snap) ? 'class="primary"' : "disabled"} data-do="enable">Turn on</button>`,
-      )}
-    </ol>
-    <p class="privacy">Recordings and transcripts stay on this Mac. Audio is deleted once the text is saved (change this in Settings).</p>
+    <h2 class="rd">${setupDone(snap) ? "Ready for call transcripts" : "Set up transcripts"}</h2>
+    <p class="sub">Choose which calls to record. Capture creates a transcript on this Mac and saves it to your folder. Only you see the recording prompt; quietpls doesn’t notify the other people on the call.</p>
+    <ol class="steps">${ordered
+      .map(
+        (s) => `<li class="${s.state}">${icon[s.state]}
+      <div class="l"><div class="what">${s.what}</div><div class="why">${s.why}</div></div><div class="act">${s.action}</div></li>`,
+      )
+      .join("")}</ol>
+    <p class="privacy">Capture processes recordings on this Mac. By default, audio is deleted after the transcript is saved.</p>
   </div>`;
 }
 
+function wireCopy() {
+  document
+    .querySelectorAll("[data-copy]")
+    .forEach((b) => (b.onclick = () => api.copy(b.dataset.copy)));
+}
+
 function wireSetup() {
+  wireCopy();
   document.querySelectorAll("[data-do]").forEach(
     (b) =>
       (b.onclick = () => {
@@ -361,71 +402,73 @@ function renderSettings() {
   const { settings, health, models, home } = snap;
   const dl = health.download;
   const folderLine = !settings.folder
-    ? '<span class="muted">No folder chosen</span>'
+    ? '<span class="muted">No folder selected</span>'
     : health.folder.ok
-      ? '<span class="ok">✓ Local git repo, no remote</span>'
+      ? '<span class="ok">✓ Local git folder, no remote</span>'
       : health.folder.reason === "has-remote"
-        ? `<span class="bad">✗ Has a remote (${health.folder.remotes.map((r) => esc(r.name)).join(", ")}). Nothing will be saved here.</span>`
+        ? `<span class="bad">✗ Git remote found (${health.folder.remotes.map((r) => esc(r.name)).join(", ")}). Choose another folder.</span>`
         : '<span class="bad">✗ Folder not found</span>';
   const apps = [
     ...new Set([...(settings.seenApps || []), ...(settings.neverApps || [])]),
   ].sort();
   $("#settings").innerHTML = `
-    <section><h3>Capture</h3><div class="body">
-      <label class="switch"><input type="checkbox" id="enabled" ${settings.enabled ? "checked" : ""}> Ask to record when a call starts</label>
-      <span class="hint">${settings.enabled ? "On: when an app starts using the mic, you're asked before anything is recorded." : "Off: calls aren't noticed and nothing is recorded."}</span>
+    <section><h3>Call recording</h3><div class="body">
+      <label class="switch"><input type="checkbox" role="switch" id="enabled" ${settings.enabled ? "checked" : ""}> Ask to record calls</label>
+      <span class="hint">${settings.enabled ? "Prompts when a call is detected. Recording starts after you approve." : "Call prompts are off. Always-on recording is controlled separately."}</span>
     </div></section>
-    <section><h3>Always-on</h3><div class="body">
-      <div><button id="ambient" class="${snap.state.phase === "ambient" ? "danger" : ""}">${snap.state.phase === "ambient" ? "Stop always-on recording" : "Set up always-on…"}</button></div>
-      <span class="hint">Separate explicit consent. Records beyond calls. 24-hour transcript retention; no audio kept. Ambient files are excluded from git history.</span>
+    <section><h3>Always-on recording</h3><div class="body">
+      <div><button id="ambient" class="sm${snap.state.phase === "ambient" ? " danger" : ""}">${snap.state.phase === "ambient" ? "Stop always-on recording" : "Set up always-on…"}</button></div>
+      <span class="hint">Records mic and system audio beyond calls after a separate confirmation. Transcripts are kept for 24 hours by default, outside git history. Audio is deleted after processing.</span>
     </div></section>
     <section><h3>Speaker labels</h3><div class="body">
-      <label class="switch"><input id="speakers" type="checkbox" ${settings.speakerLabels ? "checked" : ""} ${!health.speakerModelReady || !health.uv ? "disabled" : ""}> Label different speakers locally</label>
-      <span class="hint">${health.speakerModelReady ? "26 MB ONNX model ready." : '<button id="speaker-download">Download speaker model (26 MB)</button>'} ${health.uv ? "Setup downloads Python dependencies via uv; processing then runs offline." : "Install the Python runner first: brew install uv"}</span>
-      <span class="hint">Speaker 1/2/… on the far side; primary mic voice stays You. Click a speaker label to rename it, then press Enter. Estimates may split one person into several labels.</span>
-      ${health.speakerError ? `<span class="bad">${esc(health.speakerError)}</span>` : ""}
+      <label class="switch"><input id="speakers" type="checkbox" role="switch" ${settings.speakerLabels ? "checked" : ""} ${!health.speakerModelReady || !health.uv ? "disabled" : ""}> Add speaker labels</label>
+      <span class="hint">${health.speakerModelReady ? "Speaker model ready · 26 MB" : '<button id="speaker-download" class="sm">Download speaker model · 26 MB</button>'}</span>
+      <span class="hint">${health.uv ? "Setup downloads the required tools. Speaker labeling then runs on this Mac." : "In Terminal, run brew install uv first. " + command("brew install uv")}</span>
+      <span class="hint">Call voices get Speaker 1, Speaker 2, and so on. The main mic voice is You. Select a label to rename it, then press Return. One person may receive more than one label.</span>
+      ${health.speakerError ? `<span class="bad">Couldn’t set up speaker labels. ${esc(health.speakerError)}</span>` : ""}
     </div></section>
     <section><h3>Transcript folder</h3><div class="body">
       <span class="path">${esc(tilde(settings.folder, home)) || "—"}</span>${folderLine}
-      <div><button id="folder">Choose folder…</button></div>
-      <span class="hint">One markdown file per call, committed to this folder's git repo. Folders with a git remote are refused so calls can't be pushed by accident.</span>
+      <div><button id="folder" class="sm">Choose folder…</button></div>
+      <span class="hint">Each call transcript is a Markdown file with local git history. Capture saves only to folders with no git remote.</span>
     </div></section>
     <section><h3>Speech model</h3><div class="body">
       <div class="models">${models
         .map(
           (m) => `
         <input type="radio" name="model" value="${m.id}" id="m-${m.id}" ${m.id === settings.model ? "checked" : ""}>
-        <label for="m-${m.id}">${esc(m.label)} <span class="muted">· ${esc(m.id)}</span></label>
-        <span class="size">${esc(m.size)}</span>
-        <span>${m.ready ? '<span class="ok">✓ Ready</span>' : dl && dl.id === m.id && !dl.error ? `<progress max="1" value="${dl.progress}"></progress>` : `<button data-dl="${m.id}">Download</button>`}</span>`,
+        <label for="m-${m.id}">${esc(m.label)} <span class="muted">· ${esc(m.id)} · ${esc(m.size)}</span></label>
+        <span>${m.ready ? '<span class="ok">✓ Ready</span>' : dl && dl.id === m.id && !dl.error ? `<progress max="1" value="${dl.progress}"></progress>` : `<button class="sm" data-dl="${m.id}">Download</button>`}</span>`,
         )
         .join("")}
       </div>
-      ${dl && dl.error ? `<span class="bad">Download failed: ${esc(dl.error)}</span>` : ""}
-      <span class="hint">${health.whisper ? `Runs on this Mac with ${esc(health.whisper)}.` : "Speech-to-text isn't installed: run <code>brew install whisper-cpp</code>."} Models download once from Hugging Face into ~/Library/Application Support/quietpls/models; Capture makes no other network requests.</span>
+      ${dl && dl.error ? `<span class="bad">Couldn’t download. Try again. ${esc(dl.error)}</span>` : ""}
+      <span class="hint">${health.whisper ? "Speech-to-text installed · " + esc(health.whisper) : "Install speech-to-text: run brew install whisper-cpp in Terminal. " + command("brew install whisper-cpp")}</span>
+      <span class="hint">Speech models download from Hugging Face and stay in ~/Library/Application Support/quietpls/models. Transcription runs on this Mac.</span>
     </div></section>
-    <section><h3>Audio</h3><div class="body">
-      <label class="choice"><input type="radio" name="keep" value="no" ${settings.keepAudio ? "" : "checked"}> Delete audio once the text is saved (recommended)</label>
-      <label class="choice"><input type="radio" name="keep" value="yes" ${settings.keepAudio ? "checked" : ""}> Keep audio for <input type="number" id="days" min="1" max="365" value="${settings.keepDays}"> days, then delete</label>
-      <span class="hint">Audio is never put in the git repo.</span>
+    <section><h3>Audio retention</h3><div class="body">
+      <label class="choice"><input type="radio" name="keep" value="no" ${settings.keepAudio ? "" : "checked"}> Delete audio after transcript is saved (default)</label>
+      <label class="choice"><input type="radio" name="keep" value="yes" ${settings.keepAudio ? "checked" : ""}> Keep audio for <input type="number" id="days" min="1" max="365" value="${settings.keepDays}" aria-label="Days to keep audio"> days, then delete</label>
+      <span class="hint">Audio is stored separately from transcript git history.</span>
     </div></section>
-    <section><h3>Apps</h3><div class="body">
+    <section><h3>Call apps</h3><div class="body">
       ${
         apps.length
           ? `<div class="apps">${apps
               .map((a) => {
                 const never = settings.neverApps.includes(a);
-                return `<span>${esc(a)}</span><span class="seg"><button data-app="${esc(a)}" data-never="0" aria-pressed="${!never}">Ask</button><button data-app="${esc(a)}" data-never="1" aria-pressed="${never}">Never</button></span>`;
+                return `<span>${esc(a)}</span><span class="seg2"><button data-app="${esc(a)}" data-never="0" aria-pressed="${!never}">Ask</button><button data-app="${esc(a)}" data-never="1" aria-pressed="${never}">Never</button></span>`;
               })
               .join("")}</div>`
-          : '<span class="muted">Apps show up here after their first call.</span>'
+          : '<span class="muted">Apps appear here when quietpls detects them using the mic.</span>'
       }
-      <span class="hint">“Never” means that app's calls are ignored: no box, no recording.</span>
+      <span class="hint">Never blocks call recording while that app is detected. It doesn’t apply to always-on recording.</span>
     </div></section>
     <section><h3>Permissions</h3><div class="body">
-      <span>Microphone: ${health.mic === "granted" ? '<span class="ok">✓ Allowed</span>' : health.mic === "denied" ? '<span class="bad">✗ Off</span> <button id="mic">Open System Settings</button>' : "macOS asks the first time you record"}</span>
-      <span>Call audio: <span class="muted">macOS asks the first time you record (System Audio Recording)</span></span>
+      <span>Microphone: ${health.mic === "granted" ? '<span class="ok">✓ Allowed</span>' : health.mic === "denied" ? '<span class="bad">✗ Off</span> <button id="mic" class="sm">Open System Settings</button>' : '<span class="muted">macOS may ask for access when the mic starts</span>'}</span>
+      <span>System audio: <span class="muted">macOS may request System Audio Recording access when Capture starts</span></span>
     </div></section>`;
+  wireCopy();
   $("#enabled").onchange = (e) =>
     api.setSettings({ enabled: e.target.checked });
   $("#folder").onclick = () => api.chooseFolder();

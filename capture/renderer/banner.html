@@ -10,31 +10,25 @@
     <link rel="stylesheet" href="../../components.css">
     <link rel="stylesheet" href="base.css" />
     <link rel="stylesheet" href="banner.css" />
+    <script defer src="../../glyphs.js"></script>
   </head>
   <body>
-    <div class="card" role="dialog" aria-labelledby="title">
-      <div class="head">
-        <span class="dot asking"></span
-        ><span id="title">A call started in <span id="app">Zoom</span></span>
+    <div class="panel card" role="dialog" aria-labelledby="title" aria-describedby="warn">
+      <div class="row">
+        <svg class="g" aria-hidden="true"><use href="#g-listen"></use></svg>
+        <span class="status rd" id="title">Record a call in <span id="app">Zoom</span>?</span>
       </div>
-      <dl class="facts">
-        <dt>Record</dt>
-        <dd>
-          <span class="you">you</span> (your mic) +
-          <span class="them">them</span> (call audio)
-        </dd>
-        <dt>Saves</dt>
-        <dd id="where">a text transcript to your folder</dd>
-        <dt>Audio</dt>
-        <dd id="audio">deleted once the text is saved</dd>
-      </dl>
       <p class="warn" id="warn" role="alert" hidden></p>
-      <div class="actions">
+      <div class="group" id="facts">
+        <div class="kv"><span>Audio</span><span>Your mic + available call audio</span></div>
+        <div class="kv"><span>Transcript</span><span id="where">Saved to your folder</span></div>
+        <div class="kv"><span>Keep audio</span><span id="audio">Deleted after transcript is saved</span></div>
+      </div>
+      <p class="small" id="private">Only you see this prompt; quietpls doesn’t notify the other people on the call.</p>
+      <div class="foot">
         <button class="primary" id="accept">Record this call</button>
-        <button id="skip">Not now</button>
-        <button class="link" id="never">
-          Never for <span id="app2">Zoom</span>
-        </button>
+        <button id="skip">Skip this call</button>
+        <button class="link" id="never">Never for <span id="app2">Zoom</span></button>
       </div>
     </div>
     <script src="common.js"></script>

@@ -10,14 +10,12 @@ function show(snap) {
   $("#dot").className = `dot ${phase}`;
   const recording = phase === "recording";
   if (phase === "ambient") {
-    $("#pill").className = "pill recording ambient";
-    $("#dot").className = "dot recording";
     $("#label").textContent = "ALWAYS ON";
     $("#meters").hidden = true;
     $("#detail").hidden = false;
     $("#detail").textContent = snap.elapsed
       ? clock(snap.elapsed)
-      : "transcribing…";
+      : "Transcribing…";
     $("#stop").hidden = false;
     $("#open").hidden = true;
     $("#stop").onclick = () => window.qpc.ambientStop();
@@ -28,20 +26,24 @@ function show(snap) {
   $("#stop").hidden = !recording;
   $("#detail").hidden = recording;
   $("#open").hidden = !(phase === "saved" || phase === "error");
-  if (recording) $("#label").textContent = `REC ${clock(snap.elapsed)}`;
+  $("#detail").title = "";
+  if (recording) $("#label").textContent = `Recording ${clock(snap.elapsed)}`;
   if (phase === "transcribing") {
-    $("#label").textContent = "Transcribing";
-    $("#detail").textContent = "turning the call into text…";
+    $("#label").textContent = "Transcribing…";
+    $("#detail").textContent = "Creating transcript…";
   }
   if (phase === "saved") {
-    $("#label").textContent = "Saved";
-    $("#detail").textContent = "transcript committed";
+    $("#label").textContent = "Transcript saved";
+    $("#detail").textContent = "";
     $("#detail").title = file || "";
+    $("#open").textContent = "View";
   }
   if (phase === "error") {
-    $("#label").textContent = "Not saved";
+    // The error names what was (or wasn't) saved; the full text is one hover away.
+    $("#label").textContent = "Check recording";
     $("#detail").textContent = error || "";
     $("#detail").title = error || "";
+    $("#open").textContent = "Open";
   }
 }
 

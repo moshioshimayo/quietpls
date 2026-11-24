@@ -8,10 +8,10 @@ const path = require("path");
 const { execFile } = require("child_process");
 
 const MODELS = [
-  { id: "tiny.en", label: "Fastest", size: "75 MB" },
-  { id: "base.en", label: "Fast", size: "142 MB" },
-  { id: "small.en", label: "Better", size: "466 MB" },
-  { id: "large-v3-turbo", label: "Best, any language", size: "1.6 GB" },
+  { id: "tiny.en", label: "Fastest · English", size: "75 MB" },
+  { id: "base.en", label: "Fast · English", size: "142 MB" },
+  { id: "small.en", label: "Larger · English", size: "466 MB" },
+  { id: "large-v3-turbo", label: "Multilingual", size: "1.6 GB" },
 ];
 const DEFAULT_MODEL = "base.en";
 const BIN_CANDIDATES = [
@@ -38,7 +38,7 @@ async function downloadModel(dir, id, onProgress = () => {}) {
   const part = dest + ".part";
   const res = await fetch(modelUrl(id));
   if (!res.ok || !res.body)
-    throw new Error(`Model download failed (HTTP ${res.status})`);
+    throw new Error(`Speech model download failed. Try again. Details: HTTP ${res.status}.`);
   const total = Number(res.headers.get("content-length")) || 0;
   const out = fs.createWriteStream(part);
   let got = 0;
@@ -88,7 +88,7 @@ function transcribe(bin, modelFile, wavPath) {
           if (err)
             return reject(
               new Error(
-                `whisper failed: ${String(stderr).trim().split("\n").pop() || err.message}`,
+                `Speech-to-text failed. ${String(stderr).trim().split("\n").pop() || err.message}`,
               ),
             );
           resolve(JSON.parse(fs.readFileSync(jsonPath, "utf8")));
