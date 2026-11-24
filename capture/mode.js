@@ -229,8 +229,9 @@ function createCaptureMode({
 
   // AC-X10: the call banner and recording pill stack under the pill and its open
   // details panel (an 8 pt gap), right edges aligned, never on top of them.
-  // FLOAT_MARGIN is the transparent shadow margin around their content.
-  const FLOAT_MARGIN = { top: 6, side: 16 };
+  // FLOAT_MARGIN is the transparent margin that holds the card's CSS shadow
+  // (tokens.css --shadow reaches 8 up, 20 sideways, 32 down; body padding matches).
+  const FLOAT_MARGIN = { top: 8, side: 20, bottom: 32 };
   const placed = new WeakSet();
   function place(win) {
     if (!win || win.isDestroyed()) return;
@@ -252,7 +253,7 @@ function createCaptureMode({
     );
     let y = b.y + b.height + 8 - FLOAT_MARGIN.top;
     // No room below (pill dragged to the bottom): stack above it instead.
-    if (y + h > area.y + area.height) y = Math.max(area.y, b.y - h - 8 + FLOAT_MARGIN.top);
+    if (y + h > area.y + area.height) y = Math.max(area.y, b.y - h - 8 + FLOAT_MARGIN.bottom);
     win.setPosition(Math.round(x), Math.round(y));
   }
 
@@ -282,9 +283,9 @@ function createCaptureMode({
   // The banner and indicator only exist once capture has been turned on.
   function ensureFloating() {
     if (!banner || banner.isDestroyed())
-      banner = floating("banner", 382, 260, 8);
+      banner = floating("banner", 390, 280, 8);
     if (!indicator || indicator.isDestroyed())
-      indicator = floating("indicator", 392, 58, 8);
+      indicator = floating("indicator", 400, 70, 8);
   }
 
   function openMain(tab) {

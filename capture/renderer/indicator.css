@@ -1,5 +1,5 @@
 /* The recording pill: T0's .pill capsule, sized to its content, right-aligned under quietpls's pill. */
-body { background: transparent; padding: 6px 16px 22px; display: flex; justify-content: flex-end; }
+body { background: transparent; padding: 8px 20px 32px; display: flex; justify-content: flex-end; }
 .pill { width: auto; max-width: 100%; padding: 0 4px 0 11px; gap: 8px; -webkit-app-region: drag; }
 .label { flex: none; }
 .ambient .label { font-weight: 700; }
