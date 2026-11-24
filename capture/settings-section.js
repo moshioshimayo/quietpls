@@ -8,8 +8,10 @@
   if (!api || !api.captureSummary || !toggle) return;
   const description = document.getElementById("captureDescription");
   const actions = document.getElementById("captureActions");
+  let setupDone = false;
 
   function show(s) {
+    setupDone = !!s.setupDone;
     toggle.checked = s.enabled;
     actions.hidden = !s.enabled && !s.ambient;
     window.dispatchEvent(new Event("settings-content-changed"));
@@ -23,10 +25,10 @@
   toggle.addEventListener("change", async () => {
     const s = await api.setCaptureEnabled(toggle.checked);
     show(s);
-    if (s.enabled && !s.setupDone) api.openTranscripts("settings");
+    if (s.enabled && !s.setupDone) api.openTranscripts("calls");
   });
   document.getElementById("captureSettingsBtn").onclick = () =>
-    api.openTranscripts("settings");
+    api.openTranscripts(setupDone ? "settings" : "calls");
   window.addEventListener("focus", () => api.captureSummary().then(show));
   api.captureSummary().then(show);
 })();
