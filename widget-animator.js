@@ -3,9 +3,7 @@
 /**
  * Widget Animator (US-005)
  *
- * Smoothly resizes the Electron BrowserWindow between Dynamic Island states.
- * Uses setInterval-based animation at ~30fps with easeOutCubic easing.
- * Keeps the window centered on its current horizontal position during resize.
+ * Resizes the floating window while keeping the pill's right edge in place.
  *
  * No renderer-side imports — this runs entirely in the main process.
  */
@@ -21,35 +19,33 @@ const STATE_BOUNDS = Object.freeze({
 
 // Animation configuration
 const ANIMATION_DURATION_MS = 180;
-const FRAME_INTERVAL_MS = 16; // ~60fps for smoother spring
+const FRAME_INTERVAL_MS = 16;
 const TOTAL_FRAMES = Math.round(ANIMATION_DURATION_MS / FRAME_INTERVAL_MS);
 
 /**
- * Spring easing function — overshoots slightly then settles.
- * Creates a premium, physical feel to transitions.
+ * Ease out without overshoot.
  * @param {number} t — progress from 0 to 1
- * @returns {number} eased value (may exceed 1 briefly)
+ * @returns {number} eased value from 0 to 1
  */
 function easeOutCubic(t) {
   return 1 - Math.pow(1 - Math.max(0, Math.min(1, t)), 3);
 }
 
 /**
- * Calculate the target bounds for a given state, centered around a horizontal
- * midpoint and preserving the current y position.
+ * Keep the right edge and y position of the current window.
  *
  * @param {string} state — one of STATES values
- * @param {number} centerX — horizontal center of the current window
+ * @param {number} rightX — right edge of the current window
  * @param {number} y — current y position of the window
  * @returns {{ x: number, y: number, width: number, height: number }}
  */
-function calculateTargetBounds(state, centerX, y) {
+function calculateTargetBounds(state, rightX, y) {
   const dims = STATE_BOUNDS[state];
   if (!dims) {
     throw new Error(`Unknown widget state: "${state}"`);
   }
   return {
-    x: Math.round(centerX - dims.width / 2),
+    x: Math.round(rightX - dims.width),
     y: y,
     width: dims.width,
     height: dims.height,
@@ -116,8 +112,8 @@ function createWidgetAnimator(browserWindow, options = {}) {
     }
 
     const currentBounds = browserWindow.getBounds();
-    const centerX = currentBounds.x + currentBounds.width / 2;
-    const targetBounds = calculateTargetBounds(state, centerX, currentBounds.y);
+    const rightX = currentBounds.x + currentBounds.width;
+    const targetBounds = calculateTargetBounds(state, rightX, currentBounds.y);
     if (heights[state]) targetBounds.height = heights[state];
     const area = options.getWorkArea && options.getWorkArea(currentBounds);
     if (area) {

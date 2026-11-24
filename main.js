@@ -1045,7 +1045,7 @@ app.whenReady().then(async () => {
     mainWindow.setPosition(clampedX, clampedY);
     const bounds = mainWindow.getBounds();
     appStateStore.set("pillPosition", {
-      x: Math.round(clampedX + (bounds.width - STATE_BOUNDS[STATES.COMPACT].width) / 2),
+      x: clampedX + bounds.width - STATE_BOUNDS[STATES.COMPACT].width,
       y: clampedY,
     });
   });

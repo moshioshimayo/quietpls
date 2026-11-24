@@ -13,7 +13,7 @@ describe("floating window geometry and motion", () => {
     expect(STATE_BOUNDS.compact).toEqual({width:240,height:94});
     expect(STATE_BOUNDS.expanded.width).toBe(368);
     expect(STATE_BOUNDS.sessionComplete.width).toBe(368);
-    expect(calculateTargetBounds("expanded",500,40)).toEqual({x:316,y:40,width:368,height:330});
+    expect(calculateTargetBounds("expanded",500,40)).toEqual({x:132,y:40,width:368,height:330});
     expect(() => calculateTargetBounds("unknown",500,40)).toThrow();
   });
   it("opens without overshoot and ends at the requested bounds", async () => {
@@ -29,7 +29,7 @@ describe("floating window geometry and motion", () => {
     const done=a.transitionTo("expanded");
     vi.advanceTimersByTime(16*TOTAL_FRAMES);
     await done;
-    expect(win.getBounds()).toEqual({x:316,y:40,width:368,height:330});
+    expect(win.getBounds()).toEqual({x:252,y:40,width:368,height:330});
     a.destroy();
   });
   it("fits changing panel content and keeps it within the display", () => {

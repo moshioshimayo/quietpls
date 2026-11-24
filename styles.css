@@ -2,7 +2,7 @@
 html,body { margin:0; padding:0; background:transparent; color:var(--text); font:13px/16px var(--font-text); user-select:none; overflow:hidden; }
 [hidden] { display:none !important; }
 button { cursor:default; }
-.container { width:max-content; margin:24px auto 40px; display:flex; align-items:center; flex-direction:column; gap:8px; }
+.container { width:max-content; margin:24px auto 40px; display:flex; align-items:flex-end; flex-direction:column; gap:8px; }
 #compactPill { border:0; flex:none; position:relative; }
 #pillWord { flex:none; }
 #compactPill:has(.mm:not([hidden])) { gap:5px; padding-right:7px; }
