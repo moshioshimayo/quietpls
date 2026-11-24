@@ -792,7 +792,12 @@ app.whenReady().then(async () => {
       : path.join(__dirname, "bin"),
     getTray: () => tray,
     onTrayReleased: resetTrayIcon,
-    onMenuChanged: updateTrayMenu,
+    // Capture's phase, call prompts or always-on changed: the menu and Settings' Capture row.
+    onMenuChanged: () => {
+      updateTrayMenu();
+      if (settingsWindow && !settingsWindow.isDestroyed() && captureMode)
+        settingsWindow.webContents.send("capture:summary-changed", captureMode.summary());
+    },
     deps:
       E2E_FAKES && process.env.QUIETPLS_CAPTURE_FAKES === "1"
         ? require("./capture/e2e-fakes")

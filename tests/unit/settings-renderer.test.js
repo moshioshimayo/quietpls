@@ -38,6 +38,30 @@ describe('Capture entry routing', () => {
   });
 });
 
+describe('Capture row truth', () => {
+  it('says always-on is recording and follows capture changes without a focus event', async () => {
+    const elements = Object.fromEntries(['captureEnabled', 'captureDescription', 'captureActions', 'captureSettingsBtn'].map(id => [id, { addEventListener() {} }]));
+    let push = null;
+    const context = vm.createContext({
+      document: { getElementById: id => elements[id] }, Event: class {},
+      window: { addEventListener() {}, dispatchEvent() {}, electronAPI: {
+        captureSummary: async () => ({ enabled: false, ambient: false, setupDone: true }),
+        setCaptureEnabled: async () => ({}),
+        openTranscripts() {},
+        onCaptureSummary: cb => { push = cb; },
+      } },
+    });
+    vm.runInContext(fs.readFileSync(new URL('../../capture/settings-section.js', import.meta.url), 'utf8'), context);
+    await Promise.resolve();
+    expect(elements.captureDescription.textContent).toMatch(/^Call prompts off/);
+    // Always-on starts in the Capture window; Settings is open but never refocused.
+    expect(push).toBeTypeOf('function');
+    push({ enabled: false, ambient: true, setupDone: true });
+    expect(elements.captureDescription.textContent).toBe('Always-on recording is on.');
+    expect(elements.captureActions.hidden).toBe(false);
+  });
+});
+
 // ============================================================
 // clampThreshold
 // ============================================================

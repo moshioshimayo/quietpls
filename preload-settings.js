@@ -74,6 +74,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // Capture (beta) section (capture/settings-section.js)
   captureSummary: () => ipcRenderer.invoke("capture:summary"),
+  onCaptureSummary: (callback) =>
+    ipcRenderer.on("capture:summary-changed", (_event, summary) => callback(summary)),
   setCaptureEnabled: (enabled) =>
     ipcRenderer.invoke("capture:set-enabled", enabled),
   openTranscripts: (tab) => ipcRenderer.invoke("capture:open-main", tab),

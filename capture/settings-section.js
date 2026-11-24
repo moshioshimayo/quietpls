@@ -15,7 +15,9 @@
     toggle.checked = s.enabled;
     actions.hidden = !s.enabled && !s.ambient;
     window.dispatchEvent(new Event("settings-content-changed"));
-    description.textContent = !s.enabled
+    description.textContent = s.ambient
+      ? "Always-on recording is on."
+      : !s.enabled
       ? "Call prompts off. Voice monitoring doesn’t save audio."
       : s.setupDone
         ? "Call prompts on. Choose which calls to record."
@@ -30,5 +32,7 @@
   document.getElementById("captureSettingsBtn").onclick = () =>
     api.openTranscripts(setupDone ? "settings" : "calls");
   window.addEventListener("focus", () => api.captureSummary().then(show));
+  // Capture changes (always-on, call prompts) while Settings stays open.
+  if (api.onCaptureSummary) api.onCaptureSummary(show);
   api.captureSummary().then(show);
 })();
