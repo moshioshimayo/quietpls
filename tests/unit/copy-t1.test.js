@@ -96,7 +96,7 @@ function shellHarness() {
   const context={require:fakeRequire,__dirname:ROOT,process:{env:{},platform:"darwin"},console,setTimeout:()=>1,setInterval:()=>1};
   vm.runInNewContext(fs.readFileSync(path.join(ROOT,"main.js"),"utf8")+`
     mainWindow={isDestroyed:()=>false,webContents:{send:(...args)=>globalThis.sent.push(args)}};
-    globalThis.probe={createTray,buildMenuTemplate,showAboutDialog,setupAutoUpdater,maybePromptUpdate,checkForUpdates,
+    globalThis.probe={createTray,buildMenuTemplate,showAboutDialog,setupAutoUpdater,maybePromptUpdate,checkForUpdates,updateTrayMenu,
       getTray:()=>tray,setActive(value,phase="idle"){isMonitoring=value;captureMode={summary:()=>({phase}),menuItems:()=>[]};}};
   `,Object.assign(context,{sent}));
   return {probe:context.probe,updater,messages,sent,app};
@@ -133,6 +133,19 @@ it("uses the native About panel and defers a downloaded update through monitorin
   assertRenderedCopy("CR-217",messages[0].message,{version:"2.5.1"});
   probe.maybePromptUpdate();expect(messages).toHaveLength(1);
   expect(bannedCopyViolations(messages.flatMap(m=>[m.title,m.message,m.detail]))).toEqual([]);
+});
+
+it("a state change never shows the update prompt from inside its call stack (doomsday D1–D3)",()=>{
+  const {probe,updater,messages}=shellHarness();
+  probe.createTray();
+  probe.setupAutoUpdater();
+  probe.setActive(true);
+  updater.emit("update-downloaded",{version:"2.5.1"});
+  expect(messages).toHaveLength(0);
+  // Recording just stopped: capture's dispatch rebuilds the menu. No dialog inside that call.
+  probe.setActive(false);
+  probe.updateTrayMenu();
+  expect(messages).toHaveLength(0);
 });
 
 it("answers a manual update failure with the diagnostic and a retry action", async () => {

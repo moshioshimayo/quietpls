@@ -655,8 +655,10 @@ function createCaptureMode({
     clearTimeout(chunkTimer);
     log("stopping recording");
     capture.end = new Date();
-    dispatch({ type: "stopped" });
+    // Signal the recorder first: the dispatch below updates windows and menus, and
+    // nothing there may delay the actual stop.
     capture.child.kill("SIGINT");
+    dispatch({ type: "stopped" });
   }
 
   function openConsent() {
@@ -809,8 +811,8 @@ function createCaptureMode({
       capture.revoked = added.join(" and ");
       capture.end ||= new Date();
       clearTimeout(chunkTimer);
+      capture.child.revoke(); // revoke before any state/UI work
       dispatch({ type: "stopped" });
-      capture.child.revoke();
     }
     try {
       saveSettings();

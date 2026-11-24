@@ -532,7 +532,8 @@ function updateTrayMenu() {
 
   const contextMenu = Menu.buildFromTemplate(buildMenuTemplate({ isMonitoring }));
   tray.setContextMenu(contextMenu);
-  maybePromptUpdate();
+  // Never prompt from inside a state change (a capture stop or Never runs through here).
+  setTimeout(maybePromptUpdate, 0);
 }
 
 // Both native menu entry points consume this model.

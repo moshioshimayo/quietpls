@@ -535,6 +535,27 @@ async function finish(t) {
   await t.handlers['set-enabled']({}, false);
 }
 
+describe('stopping signals the recorder first (doomsday D1–D3)', () => {
+  for (const how of ['Stop', 'Never']) {
+    it(`${how}: the recorder is signalled while the state still says recording`, async () => {
+      const t = makeMode();
+      await inCall(t);
+      await t.handlers.accept();
+      t.child.opts.onMessage({ type: 'started' });
+      const phaseAtSignal = [];
+      const { kill, revoke } = t.child;
+      t.child.kill = (sig) => { phaseAtSignal.push(t.mode.summary().phase); kill(sig); };
+      t.child.revoke = () => { phaseAtSignal.push(t.mode.summary().phase); revoke(); };
+      if (how === 'Stop') await t.handlers.stop();
+      else await t.handlers.settings({}, { neverApps: ['Zoom'] });
+      expect(phaseAtSignal).toEqual(['recording']);
+      expect(t.mode.summary().phase).toBe('transcribing');
+      savedMic(t);
+      await finish(t);
+    });
+  }
+});
+
 describe('approved app capture contract', () => {
   it('approves only the bundle actually seen and supplies Never ids without call PIDs', async () => {
     const t = makeMode({ settings: { neverApps: ['Zoom'], seenIds: { Zoom: ['custom.zoom'] } } });
